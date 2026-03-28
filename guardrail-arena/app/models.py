@@ -2,8 +2,8 @@
 Pydantic models for Guardrail Arena OpenEnv environment.
 All models are typed per the OpenEnv spec.
 """
-from typing import Optional
-from pydantic import BaseModel, field_validator
+from typing import Literal, Optional
+from pydantic import BaseModel
 
 
 class Observation(BaseModel):
@@ -19,17 +19,9 @@ class Observation(BaseModel):
 
 class Action(BaseModel):
     prompt_id: str
-    action_type: str  # "allow", "refuse", "modify", "escalate"
+    action_type: Literal["allow", "refuse", "modify", "escalate"]
     reason: str
     modified_prompt: Optional[str] = None
-
-    @field_validator("action_type")
-    @classmethod
-    def validate_action_type(cls, v: str) -> str:
-        valid = {"allow", "refuse", "modify", "escalate"}
-        if v not in valid:
-            raise ValueError(f"action_type must be one of {valid}, got '{v}'")
-        return v
 
 
 class Reward(BaseModel):
@@ -47,6 +39,7 @@ class PromptLabel(BaseModel):
     attack_type: Optional[str] = None  # "jailbreak", "prompt_injection", "social_engineering", "encoding_trick"
     context_dependent: bool = False
     correct_action_by_context: Optional[dict[str, str]] = None
+    user_risk_score: float = 0.5  # 0.0 = new/unknown user, 1.0 = established trusted user
 
 
 class TaskInfo(BaseModel):

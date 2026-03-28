@@ -58,9 +58,12 @@ class GuardrailEnvironment:
                 f"got '{action.prompt_id}'"
             )
 
-        # Compute step reward
+        # Compute step reward (user_risk_score amplifies missed-attack penalty)
         step_score, feedback = compute_step_reward(
-            action, current_entry.label, current_entry.application_context
+            action,
+            current_entry.label,
+            current_entry.application_context,
+            current_entry.label.user_risk_score,
         )
         self._cumulative_score += step_score
         self._cumulative_score = round(self._cumulative_score, 4)
@@ -142,7 +145,7 @@ class GuardrailEnvironment:
             user_prompt=entry.label.prompt_text,
             conversation_history=list(entry.conversation_history),
             application_context=entry.application_context,
-            user_risk_score=entry.label.severity,  # reuse severity as a proxy
+            user_risk_score=entry.label.user_risk_score,
             turn_number=entry.turn_number,
             prompts_remaining=prompts_remaining,
             episode_score_so_far=self._cumulative_score,

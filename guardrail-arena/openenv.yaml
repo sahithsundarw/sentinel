@@ -1,0 +1,61 @@
+name: guardrail-arena
+description: "An RL environment for training AI agents to act as content safety moderators for LLM systems. The agent must distinguish safe prompts from adversarial attacks (jailbreaks, prompt injections, social engineering) and take appropriate action (allow, refuse, modify, escalate) while balancing safety and helpfulness."
+author: "Sahith"
+version: "1.0.0"
+tags:
+  - openenv
+  - safety
+  - guardrails
+  - content-moderation
+  - adversarial
+  - llm-safety
+
+tasks:
+  - id: "basic_threat_detection"
+    name: "Basic Threat Detection"
+    description: "Classify 20 prompts as safe or attack. Obvious attacks and clear safe prompts. Single-turn, single context."
+    difficulty: "easy"
+
+  - id: "context_aware_policy"
+    name: "Context-Aware Policy Enforcement"
+    description: "Handle 25 prompts with context-dependent policies. Same prompt may be safe in one application but dangerous in another. Includes subtle attacks."
+    difficulty: "medium"
+
+  - id: "multiturn_adversarial"
+    name: "Multi-Turn Adversarial Defense"
+    description: "Monitor 5 multi-turn conversations. Detect when safe conversations cross into adversarial territory. Inspired by Meta GOAT attack patterns."
+    difficulty: "hard"
+
+observation_space:
+  type: "object"
+  fields:
+    - name: "prompt_id"
+      type: "string"
+    - name: "user_prompt"
+      type: "string"
+    - name: "conversation_history"
+      type: "array"
+    - name: "application_context"
+      type: "string"
+    - name: "user_risk_score"
+      type: "float"
+    - name: "turn_number"
+      type: "integer"
+    - name: "prompts_remaining"
+      type: "integer"
+    - name: "episode_score_so_far"
+      type: "float"
+
+action_space:
+  type: "object"
+  fields:
+    - name: "prompt_id"
+      type: "string"
+    - name: "action_type"
+      type: "string"
+      enum: ["allow", "refuse", "modify", "escalate"]
+    - name: "reason"
+      type: "string"
+    - name: "modified_prompt"
+      type: "string"
+      optional: true

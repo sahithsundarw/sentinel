@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(cd:*)",
+      "Bash(python:*)",
+      "Bash(C:\\\\Users\\\\varun\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\python.exe -m openenv validate 2>&1)",
+      "Bash(python3:*)"
+    ]
+  }
+}

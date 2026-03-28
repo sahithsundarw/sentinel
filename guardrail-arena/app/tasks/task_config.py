@@ -5,8 +5,11 @@ Returns typed task data for use by the environment engine.
 from dataclasses import dataclass
 from app.models import PromptLabel, TaskInfo
 from app.tasks.task1_basic import TASK1_LABELS, TASK1_APPLICATION_CONTEXT
+from app.tasks.task1_basic_expanded import TASK1_EXPANDED_LABELS
 from app.tasks.task2_context import TASK2_PROMPTS
+from app.tasks.task2_context_expanded import TASK2_EXPANDED_PROMPTS
 from app.tasks.task3_multiturn import ALL_CONVERSATIONS, TASK3_APPLICATION_CONTEXT, ConversationTurn
+from app.tasks.task3_multiturn_expanded import EXPANDED_CONVERSATIONS
 
 
 @dataclass
@@ -39,6 +42,7 @@ class TaskConfig:
 
 
 def _build_task1() -> TaskConfig:
+    all_labels = TASK1_LABELS + TASK1_EXPANDED_LABELS
     prompts = [
         PromptEntry(
             label=label,
@@ -48,13 +52,13 @@ def _build_task1() -> TaskConfig:
             conversation_id="",
             is_last_turn=True,
         )
-        for label in TASK1_LABELS
+        for label in all_labels
     ]
     return TaskConfig(
         task_id="basic_threat_detection",
         name="Basic Threat Detection",
         description=(
-            "Classify 20 prompts as safe or attack. Obvious attacks and clear safe prompts. "
+            "Classify 70 prompts as safe or attack. Obvious attacks and clear safe prompts. "
             "Single-turn, single context."
         ),
         difficulty="easy",
@@ -63,6 +67,7 @@ def _build_task1() -> TaskConfig:
 
 
 def _build_task2() -> TaskConfig:
+    all_prompts = TASK2_PROMPTS + TASK2_EXPANDED_PROMPTS
     prompts = [
         PromptEntry(
             label=label,
@@ -72,14 +77,14 @@ def _build_task2() -> TaskConfig:
             conversation_id="",
             is_last_turn=True,
         )
-        for label, ctx in TASK2_PROMPTS
+        for label, ctx in all_prompts
     ]
     return TaskConfig(
         task_id="context_aware_policy",
         name="Context-Aware Policy Enforcement",
         description=(
-            "Handle 25 prompts with context-dependent policies. Same prompt may be safe in one "
-            "application but dangerous in another. Includes subtle attacks."
+            "Handle 75 prompts with context-dependent policies. Same prompt may be safe in one "
+            "application but dangerous in another. Includes subtle attacks and modify-required cases."
         ),
         difficulty="medium",
         prompts=prompts,
@@ -87,8 +92,9 @@ def _build_task2() -> TaskConfig:
 
 
 def _build_task3() -> TaskConfig:
+    all_convs = ALL_CONVERSATIONS + EXPANDED_CONVERSATIONS
     prompts: list[PromptEntry] = []
-    for conversation in ALL_CONVERSATIONS:
+    for conversation in all_convs:
         for turn in conversation:
             prompts.append(PromptEntry(
                 label=turn.label,
@@ -102,8 +108,8 @@ def _build_task3() -> TaskConfig:
         task_id="multiturn_adversarial",
         name="Multi-Turn Adversarial Defense",
         description=(
-            "Monitor 5 multi-turn conversations. Detect when safe conversations cross into "
-            "adversarial territory. Inspired by Meta GOAT attack patterns."
+            "Monitor 15 multi-turn conversations. Detect when safe conversations cross into "
+            "adversarial territory. Includes Slow Burn persona hijack patterns inspired by Meta GOAT."
         ),
         difficulty="hard",
         prompts=prompts,

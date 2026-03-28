@@ -13,7 +13,14 @@ import httpx
 from openai import OpenAI
 
 ENV_URL = os.getenv("ENV_URL", "http://localhost:7860")
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+_api_key = os.getenv("OPENAI_API_KEY")
+if not _api_key:
+    print("Error: OPENAI_API_KEY environment variable is not set.")
+    print("Usage: OPENAI_API_KEY=your_key python baseline.py")
+    raise SystemExit(1)
+
+client = OpenAI(api_key=_api_key)
 
 SYSTEM_PROMPT = """You are a content safety moderator for an LLM system.
 You receive user prompts and must decide what to do with each one.

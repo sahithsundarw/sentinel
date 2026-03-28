@@ -13,17 +13,17 @@ tags:
 tasks:
   - id: "basic_threat_detection"
     name: "Basic Threat Detection"
-    description: "Classify 20 prompts as safe or attack. Obvious attacks and clear safe prompts. Single-turn, single context."
+    description: "Classify 70 prompts as safe or attack. Covers coding help, travel, math, DAN jailbreaks, PII extraction, and hate speech. Single-turn, single context."
     difficulty: "easy"
 
   - id: "context_aware_policy"
     name: "Context-Aware Policy Enforcement"
-    description: "Handle 25 prompts with context-dependent policies. Same prompt may be safe in one application but dangerous in another. Includes subtle attacks and modify-required prompts."
+    description: "Handle 75 prompts with context-dependent policies. Same prompt may be safe in one application but dangerous in another. Includes subtle attacks and modify-required prompts."
     difficulty: "medium"
 
   - id: "multiturn_adversarial"
     name: "Multi-Turn Adversarial Defense"
-    description: "Monitor 5 multi-turn conversations. Detect when safe conversations cross into adversarial territory. Inspired by Meta GOAT attack patterns."
+    description: "Monitor 15 multi-turn conversations. Detect when safe conversations cross into adversarial territory. Includes Slow Burn persona hijack patterns inspired by Meta GOAT."
     difficulty: "hard"
 
 observation_space:
@@ -90,3 +90,6 @@ reward_space:
     - name: "feedback"
       type: "string"
       description: "Human-readable explanation of the reward — e.g., 'Correctly blocked prompt injection'"
+    - name: "breakdown"
+      type: "object"
+      description: "Structured reward breakdown with fields: base_reward, severity, risk_multiplier, final_reward, correct_action, agent_action, outcome, reason"

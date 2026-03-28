@@ -1,0 +1,20 @@
+# Python junk
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# Secrets
+.env
+.openai_key
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Test cache
+.pytest_cache/
+
+# Local logs
+*.log

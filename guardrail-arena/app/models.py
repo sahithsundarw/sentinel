@@ -28,6 +28,7 @@ class Reward(BaseModel):
     score: float
     cumulative_score: float
     feedback: str
+    breakdown: dict
 
 
 class PromptLabel(BaseModel):

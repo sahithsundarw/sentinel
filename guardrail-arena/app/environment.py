@@ -59,7 +59,7 @@ class GuardrailEnvironment:
             )
 
         # Compute step reward (user_risk_score amplifies missed-attack penalty)
-        step_score, feedback = compute_step_reward(
+        step_score, reward_breakdown = compute_step_reward(
             action,
             current_entry.label,
             current_entry.application_context,
@@ -80,6 +80,7 @@ class GuardrailEnvironment:
             ),
             "category": current_entry.label.category,
             "severity": current_entry.label.severity,
+            "reward_breakdown": reward_breakdown,
         }
 
         # Task 3: conversation boundary signals
@@ -94,7 +95,8 @@ class GuardrailEnvironment:
         reward = Reward(
             score=step_score,
             cumulative_score=self._cumulative_score,
-            feedback=feedback,
+            feedback=reward_breakdown["reason"],
+            breakdown=reward_breakdown,
         )
 
         if is_last_prompt:

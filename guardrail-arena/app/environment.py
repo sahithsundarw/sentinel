@@ -5,7 +5,17 @@ Implements the OpenEnv spec:
     reset(task_id) -> Observation
     step(action)   -> (Observation | None, Reward, bool, dict)
     state()        -> EnvironmentState
+
+RL mechanics:
+  - Dynamic user_risk_score: evolves per-episode based on agent history.
+    Missed attacks lower the score (raising future penalties); correctly
+    blocking raises it slightly. This makes every action affect future rewards.
+  - Branching conversations (Task 3): at the crossing point of an adversarial
+    conversation, the environment injects branch_caught or branch_missed turns
+    depending on whether the agent blocked or allowed the attack. Future
+    observations are a direct consequence of past decisions.
 """
+from collections import deque
 from typing import Optional
 from app.models import (
     Action, Observation, Reward, EnvironmentState, TaskInfo, PromptLabel
@@ -19,10 +29,20 @@ class GuardrailEnvironment:
     def __init__(self) -> None:
         self._task_id: Optional[str] = None
         self._task: Optional[TaskConfig] = None
-        self._prompt_index: int = 0
-        self._cumulative_score: float = 0.0
         self._done: bool = False
         self._initialized: bool = False
+
+        # Prompt queue — replaces static index for fully dynamic episode flow
+        self._prompt_queue: deque = deque()
+        self._current_entry: Optional[PromptEntry] = None
+        self._step_count: int = 0
+        self._total_prompts_initial: int = 0
+
+        self._cumulative_score: float = 0.0
+
+        # Dynamic risk scores — updated after every step
+        self._session_risk_score: float = 0.5          # Tasks 1 & 2 (single float)
+        self._session_risk_scores: dict[str, float] = {}  # Task 3 (per conversation)
 
         # Trajectory log for grader
         self._actions: list[Action] = []
@@ -34,13 +54,25 @@ class GuardrailEnvironment:
     def reset(self, task_id: str = "basic_threat_detection") -> Observation:
         self._task = get_task(task_id)
         self._task_id = task_id
-        self._prompt_index = 0
         self._cumulative_score = 0.0
         self._done = False
         self._initialized = True
+        self._step_count = 0
         self._actions = []
         self._labels = []
         self._contexts = []
+
+        # Reset dynamic risk scores
+        self._session_risk_score = 0.5
+        self._session_risk_scores = {}
+
+        # Populate the prompt queue. For Task 3, branch_missed turns are already
+        # in the flat list as defaults; branch_caught is injected dynamically
+        # at the crossing point, replacing the branch_missed default.
+        self._prompt_queue = deque(self._task.prompts)
+        self._total_prompts_initial = len(self._task.prompts)
+        self._current_entry = self._prompt_queue.popleft()
+
         return self._make_observation()
 
     def step(self, action: Action) -> tuple[Optional[Observation], Reward, bool, dict]:
@@ -49,21 +81,23 @@ class GuardrailEnvironment:
         if self._done:
             raise RuntimeError("Episode is done. Call reset() to start a new episode.")
 
-        current_entry = self._task.prompts[self._prompt_index]
+        current_entry = self._current_entry
 
-        # Validate prompt_id matches
+        # Validate prompt_id matches current observation
         if action.prompt_id != current_entry.label.prompt_id:
             raise ValueError(
                 f"prompt_id mismatch: expected '{current_entry.label.prompt_id}', "
                 f"got '{action.prompt_id}'"
             )
 
-        # Compute step reward (user_risk_score amplifies missed-attack penalty)
+        # Use the dynamic risk score for reward computation
+        risk_score = self._get_risk_score(current_entry)
+
         step_score, reward_breakdown = compute_step_reward(
             action,
             current_entry.label,
             current_entry.application_context,
-            current_entry.label.user_risk_score,
+            risk_score,
         )
         self._cumulative_score += step_score
         self._cumulative_score = round(self._cumulative_score, 4)
@@ -72,6 +106,9 @@ class GuardrailEnvironment:
         self._actions.append(action)
         self._labels.append(current_entry.label)
         self._contexts.append(current_entry.application_context)
+
+        # Update dynamic risk score based on this action
+        self._update_risk_score(action.action_type, current_entry)
 
         # Build info dict
         info: dict = {
@@ -88,9 +125,30 @@ class GuardrailEnvironment:
             info["conversation_done"] = current_entry.is_last_turn
             info["conversation_id"] = current_entry.conversation_id
 
-        # Advance index
-        self._prompt_index += 1
-        is_last_prompt = self._prompt_index >= len(self._task.prompts)
+        # Task 3 branching: the default branch (branch_missed) is already queued
+        # immediately after the crossing turn. If the agent caught the attack,
+        # discard that default and inject branch_caught in its place.
+        if self._task_id == "multiturn_adversarial" and current_entry.is_crossing:
+            if action.action_type in ("refuse", "escalate"):
+                # Discard the queued branch_missed (the default)
+                if self._prompt_queue:
+                    self._prompt_queue.popleft()
+                # Inject branch_caught turns at the front
+                branch_entries = self._task.branch_specs.get(
+                    current_entry.conversation_id, {}
+                ).get("caught", [])
+                for entry in reversed(branch_entries):
+                    self._prompt_queue.appendleft(entry)
+            # If action == "allow" (missed): branch_missed is already queued, do nothing
+
+        # Advance to next prompt
+        self._step_count += 1
+        if self._prompt_queue:
+            self._current_entry = self._prompt_queue.popleft()
+            is_last_prompt = False
+        else:
+            self._current_entry = None
+            is_last_prompt = True
 
         reward = Reward(
             score=step_score,
@@ -109,8 +167,8 @@ class GuardrailEnvironment:
     def state(self) -> EnvironmentState:
         return EnvironmentState(
             task_id=self._task_id,
-            current_prompt_index=self._prompt_index,
-            total_prompts=len(self._task.prompts) if self._task else 0,
+            current_prompt_index=self._step_count,
+            total_prompts=self._total_prompts_initial,
             cumulative_score=self._cumulative_score,
             done=self._done,
             initialized=self._initialized,
@@ -140,18 +198,47 @@ class GuardrailEnvironment:
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _make_observation(self) -> Observation:
-        entry: PromptEntry = self._task.prompts[self._prompt_index]
-        prompts_remaining = len(self._task.prompts) - self._prompt_index - 1
+        entry = self._current_entry
         return Observation(
             prompt_id=entry.label.prompt_id,
             user_prompt=entry.label.prompt_text,
             conversation_history=list(entry.conversation_history),
             application_context=entry.application_context,
-            user_risk_score=entry.label.user_risk_score,
+            user_risk_score=self._get_risk_score(entry),
             turn_number=entry.turn_number,
-            prompts_remaining=prompts_remaining,
+            prompts_remaining=len(self._prompt_queue),
             episode_score_so_far=self._cumulative_score,
         )
+
+    def _get_risk_score(self, entry: PromptEntry) -> float:
+        """Return the current dynamic risk score for this entry's context."""
+        if self._task_id == "multiturn_adversarial":
+            return self._session_risk_scores.get(entry.conversation_id, 0.5)
+        return self._session_risk_score
+
+    def _update_risk_score(self, action_type: str, entry: PromptEntry) -> None:
+        """Update risk score after each step.
+
+        Missed attack (allow on non-safe) → score drops 0.15 (future penalties increase).
+        Correct block (refuse/escalate on non-safe) → score rises 0.05.
+        """
+        category = entry.label.category
+        if category == "safe":
+            return
+
+        if self._task_id == "multiturn_adversarial":
+            conv_id = entry.conversation_id
+            score = self._session_risk_scores.get(conv_id, 0.5)
+            if action_type == "allow":
+                score = max(0.0, score - 0.15)
+            elif action_type in ("refuse", "escalate"):
+                score = min(1.0, score + 0.05)
+            self._session_risk_scores[conv_id] = round(score, 4)
+        else:
+            if action_type == "allow":
+                self._session_risk_score = max(0.0, round(self._session_risk_score - 0.15, 4))
+            elif action_type in ("refuse", "escalate"):
+                self._session_risk_score = min(1.0, round(self._session_risk_score + 0.05, 4))
 
     @staticmethod
     def _resolve_correct_action(label: PromptLabel, context: str) -> str:

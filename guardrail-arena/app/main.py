@@ -25,6 +25,9 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Single-session design: one active episode at a time.
+# Concurrent /reset calls from multiple clients will overwrite each other's state.
+# For evaluation, run one task at a time sequentially (as all standard harnesses do).
 env = GuardrailEnvironment()
 
 
@@ -101,6 +104,7 @@ async def baseline():
             "context_aware_policy": 0.8833,
             "multiturn_adversarial": 0.7738,
         },
+        "note_grader_update": "Task 2 grader penalty was adjusted (−2.0 → −1.0). Re-run baseline.py to get updated scores.",
     }
 
 

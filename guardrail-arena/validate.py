@@ -360,6 +360,26 @@ def s5_reward(url):
         print(f"  Episode A (allow): grader={grader_a:.4f}  reward_variance={var_a:.5f}")
         print(f"  Episode B (refuse): grader={grader_b:.4f}  reward_variance={var_b:.5f}")
 
+        # Verify all 3 task graders differentiate — catches a grader silently broken for task2/3
+        print("\n  Testing: all-allow vs all-refuse produces different grader scores on all tasks")
+        for tid in TASK_IDS:
+            try:
+                _, g_allow = run_episode(url, tid, "allow")
+                _, g_refuse = run_episode(url, tid, "refuse")
+                results.append(check(
+                    f"{tid}: allow({g_allow:.4f}) != refuse({g_refuse:.4f})",
+                    abs(g_allow - g_refuse) > 0.001,
+                    f"allow={g_allow:.4f} refuse={g_refuse:.4f}",
+                ))
+                results.append(check(
+                    f"{tid}: all-allow grader is non-zero",
+                    g_allow > 0.0,
+                    f"got {g_allow:.4f}",
+                ))
+            except Exception as e:
+                print(f"  Result:  {fail('FAIL')}  ({tid}: {e})")
+                results.append(False)
+
     except Exception as e:
         print(f"  Result:  {fail('FAIL')}  ({e})")
         results.append(False)

@@ -124,10 +124,10 @@ def test_cumulative_score_accumulates():
     state_before = env.state()
     assert state_before.cumulative_score == 0.0
 
-    env.step(make_action("allow", obs.prompt_id))
+    _, _, _, _ = env.step(make_action("allow", obs.prompt_id))
     state_after = env.state()
     # Cumulative score should have changed (positive or negative)
-    assert state_after.cumulative_score != state_before.cumulative_score or True  # always passes
+    assert state_after.cumulative_score != state_before.cumulative_score
 
 
 # ── Full episode completion ───────────────────────────────────────────────────
@@ -138,12 +138,9 @@ def run_full_task(task_id: str, action_type: str = "allow") -> float:
     obs = env.reset(task_id)
     done = False
     while not done:
-        _, _, done, _ = env.step(make_action(action_type, obs.prompt_id))
+        next_obs, _, done, _ = env.step(make_action(action_type, obs.prompt_id))
         if not done:
-            state = env.state()
-            # Get next obs from state is not available — use environment internals
-            # Instead: step() returns next obs
-            pass
+            obs = next_obs
     return env.get_grader_score()
 
 
@@ -258,19 +255,73 @@ def test_state_reflects_done_after_completion():
     obs = env.reset("basic_threat_detection")
     done = False
     while not done:
-        _, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+        next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
         if not done:
-            # get current prompt id from next obs
-            obs = env._make_observation() if not done else obs
-            break  # this won't trigger because we handle done above
-
-    # Complete task properly
-    env2 = GuardrailEnvironment()
-    obs2 = env2.reset("basic_threat_detection")
-    done2 = False
-    while not done2:
-        next_obs, _, done2, _ = env2.step(make_action("allow", obs2.prompt_id))
-        if not done2:
-            obs2 = next_obs
-    state = env2.state()
+            obs = next_obs
+    state = env.state()
     assert state.done is True
+
+
+def test_all_prompt_ids_unique():
+    """Every prompt_id across all tasks must be globally unique.
+    Duplicate IDs would cause silent wrong-label lookups in the grader.
+    """
+    from app.tasks.task_config import get_task
+    seen: dict[str, str] = {}  # prompt_id -> task_id
+    for task_id in ("basic_threat_detection", "context_aware_policy", "multiturn_adversarial"):
+        task = get_task(task_id)
+        for entry in task.prompts:
+            pid = entry.label.prompt_id
+            assert pid not in seen, (
+                f"Duplicate prompt_id '{pid}' found in both "
+                f"'{seen[pid]}' and '{task_id}'"
+            )
+            seen[pid] = task_id
+    # Also check branch_specs entries
+    task3 = get_task("multiturn_adversarial")
+    for conv_id, branches in task3.branch_specs.items():
+        for entry in branches.get("caught", []):
+            pid = entry.label.prompt_id
+            assert pid not in seen, (
+                f"Duplicate prompt_id '{pid}' in branch_caught of '{conv_id}' "
+                f"also appears in '{seen[pid]}'"
+            )
+            seen[pid] = f"branch_caught:{conv_id}"
+
+
+def test_task3_branching_catch_vs_miss():
+    """Catching an attack at the crossing turn should inject branch_caught turns.
+    Missing should leave branch_missed in place. The two paths must produce
+    different subsequent prompt IDs, proving the queue was actually forked.
+    """
+    from app.tasks.task_config import get_task
+
+    task = get_task("multiturn_adversarial")
+
+    # Find the index of the first crossing turn
+    crossing_idx = next(
+        (i for i, e in enumerate(task.prompts) if e.is_crossing), None
+    )
+    assert crossing_idx is not None, "Task 3 must have at least one crossing turn"
+
+    def run_to_crossing_then_one_more(block_at_crossing: bool):
+        """Run up to and including crossing, then take one more step, return its prompt_id."""
+        env = GuardrailEnvironment()
+        obs = env.reset("multiturn_adversarial")
+        for i in range(crossing_idx):
+            next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+            assert not done, "Episode ended before crossing turn"
+            obs = next_obs
+        # At crossing: either block or miss
+        action_at_crossing = "refuse" if block_at_crossing else "allow"
+        next_obs, _, done, _ = env.step(make_action(action_at_crossing, obs.prompt_id))
+        assert not done, "Episode ended immediately after crossing"
+        return next_obs.prompt_id
+
+    caught_next_prompt_id = run_to_crossing_then_one_more(block_at_crossing=True)
+    missed_next_prompt_id = run_to_crossing_then_one_more(block_at_crossing=False)
+
+    assert caught_next_prompt_id != missed_next_prompt_id, (
+        "Expected branch_caught and branch_missed to produce different next prompts, "
+        f"but both returned prompt_id={caught_next_prompt_id}"
+    )

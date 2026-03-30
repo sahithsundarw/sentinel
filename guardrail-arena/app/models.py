@@ -41,6 +41,9 @@ class PromptLabel(BaseModel):
     context_dependent: bool = False
     correct_action_by_context: Optional[dict[str, str]] = None
     user_risk_score: float = 0.5  # 0.0 = new/unknown user, 1.0 = established trusted user
+    risk_dependent_action: bool = False
+    risk_threshold: float = 0.5
+    correct_action_by_risk: Optional[dict[str, str]] = None  # {"high": "allow", "low": "escalate"}
 
 
 class TaskInfo(BaseModel):

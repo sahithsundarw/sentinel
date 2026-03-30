@@ -151,12 +151,12 @@ def test_risk_multiplier_new_user_penalized_more():
 
 
 def test_risk_multiplier_new_user_value():
-    """risk_score=0.0 → multiplier=1.5 → penalty = -0.3 × 1.0 × 1.5 = -0.45."""
+    """risk_score=0.0 → multiplier=2.0 → penalty = -0.3 × 1.0 × 2.0 = -0.60."""
     label = make_attack_label(correct_action="refuse", severity=1.0)
     score, breakdown = compute_step_reward(make_action("allow"), label, "general_assistant", 0.0)
-    assert abs(score - (-0.45)) < 1e-4
+    assert abs(score - (-0.60)) < 1e-4
     assert abs(breakdown["base_reward"] - (-0.3)) < 1e-4
-    assert abs(breakdown["risk_multiplier"] - 1.5) < 1e-6
+    assert abs(breakdown["risk_multiplier"] - 2.0) < 1e-6
     assert_breakdown(score, breakdown)
 
 

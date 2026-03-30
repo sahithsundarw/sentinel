@@ -1,6 +1,6 @@
 """
 Inference script for Guardrail Arena.
-Runs a model through all 3 tasks and returns grader scores.
+Runs a model through all 3 tasks and returns grader scores with behavioral analysis.
 
 Environment variables:
     API_BASE_URL  — OpenAI-compatible endpoint base URL (required)
@@ -19,6 +19,7 @@ import re
 import json
 import httpx
 from openai import OpenAI
+from collections import defaultdict
 
 # ── Environment variable validation ──────────────────────────────────────────
 
@@ -82,11 +83,9 @@ _VALID_ACTIONS = {"allow", "refuse", "modify", "escalate"}
 def _parse_action(content: str) -> tuple[str, str]:
     """
     Parse action_type and reason from model output.
-    Tries JSON first, then regex fallback — handles models that don't support
-    response_format=json_object (e.g., Nemotron, HF router endpoints).
+    Tries JSON first, then regex fallback.
     Returns ("allow", reason) as safe default on total parse failure.
     """
-    # Attempt 1: direct JSON parse
     try:
         result = json.loads(content)
         action_type = result.get("action_type", "allow")
@@ -95,7 +94,6 @@ def _parse_action(content: str) -> tuple[str, str]:
     except (json.JSONDecodeError, AttributeError):
         pass
 
-    # Attempt 2: extract JSON object from surrounding text
     match = re.search(r'\{[^{}]*"action_type"[^{}]*\}', content, re.DOTALL)
     if match:
         try:
@@ -106,9 +104,8 @@ def _parse_action(content: str) -> tuple[str, str]:
         except json.JSONDecodeError:
             pass
 
-    # Attempt 3: scan for any valid action keyword in the text
     lower = content.lower()
-    for action in ("refuse", "escalate", "modify", "allow"):  # priority order
+    for action in ("refuse", "escalate", "modify", "allow"):
         if action in lower:
             return action, "Parsed from unstructured output"
 
@@ -116,11 +113,7 @@ def _parse_action(content: str) -> tuple[str, str]:
 
 
 def _call_model(messages: list[dict]) -> tuple[str, str]:
-    """
-    Call the model, trying response_format=json_object first.
-    Falls back to plain text completion if the endpoint doesn't support it.
-    """
-    # Try with json_object response format (OpenAI, some HF endpoints)
+    """Call the model, trying response_format=json_object first."""
     try:
         completion = client.chat.completions.create(
             model=_model_name,
@@ -132,7 +125,6 @@ def _call_model(messages: list[dict]) -> tuple[str, str]:
     except Exception:
         pass
 
-    # Fallback: plain completion without response_format (Nemotron, others)
     try:
         completion = client.chat.completions.create(
             model=_model_name,
@@ -145,15 +137,15 @@ def _call_model(messages: list[dict]) -> tuple[str, str]:
         return "allow", f"Model call failed: {e}"
 
 
-def run_task(task_id: str) -> float:
-    """Run inference agent against a single task. Returns grader score."""
+def run_task(task_id: str) -> tuple[float, list[dict]]:
+    """Run inference agent against a single task. Returns (grader_score, step_results)."""
     print(f"\n  Resetting environment for task: {task_id}")
     response = httpx.post(f"{ENV_URL}/reset", params={"task_id": task_id}, timeout=30)
     response.raise_for_status()
     obs = response.json()
 
     done = False
-    results = []
+    step_results = []
 
     while not done:
         user_message = (
@@ -181,8 +173,18 @@ def run_task(task_id: str) -> float:
         step_response.raise_for_status()
         step_data = step_response.json()
 
-        ground_truth = step_data.get("info", {}).get("ground_truth_action", "unknown")
-        results.append({"predicted": action_type, "actual": ground_truth})
+        info = step_data.get("info", {})
+        step_results.append({
+            "predicted": action_type,
+            "actual": info.get("ground_truth_action", "unknown"),
+            "category": info.get("category", "unknown"),
+            "severity": info.get("severity", 0.0),
+            "outcome": info.get("reward_breakdown", {}).get("outcome", ""),
+            "context": obs.get("application_context", ""),
+            "conversation_id": info.get("conversation_id", ""),
+            "conversation_done": info.get("conversation_done", False),
+            "risk_score": obs.get("user_risk_score", 0.5),
+        })
 
         done = step_data["done"]
         if not done:
@@ -192,26 +194,102 @@ def run_task(task_id: str) -> float:
     grader_response.raise_for_status()
     score = grader_response.json()["score"]
 
-    print_confusion_matrix(results)
-    return score
+    return score, step_results
 
 
-def print_confusion_matrix(results: list[dict]) -> None:
-    """Print a simple confusion matrix: agent action vs ground truth."""
-    tp = sum(1 for r in results if r["actual"] != "allow" and r["predicted"] != "allow")
-    fp = sum(1 for r in results if r["actual"] == "allow" and r["predicted"] != "allow")
-    tn = sum(1 for r in results if r["actual"] == "allow" and r["predicted"] == "allow")
-    fn = sum(1 for r in results if r["actual"] != "allow" and r["predicted"] == "allow")
+def print_task1_analysis(results: list[dict]) -> None:
+    attacks = [r for r in results if r["category"] != "safe"]
+    safe = [r for r in results if r["category"] == "safe"]
 
-    print(f"    Confusion Matrix:")
-    print(f"      True Positives  (correctly blocked): {tp}")
-    print(f"      False Positives (over-blocked safe):  {fp}")
-    print(f"      True Negatives  (correctly allowed): {tn}")
-    print(f"      False Negatives (missed attacks):     {fn}")
-    if tp + fp > 0:
-        print(f"      Precision: {tp / (tp + fp):.2f}")
-    if tp + fn > 0:
-        print(f"      Recall:    {tp / (tp + fn):.2f}")
+    correctly_blocked = [r for r in attacks if r["predicted"] != "allow"]
+    missed_attacks = [r for r in attacks if r["predicted"] == "allow"]
+    correctly_allowed = [r for r in safe if r["predicted"] == "allow"]
+    over_blocked = [r for r in safe if r["predicted"] != "allow"]
+
+    missed_by_type = defaultdict(int)
+    for r in missed_attacks:
+        missed_by_type[r.get("category", "unknown")] += 1
+
+    action_dist = defaultdict(int)
+    for r in results:
+        action_dist[r["predicted"]] += 1
+
+    print(f"  Attack detection:")
+    print(f"    Correctly blocked: {len(correctly_blocked)}/{len(attacks)}")
+    print(f"    Missed attacks:    {len(missed_attacks)}/{len(attacks)}")
+    if missed_by_type:
+        print(f"    Missed by category: {dict(missed_by_type)}")
+
+    print(f"  Safe prompt handling:")
+    print(f"    Correctly allowed: {len(correctly_allowed)}/{len(safe)}")
+    print(f"    Over-blocked:      {len(over_blocked)}/{len(safe)}")
+
+    print(f"  Action distribution: " + "  ".join(f"{k}={v}" for k, v in sorted(action_dist.items())))
+
+
+def print_task2_analysis(results: list[dict]) -> None:
+    attacks = [r for r in results if r["category"] != "safe"]
+    safe = [r for r in results if r["category"] == "safe"]
+
+    correctly_blocked = [r for r in attacks if r["predicted"] != "allow"]
+    missed_attacks = [r for r in attacks if r["predicted"] == "allow"]
+    correctly_allowed = [r for r in safe if r["predicted"] == "allow"]
+    over_blocked = [r for r in safe if r["predicted"] != "allow"]
+
+    action_dist = defaultdict(int)
+    ctx_correct = defaultdict(int)
+    ctx_total = defaultdict(int)
+    for r in results:
+        action_dist[r["predicted"]] += 1
+        ctx = r["context"]
+        ctx_total[ctx] += 1
+        if r["predicted"] == r["actual"]:
+            ctx_correct[ctx] += 1
+
+    print(f"  Attack detection:")
+    print(f"    Correctly blocked: {len(correctly_blocked)}/{len(attacks)}")
+    print(f"    Missed attacks:    {len(missed_attacks)}/{len(attacks)}")
+
+    print(f"  Safe prompt handling:")
+    print(f"    Correctly allowed: {len(correctly_allowed)}/{len(safe)}")
+    print(f"    Over-blocked:      {len(over_blocked)}/{len(safe)}")
+
+    print(f"  Context accuracy:")
+    for ctx in sorted(ctx_total.keys()):
+        c, t = ctx_correct[ctx], ctx_total[ctx]
+        print(f"    {ctx}: {c}/{t} ({100*c//t if t else 0}%)")
+
+    print(f"  Action distribution: " + "  ".join(f"{k}={v}" for k, v in sorted(action_dist.items())))
+
+
+def print_task3_analysis(results: list[dict]) -> None:
+    attacks = [r for r in results if r["category"] != "safe"]
+    safe = [r for r in results if r["category"] == "safe"]
+
+    missed_attacks = [r for r in attacks if r["predicted"] == "allow"]
+    correctly_blocked = [r for r in attacks if r["predicted"] != "allow"]
+    correctly_allowed = [r for r in safe if r["predicted"] == "allow"]
+    over_blocked = [r for r in safe if r["predicted"] != "allow"]
+
+    # Count completed conversations
+    conv_done = [r for r in results if r["conversation_done"]]
+    safe_convs_ok = sum(1 for r in conv_done
+                        if all(s["predicted"] == s["actual"]
+                               for s in results
+                               if s["conversation_id"] == r["conversation_id"]))
+
+    action_dist = defaultdict(int)
+    for r in results:
+        action_dist[r["predicted"]] += 1
+
+    print(f"  Multi-turn results:")
+    print(f"    Total conversations: {len(conv_done)}")
+    print(f"    Attack turns correctly blocked: {len(correctly_blocked)}/{len(attacks)}")
+    print(f"    Attack turns missed:            {len(missed_attacks)}/{len(attacks)}")
+    print(f"    Safe turns correctly allowed:   {len(correctly_allowed)}/{len(safe)}")
+    print(f"    Safe turns over-blocked:        {len(over_blocked)}/{len(safe)}")
+
+    print(f"  Action distribution: " + "  ".join(f"{k}={v}" for k, v in sorted(action_dist.items())))
 
 
 def main() -> dict:
@@ -227,15 +305,26 @@ def main() -> dict:
     scores = {}
 
     for task_id in task_ids:
-        print(f"\nRunning task: {task_id}...")
-        score = run_task(task_id)
+        print(f"\n{'='*50}")
+        print(f"=== {task_id} ===")
+        print(f"{'='*50}")
+        score, results = run_task(task_id)
         scores[task_id] = score
-        print(f"  Score: {score:.4f}")
+        print(f"\n  Grader score: {score:.4f}\n")
 
-    print("\n=== INFERENCE SCORES ===")
+        if task_id == "basic_threat_detection":
+            print_task1_analysis(results)
+        elif task_id == "context_aware_policy":
+            print_task2_analysis(results)
+        elif task_id == "multiturn_adversarial":
+            print_task3_analysis(results)
+
+    print(f"\n{'='*50}")
+    print("=== FINAL SCORES ===")
     for task_id, score in scores.items():
         print(f"  {task_id}: {score:.4f}")
 
+    # Final JSON line for automated parsing
     print(json.dumps(scores))
     return scores
 

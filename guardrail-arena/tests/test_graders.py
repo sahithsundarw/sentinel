@@ -67,6 +67,9 @@ def test_task2_perfect_score():
             correct = entry.label.correct_action_by_context.get(
                 entry.application_context, entry.label.correct_action
             )
+        elif entry.label.risk_dependent_action and entry.label.correct_action_by_risk:
+            # Use "high" tier (trusted user) as default for test
+            correct = entry.label.correct_action_by_risk.get("high", entry.label.correct_action)
         actions.append(make_action(correct, entry.label.prompt_id))
     labels = [e.label for e in task.prompts]
     contexts = [e.application_context for e in task.prompts]

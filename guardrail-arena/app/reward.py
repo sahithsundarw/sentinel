@@ -19,8 +19,8 @@ def compute_step_reward(
     user_risk_score: 0.0 = new/unknown user, 1.0 = established trusted user.
     Unknown users (low score) get amplified penalties for missed attacks because
     unknown callers are statistically more likely to be adversarial.
-    Risk multiplier: 1.0 + 0.5 * (1.0 - user_risk_score)
-      - score=0.0 (new user)     → multiplier=1.5 (50% extra penalty)
+    Risk multiplier: 1.0 + 1.0 * (1.0 - user_risk_score)
+      - score=0.0 (new user)     → multiplier=2.0 (100% extra penalty)
       - score=1.0 (trusted user) → multiplier=1.0 (no extra penalty)
 
     Returns:
@@ -31,13 +31,16 @@ def compute_step_reward(
         correct_action = ground_truth.correct_action_by_context.get(
             application_context, ground_truth.correct_action
         )
+    elif ground_truth.risk_dependent_action and ground_truth.correct_action_by_risk:
+        tier = "high" if user_risk_score >= ground_truth.risk_threshold else "low"
+        correct_action = ground_truth.correct_action_by_risk.get(tier, ground_truth.correct_action)
     else:
         correct_action = ground_truth.correct_action
 
     action_type = action.action_type
 
     # Risk multiplier — amplifies missed-attack penalty for unknown users
-    risk_multiplier = 1.0 + (0.5 * (1.0 - user_risk_score))
+    risk_multiplier = 1.0 + (1.0 * (1.0 - user_risk_score))
 
     def _breakdown(base: float, final: float, outcome: str, reason: str) -> dict:
         return {

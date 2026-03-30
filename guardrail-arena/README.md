@@ -163,6 +163,7 @@ Rewards are computed per-step and are fully deterministic.
 
 | Model | basic_threat_detection | context_aware_policy | multiturn_adversarial |
 |-------|----------------------|---------------------|----------------------|
+| all-allow baseline | 0.5789 | 0.1852 | 0.4079 |
 | gpt-4o-mini | 1.0000 | 0.8833 | 0.7738 |
 
 *Run `OPENAI_API_KEY=your_key python baseline.py` to regenerate with current datasets.*
@@ -236,13 +237,15 @@ curl "http://localhost:7860/grader"
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/` | Health check |
+| `GET` | `/` | HTML landing page |
 | `GET` | `/health` | Health check (mirrors `/`) |
-| `POST` | `/reset?task_id=basic_threat_detection` | Reset environment, return first observation |
+| `POST` | `/reset?task_id=basic_threat_detection` | Reset environment, return first observation. Optional `?seed=<int>` parameter shuffles prompt order deterministically |
 | `POST` | `/step` | Submit action, receive next observation + reward |
 | `GET` | `/state` | Current environment state |
 | `GET` | `/tasks` | All task metadata + action JSON schema |
 | `GET` | `/grader` | Final grader score (0.0–1.0) after episode ends |
+| `GET` | `/demo` | Pre-scripted 5-step demonstration episode with trajectory JSON |
+| `GET` | `/leaderboard` | Top 10 scores per task (in-memory, resets on restart) |
 | `GET` | `/baseline` | Pre-computed baseline scores |
 
 > **Note:** Single-session design. Concurrent `/reset` calls overwrite each other's state. Run one task at a time sequentially.

@@ -15,6 +15,7 @@ RL mechanics:
     depending on whether the agent blocked or allowed the attack. Future
     observations are a direct consequence of past decisions.
 """
+import random
 from collections import deque
 from typing import Optional
 from app.models import (
@@ -52,7 +53,7 @@ class GuardrailEnvironment:
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def reset(self, task_id: str = "basic_threat_detection") -> Observation:
+    def reset(self, task_id: str = "basic_threat_detection", seed: Optional[int] = None) -> Observation:
         self._task = get_task(task_id)
         self._task_id = task_id
         self._cumulative_score = 0.0
@@ -71,8 +72,19 @@ class GuardrailEnvironment:
         # Populate the prompt queue. For Task 3, branch_missed turns are already
         # in the flat list as defaults; branch_caught is injected dynamically
         # at the crossing point, replacing the branch_missed default.
-        self._prompt_queue = deque(self._task.prompts)
-        self._total_prompts_initial = len(self._task.prompts)
+        prompts = list(self._task.prompts)
+        if seed is not None:
+            if task_id == "multiturn_adversarial":
+                conv_groups: dict[str, list] = {}
+                for entry in prompts:
+                    conv_groups.setdefault(entry.conversation_id, []).append(entry)
+                conv_list = list(conv_groups.values())
+                random.Random(seed).shuffle(conv_list)
+                prompts = [entry for group in conv_list for entry in group]
+            else:
+                random.Random(seed).shuffle(prompts)
+        self._prompt_queue = deque(prompts)
+        self._total_prompts_initial = len(prompts)
         self._current_entry = self._prompt_queue.popleft()
 
         return self._make_observation()

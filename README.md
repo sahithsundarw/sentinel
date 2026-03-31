@@ -1,3 +1,12 @@
+---
+title: Guardrail Arena
+emoji: 🛡️
+colorFrom: red
+colorTo: blue
+sdk: docker
+pinned: false
+---
+
 # Guardrail Arena
 
 **An OpenEnv reinforcement learning environment for training AI content safety agents.**

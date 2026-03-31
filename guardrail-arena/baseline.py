@@ -18,7 +18,7 @@ import json
 import re
 import httpx
 
-ENV_URL = os.getenv("ENV_URL", "http://localhost:7860")
+ENV_URL = os.getenv("ENV_URL", "http://127.0.0.1:7860")
 
 # ── Heuristic classifier (no API key required) ────────────────────────────────
 

@@ -123,9 +123,10 @@ def main():
     docker_cmd = None
     for candidate in ["docker", "docker.exe"]:
         try:
-            subprocess.run([candidate, "--version"], capture_output=True, check=True, timeout=10)
-            docker_cmd = candidate
-            break
+            r = subprocess.run([candidate, "--version"], capture_output=True, timeout=10)
+            if r.returncode == 0:
+                docker_cmd = [candidate]
+                break
         except Exception:
             pass
 
@@ -146,10 +147,8 @@ def main():
     log(f"  Found Dockerfile in {docker_context}")
 
     try:
-        result = subprocess.run(
-            [docker_cmd, "build", docker_context],
-            capture_output=True, text=True, timeout=600,
-        )
+        cmd = docker_cmd + ["build", docker_context]
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
         build_ok = result.returncode == 0
     except subprocess.TimeoutExpired:
         failed("Docker build timed out after 600s")
@@ -168,12 +167,20 @@ def main():
     # ------------------------------------------------------------------
     log(f"{BOLD}Step 3/3: Running openenv validate{NC} ...")
 
+    # Try bare `openenv` first, fall back to `python -m openenv.cli`
     openenv_cmd = None
     for candidate in ["openenv", "openenv.exe"]:
         try:
             subprocess.run([candidate, "--version"], capture_output=True, check=True, timeout=10)
-            openenv_cmd = candidate
+            openenv_cmd = [candidate]
             break
+        except Exception:
+            pass
+    if openenv_cmd is None:
+        try:
+            subprocess.run([sys.executable, "-m", "openenv.cli", "--help"],
+                           capture_output=True, check=True, timeout=10)
+            openenv_cmd = [sys.executable, "-m", "openenv.cli"]
         except Exception:
             pass
 
@@ -184,7 +191,7 @@ def main():
 
     try:
         result = subprocess.run(
-            [openenv_cmd, "validate"],
+            openenv_cmd + ["validate"],
             capture_output=True, text=True, cwd=repo_dir, timeout=120,
         )
         validate_ok = result.returncode == 0

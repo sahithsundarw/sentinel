@@ -12,9 +12,9 @@ Endpoints:
 """
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.environment import GuardrailEnvironment
 from app.models import Action, TaskInfo
@@ -155,11 +155,32 @@ async def schema():
     }
 
 
+class ResetRequest(BaseModel):
+    task_id: str = "basic_threat_detection"
+    seed: Optional[int] = None
+
+
 @app.post("/reset")
-async def reset(task_id: str = Query(default="basic_threat_detection"), seed: Optional[int] = Query(default=None)):
-    """Reset environment with specified task. Returns initial observation."""
+async def reset(
+    body: Optional[ResetRequest] = None,
+    task_id: str = Query(default=None),
+    seed: Optional[int] = Query(default=None),
+):
+    """Reset environment with specified task. Accepts JSON body or query params."""
+    # JSON body takes priority over query params; fall back to "basic_threat_detection" only if
+    # both sources are absent (None), not if they're empty string (which get_task will reject).
+    if body is not None:
+        resolved_task_id = body.task_id
+        resolved_seed = body.seed if body.seed is not None else seed
+    elif task_id is not None:
+        resolved_task_id = task_id
+        resolved_seed = seed
+    else:
+        resolved_task_id = "basic_threat_detection"
+        resolved_seed = seed
+
     try:
-        observation = env.reset(task_id=task_id, seed=seed)
+        observation = env.reset(task_id=resolved_task_id, seed=resolved_seed)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     return observation.model_dump()
@@ -231,7 +252,7 @@ async def grader():
     if task_id in _leaderboard:
         _leaderboard[task_id].append({
             "score": score,
-            "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         })
         _leaderboard[task_id].sort(key=lambda x: x["score"], reverse=True)
         _leaderboard[task_id] = _leaderboard[task_id][:10]

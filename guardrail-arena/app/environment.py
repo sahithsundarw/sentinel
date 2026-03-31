@@ -74,15 +74,42 @@ class GuardrailEnvironment:
         # at the crossing point, replacing the branch_missed default.
         prompts = list(self._task.prompts)
         if seed is not None:
+            rng = random.Random(seed)
             if task_id == "multiturn_adversarial":
                 conv_groups: dict[str, list] = {}
                 for entry in prompts:
                     conv_groups.setdefault(entry.conversation_id, []).append(entry)
                 conv_list = list(conv_groups.values())
-                random.Random(seed).shuffle(conv_list)
+                rng.shuffle(conv_list)
                 prompts = [entry for group in conv_list for entry in group]
             else:
-                random.Random(seed).shuffle(prompts)
+                rng.shuffle(prompts)
+                # Feature 5: serve a variation of each attack prompt so agents
+                # cannot memorize specific attack strings across seeds.
+                new_prompts: list[PromptEntry] = []
+                for entry in prompts:
+                    # Modify-required prompts are excluded from variation substitution:
+                    # their required_removals reference canonical phrasing, so serving a
+                    # rephrased variation would cause removal checks to fail on correct
+                    # sanitization. Variations on modify prompts are intentionally unused.
+                    if (entry.label.variations and entry.label.category != "safe"
+                            and entry.label.correct_action != "modify"):
+                        variation_text = rng.choice(entry.label.variations)
+                        new_label = entry.label.model_copy(
+                            update={"prompt_text": variation_text}
+                        )
+                        new_prompts.append(PromptEntry(
+                            label=new_label,
+                            application_context=entry.application_context,
+                            conversation_history=entry.conversation_history,
+                            turn_number=entry.turn_number,
+                            conversation_id=entry.conversation_id,
+                            is_last_turn=entry.is_last_turn,
+                            is_crossing=entry.is_crossing,
+                        ))
+                    else:
+                        new_prompts.append(entry)
+                prompts = new_prompts
         self._prompt_queue = deque(prompts)
         self._total_prompts_initial = len(prompts)
         self._current_entry = self._prompt_queue.popleft()
@@ -133,6 +160,9 @@ class GuardrailEnvironment:
             "category": current_entry.label.category,
             "severity": current_entry.label.severity,
             "reward_breakdown": reward_breakdown,
+            # Feature 1: attack feature signals — empty for safe, non-empty for attacks.
+            # Returned AFTER the agent commits its action so cannot be used to cheat.
+            "attack_features": current_entry.label.attack_features,
         }
 
         # Task 3: conversation boundary signals
@@ -144,15 +174,17 @@ class GuardrailEnvironment:
         # immediately after the crossing turn. If the agent caught the attack,
         # discard that default and inject branch_caught in its place.
         if self._task_id == "multiturn_adversarial" and current_entry.is_crossing:
-            if action.action_type in ("refuse", "escalate"):
-                # Discard the queued branch_missed (the default)
-                if self._prompt_queue:
-                    self._prompt_queue.popleft()
+            if action.action_type in ("refuse", "escalate", "modify"):
+                # Discard ALL queued branch_missed turns (the default path).
+                # missed_count records how many turns to pop — defaults to 1 for
+                # the original 5 conversations; longer conversations store the actual count.
+                branch_spec = self._task.branch_specs.get(current_entry.conversation_id, {})
+                missed_count = branch_spec.get("missed_count", 1)
+                for _ in range(missed_count):
+                    if self._prompt_queue:
+                        self._prompt_queue.popleft()
                 # Inject branch_caught turns at the front
-                branch_entries = self._task.branch_specs.get(
-                    current_entry.conversation_id, {}
-                ).get("caught", [])
-                for entry in reversed(branch_entries):
+                for entry in reversed(branch_spec.get("caught", [])):
                     self._prompt_queue.appendleft(entry)
             # If action == "allow" (missed): branch_missed is already queued, do nothing
 

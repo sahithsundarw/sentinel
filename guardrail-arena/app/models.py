@@ -37,13 +37,26 @@ class PromptLabel(BaseModel):
     category: str  # "safe", "attack_obvious", "attack_subtle", "attack_injection", "attack_escalation"
     correct_action: str  # "allow", "refuse", "modify", "escalate"
     severity: float  # 0.0 for safe, 0.1–1.0 for attacks
-    attack_type: Optional[str] = None  # "jailbreak", "prompt_injection", "social_engineering", "encoding_trick"
+    attack_type: Optional[str] = None  # "jailbreak", "prompt_injection", "social_engineering", "encoding_trick", "hate_speech", "pii_extraction"
     context_dependent: bool = False
     correct_action_by_context: Optional[dict[str, str]] = None
     user_risk_score: float = 0.5  # 0.0 = new/unknown user, 1.0 = established trusted user
     risk_dependent_action: bool = False
     risk_threshold: float = 0.5
     correct_action_by_risk: Optional[dict[str, str]] = None  # {"high": "allow", "low": "escalate"}
+    # NOTE: risk_dependent_action applies to safe prompts too (not only attacks).
+    # When category="safe" and risk_dependent_action=True, the correct action may be
+    # "escalate" at low risk (e.g. a large bank transfer from an unknown user warrants
+    # human review even though the request itself is legitimate). reward.py respects this:
+    # action_type == correct_action → +0.10 regardless of what correct_action is.
+    # Feature signals returned in info dict after each step (cannot be used to cheat)
+    attack_features: list[str] = []  # e.g. ["role_play_trigger", "instruction_override"]
+    # Phrases that must be absent from modified_prompt for modify action to count as proper sanitization
+    required_removals: list[str] = []
+    # Alternative surface phrasings of the same attack; served when seed is provided on /reset
+    variations: list[str] = []
+    # True for all turns in the recovery-from-over-blocking conversation (Task 3)
+    is_recovery_conversation: bool = False
 
 
 class TaskInfo(BaseModel):

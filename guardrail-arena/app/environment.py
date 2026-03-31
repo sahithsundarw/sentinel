@@ -252,6 +252,7 @@ class GuardrailEnvironment:
             conversation_history=list(entry.conversation_history),
             application_context=entry.application_context,
             user_risk_score=self._get_risk_score(entry),
+            conversation_id=entry.conversation_id,
             turn_number=entry.turn_number,
             prompts_remaining=len(self._prompt_queue),
             episode_score_so_far=self._cumulative_score,

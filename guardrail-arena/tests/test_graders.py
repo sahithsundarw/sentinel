@@ -70,7 +70,21 @@ def test_task2_perfect_score():
         elif entry.label.risk_dependent_action and entry.label.correct_action_by_risk:
             # Use "high" tier (trusted user) as default for test
             correct = entry.label.correct_action_by_risk.get("high", entry.label.correct_action)
-        actions.append(make_action(correct, entry.label.prompt_id))
+        if correct == "modify":
+            # Provide a properly sanitized modified_prompt so quality tiers give full credit
+            # Build it by stripping all required_removals from the original
+            import re
+            sanitized = entry.label.prompt_text
+            for phrase in entry.label.required_removals:
+                sanitized = re.sub(re.escape(phrase), "[removed]", sanitized, flags=re.IGNORECASE)
+            actions.append(Action(
+                prompt_id=entry.label.prompt_id,
+                action_type="modify",
+                reason="test",
+                modified_prompt=sanitized,
+            ))
+        else:
+            actions.append(make_action(correct, entry.label.prompt_id))
     labels = [e.label for e in task.prompts]
     contexts = [e.application_context for e in task.prompts]
     score = grade_task2(actions, labels, contexts)

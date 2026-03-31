@@ -12,6 +12,7 @@ class Observation(BaseModel):
     conversation_history: list[str]
     application_context: str
     user_risk_score: float
+    conversation_id: str = ""  # Empty for Tasks 1 & 2; set per-conversation in Task 3
     turn_number: int
     prompts_remaining: int
     episode_score_so_far: float

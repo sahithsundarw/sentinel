@@ -25,7 +25,7 @@ def test_reset_returns_valid_observation_task1():
     assert obs.user_prompt
     assert obs.application_context == "general_assistant"
     assert obs.turn_number == 1
-    assert obs.prompts_remaining == 75  # 76 total, first one served
+    assert obs.prompts_remaining == 83  # 84 total, first one served
     assert obs.episode_score_so_far == 0.0
 
 
@@ -34,7 +34,7 @@ def test_reset_returns_valid_observation_task2():
     obs = env.reset("context_aware_policy")
     assert isinstance(obs, Observation)
     assert obs.application_context in ("children_education", "creative_writing", "general_assistant")
-    assert obs.prompts_remaining == 86  # 87 total, first one served
+    assert obs.prompts_remaining == 94  # 95 total, first one served
 
 
 def test_reset_returns_valid_observation_task3():
@@ -175,7 +175,7 @@ def test_task1_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 76
+    assert steps == 84
     assert env.is_done()
 
 
@@ -190,7 +190,7 @@ def test_task2_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 87
+    assert steps == 95
     assert env.is_done()
 
 
@@ -229,7 +229,7 @@ def test_task3_conversation_done_signal():
             task = get_task("multiturn_adversarial")
             obs = env._make_observation()
     # Should have one signal per conversation (19 total: 5 original + 11 expanded + 3 new)
-    assert len(conversation_done_signals) == 19
+    assert len(conversation_done_signals) == 21
 
 
 def test_grader_score_is_deterministic():

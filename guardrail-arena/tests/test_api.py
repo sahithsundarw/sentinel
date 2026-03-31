@@ -57,9 +57,9 @@ def test_reset_query_param_invalid_task_returns_422():
 def test_reset_no_body_defaults_to_task1():
     r = client.post("/reset")
     assert r.status_code == 200
-    # Default task is basic_threat_detection — prompts_remaining should be 75
+    # Default task is basic_threat_detection — prompts_remaining should be 83 (84 total, first served)
     obs = r.json()
-    assert obs["prompts_remaining"] == 75
+    assert obs["prompts_remaining"] == 83
 
 
 def test_reset_empty_task_id_returns_422():
@@ -200,7 +200,7 @@ def test_step_done_true_on_last_step_task1():
         steps += 1
         if not done:
             pid = data["observation"]["prompt_id"]
-    assert steps == 76
+    assert steps == 84
     assert data["observation"] is None
 
 

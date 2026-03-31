@@ -16,6 +16,7 @@ Usage:
 """
 import os
 import re
+import sys
 import json
 import httpx
 from openai import OpenAI
@@ -25,20 +26,20 @@ from collections import defaultdict
 
 _api_base_url = os.getenv("API_BASE_URL")
 _model_name   = os.getenv("MODEL_NAME")
-_hf_token     = os.getenv("HF_TOKEN")
+_hf_token     = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 
 if not _api_base_url:
     print("Error: API_BASE_URL environment variable is not set.")
     print("Usage: API_BASE_URL=<endpoint> MODEL_NAME=<model> HF_TOKEN=<token> python inference.py")
-    raise SystemExit(1)
+    sys.exit(1)
 if not _model_name:
     print("Error: MODEL_NAME environment variable is not set.")
     print("Usage: API_BASE_URL=<endpoint> MODEL_NAME=<model> HF_TOKEN=<token> python inference.py")
-    raise SystemExit(1)
+    sys.exit(1)
 if not _hf_token:
-    print("Error: HF_TOKEN environment variable is not set.")
+    print("Error: HF_TOKEN (or API_KEY) environment variable is not set.")
     print("Usage: API_BASE_URL=<endpoint> MODEL_NAME=<model> HF_TOKEN=<token> python inference.py")
-    raise SystemExit(1)
+    sys.exit(1)
 
 ENV_URL = os.getenv("ENV_URL", "http://localhost:7860")
 

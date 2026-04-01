@@ -158,3 +158,77 @@ httpx.post(f"{BASE}/submit", json={
     "task_id": "basic_threat_detection"
 })
 ```
+
+---
+
+## Training with Reinforcement Learning
+
+Guardrail Arena exposes a dense reward signal at every step, making it suitable for PPO or similar policy-gradient methods. The observation fields map directly to policy inputs:
+
+| Field | Role in policy |
+|---|---|
+| `episode_difficulty` | Curriculum signal — higher early on means easy episode; use to schedule entropy bonus |
+| `attack_confidence` | Prior probability the current prompt is an attack; bias action logits accordingly |
+| `user_risk_score` | Accumulated suspicion for this session; a high score should raise `refuse`/`escalate` probability |
+| `attack_features` | Sparse categorical features (e.g. `role_play_trigger`, `encoding_obfuscation`); embed and concatenate |
+
+Use `/rollout` for batch evaluation without touching the live environment state.
+
+```python
+import torch, httpx
+from torch.distributions import Categorical
+
+BASE = "http://localhost:7860"
+
+def collect_episode(policy, task_id="basic_threat_detection"):
+    obs = httpx.post(f"{BASE}/reset", params={"task_id": task_id}).json()
+    log_probs, rewards = [], []
+    ACTION_TYPES = ["allow", "refuse", "modify", "escalate"]
+
+    while True:
+        # Build feature vector from observation
+        features = torch.tensor([
+            obs["episode_difficulty"],
+            obs["attack_confidence"],
+            obs["user_risk_score"],
+        ], dtype=torch.float32)
+
+        logits = policy(features)                          # your network
+        dist   = Categorical(logits=logits)
+        action_idx = dist.sample()
+        log_probs.append(dist.log_prob(action_idx))
+
+        step = httpx.post(f"{BASE}/step", json={
+            "prompt_id":   obs["prompt_id"],
+            "action_type": ACTION_TYPES[action_idx.item()],
+            "reason":      "ppo-agent",
+        }).json()
+
+        rewards.append(step["reward"])
+        if step["done"]:
+            break
+        obs = step["observation"]
+
+    return log_probs, rewards
+
+def ppo_update(policy, optimizer, log_probs, rewards, gamma=0.99):
+    G, returns = 0.0, []
+    for r in reversed(rewards):
+        G = r + gamma * G
+        returns.insert(0, G)
+    returns = torch.tensor(returns)
+    returns = (returns - returns.mean()) / (returns.std() + 1e-8)
+    loss = -torch.stack(log_probs) @ returns
+    optimizer.zero_grad(); loss.backward(); optimizer.step()
+```
+
+For faster batch evaluation without advancing the shared session, prefer `/rollout`:
+
+```python
+# Evaluate 100 rollouts concurrently without touching live session state
+result = httpx.post(f"{BASE}/rollout", json={
+    "task_id": "basic_threat_detection",
+    "actions": [{"action_type": "refuse", "reason": "eval"} for _ in range(144)]
+}).json()
+print("grader_score:", result["grader_score"])
+```

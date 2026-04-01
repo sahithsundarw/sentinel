@@ -10,6 +10,7 @@ Endpoints:
     GET  /baseline   — Run baseline inference, return scores for all tasks
     GET  /grader     — Return grader score for completed episode
 """
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -72,9 +73,9 @@ a:hover { text-decoration: underline; }
 <h2>Tasks</h2>
 <table>
 <tr><th>Task ID</th><th>Difficulty</th><th>Prompts</th><th>All-Allow Baseline</th></tr>
-<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>99</td><td>0.5595</td></tr>
-<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>100</td><td>0.1695</td></tr>
-<tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>173 turns / 28 convos</td><td>0.4000</td></tr>
+<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>144</td><td>0.4028</td></tr>
+<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>120</td><td>0.0872</td></tr>
+<tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>204 turns / 34 convos</td><td>0.2500</td></tr>
 </table>
 
 <h2>Quick Start</h2>
@@ -113,6 +114,24 @@ curl -X POST "http://localhost:7860/reset?task_id=basic_threat_detection&amp;see
 </body>
 </html>"""
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Compute all-allow baseline scores at startup and cache them."""
+    from app.tasks.task_config import get_task  # noqa: F401
+    for task_id in ("basic_threat_detection", "context_aware_policy", "multiturn_adversarial"):
+        try:
+            b_env = GuardrailEnvironment()
+            obs = b_env.reset(task_id)
+            while not b_env.is_done():
+                action = Action(prompt_id=obs.prompt_id, action_type="allow", reason="baseline")
+                next_obs, _, done, _ = b_env.step(action)
+                obs = next_obs if not done else obs
+            _computed_baselines[task_id] = b_env.get_grader_score()
+        except Exception:
+            pass
+    yield
+
+
 app = FastAPI(
     title="Guardrail Arena",
     description=(
@@ -120,6 +139,7 @@ app = FastAPI(
         "where agents learn to moderate content safety decisions."
     ),
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -132,19 +152,19 @@ env = GuardrailEnvironment()
 # Pre-seeded with named baselines so judges immediately see a score distribution.
 _BASELINE_ENTRIES: dict[str, list[dict]] = {
     "basic_threat_detection": [
-        {"agent": "all-allow",   "score": 0.5595, "timestamp": "2025-01-01T00:00:00Z"},
         {"agent": "heuristic",   "score": 0.7381, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "all-refuse",  "score": 0.4405, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-refuse",  "score": 0.5972, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",   "score": 0.4028, "timestamp": "2025-01-01T00:00:00Z"},
     ],
     "context_aware_policy": [
-        {"agent": "heuristic",   "score": 0.3284, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "all-refuse",  "score": 0.3686, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "all-allow",   "score": 0.1695, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-refuse",  "score": 0.3893, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "heuristic",   "score": 0.3644, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",   "score": 0.0872, "timestamp": "2025-01-01T00:00:00Z"},
     ],
     "multiturn_adversarial": [
-        {"agent": "all-allow",   "score": 0.4000, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "heuristic",   "score": 0.2941, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "all-refuse",  "score": 0.1303, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",   "score": 0.2500, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "heuristic",   "score": 0.3125, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-refuse",  "score": 0.1659, "timestamp": "2025-01-01T00:00:00Z"},
     ],
 }
 
@@ -181,23 +201,6 @@ def _save_leaderboard(leaderboard: dict[str, list[dict]]) -> None:
 _leaderboard: dict[str, list[dict]] = _load_leaderboard()
 
 _computed_baselines: dict[str, float] = {}
-
-
-@app.on_event("startup")
-async def _compute_baselines() -> None:
-    """Compute all-allow baseline scores at startup and cache them."""
-    from app.tasks.task_config import get_task
-    for task_id in ("basic_threat_detection", "context_aware_policy", "multiturn_adversarial"):
-        try:
-            b_env = GuardrailEnvironment()
-            obs = b_env.reset(task_id)
-            while not b_env.is_done():
-                action = Action(prompt_id=obs.prompt_id, action_type="allow", reason="baseline")
-                next_obs, _, done, _ = b_env.step(action)
-                obs = next_obs if not done else obs
-            _computed_baselines[task_id] = b_env.get_grader_score()
-        except Exception:
-            pass
 
 
 @app.get("/", response_class=HTMLResponse)

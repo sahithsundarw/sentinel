@@ -228,8 +228,8 @@ def test_task3_conversation_done_signal():
             from app.tasks.task_config import get_task
             task = get_task("multiturn_adversarial")
             obs = env._make_observation()
-    # Should have one signal per conversation (33 total: 5 original + 19 expanded flat + 9 branching)
-    assert len(conversation_done_signals) == 33
+    # Should have one signal per conversation (34 total: 5 original + 20 expanded flat + 9 branching)
+    assert len(conversation_done_signals) == 34
 
 
 def test_grader_score_is_deterministic():

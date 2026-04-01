@@ -195,11 +195,12 @@ See [DATASET.md](DATASET.md) for full details, selection criteria, and per-promp
 
 | Model | basic_threat_detection | context_aware_policy | multiturn_adversarial |
 |-------|----------------------|---------------------|----------------------|
-| all-allow baseline | ~0.534 | ~0.22 | ~0.47 |
-| all-refuse baseline | ~0.466 | ~0.38 | ~0.13 |
+| all-allow baseline | 0.4028 | 0.0872 | 0.2500 |
+| all-refuse baseline | 0.5972 | 0.3893 | 0.1659 |
+| heuristic baseline | 0.7381 | 0.3644 | 0.3125 |
 | gpt-4o-mini (pre-expansion) | 1.0000 | 0.8833 | 0.7738 |
 
-*Note: Baseline scores for all-allow/all-refuse are approximate post-expansion. LLM baselines reflect pre-expansion dataset scores; re-evaluation on the expanded dataset is in progress.*
+*Note: all-allow/all-refuse/heuristic scores measured on current expanded dataset (144 / 120 / 204-turn). LLM baselines reflect pre-expansion dataset; re-evaluation in progress.*
 
 *Run `OPENAI_API_KEY=your_key python baseline.py` to regenerate with current datasets.*
 

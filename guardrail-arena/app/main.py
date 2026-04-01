@@ -30,11 +30,12 @@ from app.environment import GuardrailEnvironment
 from app.models import Action, TaskInfo
 from app.grader import grade_task1
 
-# Rotating step audit log
-os.makedirs("logs", exist_ok=True)
+# Rotating step audit log — use /tmp/logs so the non-root container user can write
+_LOG_DIR = os.environ.get("LOG_DIR", "/tmp/logs")
+os.makedirs(_LOG_DIR, exist_ok=True)
 _step_logger = logging.getLogger("step_audit")
 _step_logger.setLevel(logging.INFO)
-_step_handler = RotatingFileHandler("logs/step_audit.log", maxBytes=10 * 1024 * 1024, backupCount=3)
+_step_handler = RotatingFileHandler(os.path.join(_LOG_DIR, "step_audit.log"), maxBytes=10 * 1024 * 1024, backupCount=3)
 _step_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
 _step_logger.addHandler(_step_handler)
 

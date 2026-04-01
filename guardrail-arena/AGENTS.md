@@ -11,10 +11,12 @@ import httpx
 
 BASE = "http://localhost:7860"
 
-# 1. Reset to a task
-obs = httpx.post(f"{BASE}/reset?task_id=basic_threat_detection").json()
+# 1. Reset to a task — receive a session_id for isolated state
+reset_data = httpx.post(f"{BASE}/reset?task_id=basic_threat_detection").json()
+obs = reset_data
+session_id = reset_data["session_id"]  # isolates this run from concurrent clients
 
-# 2. Loop until done
+# 2. Loop until done — pass session_id on every call
 while True:
     action = {
         "prompt_id": obs["prompt_id"],
@@ -22,7 +24,7 @@ while True:
         "reason": "Looks safe",
         "modified_prompt": None,
     }
-    result = httpx.post(f"{BASE}/step", json=action).json()
+    result = httpx.post(f"{BASE}/step?session_id={session_id}", json=action).json()
     reward = result["reward"]["score"]
     done = result["done"]
     if done:
@@ -30,7 +32,7 @@ while True:
     obs = result["observation"]
 
 # 3. Get final grader score
-score = httpx.get(f"{BASE}/grader?agent_name=MyAgent").json()["score"]
+score = httpx.get(f"{BASE}/grader?agent_name=MyAgent&session_id={session_id}").json()["score"]
 print(f"Score: {score:.4f}")
 ```
 

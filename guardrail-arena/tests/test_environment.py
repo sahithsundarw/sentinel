@@ -25,7 +25,7 @@ def test_reset_returns_valid_observation_task1():
     assert obs.user_prompt
     assert obs.application_context == "general_assistant"
     assert obs.turn_number == 1
-    assert obs.prompts_remaining == 143  # 144 total, first one served
+    assert obs.prompts_remaining == 153  # 154 total, first one served
     assert obs.episode_score_so_far == 0.0
 
 
@@ -34,7 +34,7 @@ def test_reset_returns_valid_observation_task2():
     obs = env.reset("context_aware_policy")
     assert isinstance(obs, Observation)
     assert obs.application_context in ("children_education", "creative_writing", "general_assistant")
-    assert obs.prompts_remaining == 119  # 120 total, first one served
+    assert obs.prompts_remaining == 129  # 130 total, first one served
 
 
 def test_reset_returns_valid_observation_task3():
@@ -175,7 +175,7 @@ def test_task1_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 144
+    assert steps == 154
     assert env.is_done()
 
 
@@ -190,7 +190,7 @@ def test_task2_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 120
+    assert steps == 130
     assert env.is_done()
 
 

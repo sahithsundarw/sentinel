@@ -17,10 +17,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ValidationError
 from typing import Optional, Literal
 from datetime import datetime, timezone
+from collections import OrderedDict
 import threading
 import logging
 import os
 import json
+import uuid
+import time
 from logging.handlers import RotatingFileHandler
 
 from app.environment import GuardrailEnvironment
@@ -37,6 +40,60 @@ _step_logger.addHandler(_step_handler)
 
 _LEADERBOARD_PATH = "leaderboard.json"
 _leaderboard_lock = threading.Lock()
+
+# ── HF Datasets Hub persistence ───────────────────────────────────────────────
+# Set HF_LEADERBOARD_REPO=your-user/guardrail-arena-leaderboard and HF_TOKEN
+# in your HF Space secrets to enable cross-restart persistence.
+# Without these env vars the server falls back to local leaderboard.json only.
+_HF_REPO = os.getenv("HF_LEADERBOARD_REPO", "")
+_HF_TOKEN = os.getenv("HF_TOKEN", "")
+_HF_FILENAME = "leaderboard.json"
+
+
+def _load_leaderboard_from_hub() -> dict | None:
+    """Try loading leaderboard from HF Hub. Returns None on any failure."""
+    if not (_HF_REPO and _HF_TOKEN):
+        return None
+    try:
+        from huggingface_hub import hf_hub_download
+        path = hf_hub_download(
+            repo_id=_HF_REPO,
+            filename=_HF_FILENAME,
+            repo_type="dataset",
+            token=_HF_TOKEN,
+        )
+        with open(path, "r") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _save_leaderboard_to_hub(leaderboard: dict[str, list[dict]]) -> None:
+    """Push live (non-baseline) entries to HF Hub. Silently no-ops on failure."""
+    if not (_HF_REPO and _HF_TOKEN):
+        return
+    try:
+        from huggingface_hub import HfApi
+        import tempfile
+        baseline_agents = {"all-allow", "all-refuse", "heuristic"}
+        to_save: dict[str, list[dict]] = {}
+        for task_id, entries in leaderboard.items():
+            live = [e for e in entries if e.get("agent", "") not in baseline_agents]
+            if live:
+                to_save[task_id] = live
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+            json.dump(to_save, tmp)
+            tmp_path = tmp.name
+        api = HfApi(token=_HF_TOKEN)
+        api.upload_file(
+            path_or_fileobj=tmp_path,
+            path_in_repo=_HF_FILENAME,
+            repo_id=_HF_REPO,
+            repo_type="dataset",
+        )
+        os.unlink(tmp_path)
+    except Exception:
+        pass
 
 _HTML_LANDING_PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -73,8 +130,8 @@ a:hover { text-decoration: underline; }
 <h2>Tasks</h2>
 <table>
 <tr><th>Task ID</th><th>Difficulty</th><th>Prompts</th><th>All-Allow Baseline</th></tr>
-<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>144</td><td>0.4028</td></tr>
-<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>120</td><td>0.0872</td></tr>
+<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>154</td><td>0.4028</td></tr>
+<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>130</td><td>0.0872</td></tr>
 <tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>204 turns / 34 convos</td><td>0.2500</td></tr>
 </table>
 
@@ -116,7 +173,7 @@ curl -X POST "http://localhost:7860/reset?task_id=basic_threat_detection&amp;see
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Compute all-allow baseline scores at startup and cache them."""
+    """Startup: compute all-allow baselines and start session cleanup thread."""
     from app.tasks.task_config import get_task  # noqa: F401
     for task_id in ("basic_threat_detection", "context_aware_policy", "multiturn_adversarial"):
         try:
@@ -129,6 +186,7 @@ async def lifespan(app: FastAPI):
             _computed_baselines[task_id] = b_env.get_grader_score()
         except Exception:
             pass
+    _start_session_cleanup_thread()
     yield
 
 
@@ -144,9 +202,73 @@ app = FastAPI(
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# Single-session design: one active episode at a time.
-# Concurrent /reset calls from multiple clients will overwrite each other's state.
-# For evaluation, run one task at a time sequentially (as all standard harnesses do).
+# ── Session store ─────────────────────────────────────────────────────────────
+# Isolated sessions: each /reset creates a UUID-keyed GuardrailEnvironment.
+# Max 100 sessions; oldest evicted when capacity is reached.
+# Backwards compat: when no session_id is passed, global `env` is used (openenv
+# validator and older inference scripts continue to work without any changes).
+_MAX_SESSIONS = 100
+_SESSION_TTL_SECONDS = 30 * 60  # 30 minutes of inactivity → evict
+_CLEANUP_INTERVAL_SECONDS = 5 * 60  # cleanup runs every 5 minutes
+
+# Each entry: {"env": GuardrailEnvironment, "last_activity": float (epoch seconds)}
+_SESSION_STORE: OrderedDict[str, dict] = OrderedDict()
+_SESSION_STORE_LOCK = threading.Lock()
+
+
+def _create_session() -> tuple[GuardrailEnvironment, str]:
+    """Create a new isolated GuardrailEnvironment and register it in the session store."""
+    sid = str(uuid.uuid4())
+    new_env = GuardrailEnvironment()
+    with _SESSION_STORE_LOCK:
+        if len(_SESSION_STORE) >= _MAX_SESSIONS:
+            _SESSION_STORE.popitem(last=False)  # FIFO: evict oldest
+        _SESSION_STORE[sid] = {"env": new_env, "last_activity": time.monotonic()}
+    return new_env, sid
+
+
+def _get_session_env(session_id: Optional[str]) -> GuardrailEnvironment:
+    """Return the env for session_id, or the global env when session_id is None."""
+    if session_id is None:
+        return env
+    with _SESSION_STORE_LOCK:
+        if session_id not in _SESSION_STORE:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Session '{session_id}' not found or has expired.",
+            )
+        _SESSION_STORE[session_id]["last_activity"] = time.monotonic()
+        return _SESSION_STORE[session_id]["env"]
+
+
+def _cleanup_stale_sessions() -> int:
+    """Evict sessions idle for > _SESSION_TTL_SECONDS. Returns count evicted."""
+    now = time.monotonic()
+    stale = [
+        sid for sid, entry in _SESSION_STORE.items()
+        if now - entry["last_activity"] > _SESSION_TTL_SECONDS
+    ]
+    with _SESSION_STORE_LOCK:
+        for sid in stale:
+            _SESSION_STORE.pop(sid, None)
+    return len(stale)
+
+
+def _start_session_cleanup_thread() -> None:
+    """Background daemon thread that evicts stale sessions every 5 minutes."""
+    def _loop():
+        while True:
+            time.sleep(_CLEANUP_INTERVAL_SECONDS)
+            try:
+                _cleanup_stale_sessions()
+            except Exception:
+                pass
+    t = threading.Thread(target=_loop, daemon=True, name="session-cleanup")
+    t.start()
+
+
+# Global env: shared fallback for clients that don't pass session_id (openenv validator,
+# existing inference scripts).  Clients that pass session_id use isolated envs above.
 env = GuardrailEnvironment()
 
 # Pre-seeded with named baselines so judges immediately see a score distribution.
@@ -169,23 +291,33 @@ _BASELINE_ENTRIES: dict[str, list[dict]] = {
 }
 
 def _load_leaderboard() -> dict[str, list[dict]]:
-    """Load leaderboard from disk, merging with baseline entries."""
+    """Load leaderboard from disk (and Hub if configured), merging with baseline entries."""
     data = {k: list(v) for k, v in _BASELINE_ENTRIES.items()}
+
+    def _merge(saved: dict) -> None:
+        for task_id, entries in saved.items():
+            if task_id in data:
+                data[task_id].extend(entries)
+                data[task_id].sort(key=lambda x: x["score"], reverse=True)
+                data[task_id] = data[task_id][:10]
+
+    # Local file
     if os.path.exists(_LEADERBOARD_PATH):
         try:
             with open(_LEADERBOARD_PATH, "r") as f:
-                saved = json.load(f)
-            for task_id, entries in saved.items():
-                if task_id in data:
-                    data[task_id].extend(entries)
-                    data[task_id].sort(key=lambda x: x["score"], reverse=True)
-                    data[task_id] = data[task_id][:10]
+                _merge(json.load(f))
         except Exception:
             pass
+
+    # HF Hub (takes priority for cross-restart persistence)
+    hub_data = _load_leaderboard_from_hub()
+    if hub_data:
+        _merge(hub_data)
+
     return data
 
 def _save_leaderboard(leaderboard: dict[str, list[dict]]) -> None:
-    """Persist live (non-baseline) entries to disk."""
+    """Persist live (non-baseline) entries to local disk and HF Hub."""
     baseline_agents = {"all-allow", "all-refuse", "heuristic"}
     to_save: dict[str, list[dict]] = {}
     for task_id, entries in leaderboard.items():
@@ -197,6 +329,9 @@ def _save_leaderboard(leaderboard: dict[str, list[dict]]) -> None:
             json.dump(to_save, f)
     except Exception:
         pass
+    # Push to HF Hub asynchronously — errors are silently swallowed so the
+    # /grader response is never blocked by Hub availability.
+    _save_leaderboard_to_hub(leaderboard)
 
 _leaderboard: dict[str, list[dict]] = _load_leaderboard()
 
@@ -266,17 +401,26 @@ async def reset(
         resolved_seed = seed
 
     try:
+        # Create an isolated session for this client.
+        session_env, session_id = _create_session()
+        session_env.reset(task_id=resolved_task_id, seed=resolved_seed)
+
+        # Also update the global env so clients that don't use session_id continue to work.
         observation = env.reset(task_id=resolved_task_id, seed=resolved_seed)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    return observation.model_dump()
+    result = observation.model_dump()
+    result["session_id"] = session_id
+    return result
 
 
 @app.post("/step")
-async def step(action: Action):
-    """Take an action. Returns observation, reward, done, info."""
+async def step(action: Action, session_id: Optional[str] = Query(default=None)):
+    """Take an action. Returns observation, reward, done, info.
+    Pass session_id (from /reset response) to use an isolated session."""
+    target_env = _get_session_env(session_id)
     try:
-        observation, reward, done, info = env.step(action)
+        observation, reward, done, info = target_env.step(action)
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
@@ -291,20 +435,21 @@ async def step(action: Action):
         "info": info,
     }
     _step_logger.info(
-        "task=%s prompt_id=%s action=%s reward=%.4f outcome=%s",
-        env.current_task_id or "unknown",
+        "task=%s prompt_id=%s action=%s reward=%.4f outcome=%s session=%s",
+        target_env.current_task_id or "unknown",
         action.prompt_id,
         action.action_type,
         reward.score,
         reward.breakdown.get("outcome", ""),
+        session_id or "shared",
     )
     return result
 
 
 @app.get("/state")
-async def state():
+async def state(session_id: Optional[str] = Query(default=None)):
     """Return current environment state."""
-    return env.state().model_dump()
+    return _get_session_env(session_id).state().model_dump()
 
 
 @app.get("/tasks")
@@ -336,12 +481,17 @@ async def baseline():
 
 
 @app.get("/grader")
-async def grader(agent_name: Optional[str] = Query(default=None)):
-    """Return grader score for the current completed episode. Optionally pass agent_name to record on leaderboard."""
-    if not env.is_done():
+async def grader(
+    agent_name: Optional[str] = Query(default=None),
+    session_id: Optional[str] = Query(default=None),
+):
+    """Return grader score for the current completed episode. Optionally pass agent_name to record on leaderboard.
+    Pass session_id to score an isolated session."""
+    target_env = _get_session_env(session_id)
+    if not target_env.is_done():
         raise HTTPException(status_code=400, detail="Episode not complete. Finish all steps first.")
-    score = env.get_grader_score()
-    task_id = env.current_task_id
+    score = target_env.get_grader_score()
+    task_id = target_env.current_task_id
     with _leaderboard_lock:
         if task_id in _leaderboard:
             entry = {
@@ -355,6 +505,38 @@ async def grader(agent_name: Optional[str] = Query(default=None)):
             _leaderboard[task_id] = _leaderboard[task_id][:10]
             _save_leaderboard(_leaderboard)
     return {"task_id": task_id, "score": score}
+
+
+@app.get("/sessions")
+async def list_sessions():
+    """List active isolated sessions. Useful for debugging concurrent clients."""
+    now = time.monotonic()
+    with _SESSION_STORE_LOCK:
+        sessions = [
+            {
+                "session_id": sid,
+                "idle_seconds": round(now - entry["last_activity"]),
+                "task_id": entry["env"].current_task_id,
+                "done": entry["env"].is_done(),
+            }
+            for sid, entry in _SESSION_STORE.items()
+        ]
+    return {
+        "sessions": sessions,
+        "count": len(sessions),
+        "max_capacity": _MAX_SESSIONS,
+        "ttl_seconds": _SESSION_TTL_SECONDS,
+    }
+
+
+@app.delete("/sessions/{session_id}")
+async def delete_session(session_id: str):
+    """Explicitly delete a session and free its resources."""
+    with _SESSION_STORE_LOCK:
+        if session_id not in _SESSION_STORE:
+            raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
+        del _SESSION_STORE[session_id]
+    return {"status": "deleted", "session_id": session_id}
 
 
 @app.get("/leaderboard")

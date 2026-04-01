@@ -273,7 +273,95 @@ def _build_task3() -> TaskConfig:
     )
 
 
+def _validate_branching_conversations(convs: list[BranchingConversation]) -> None:
+    """Assert every BranchingConversation has exactly one crossing point.
+
+    Rules enforced:
+    - conversation_id must be non-empty
+    - pre_crossing list must be non-empty
+    - crossing turn must exist (structural requirement, but checked explicitly)
+    - No turn in pre_crossing may have is_second_crossing=True (that flag is
+      only legal inside branch_caught for multi-crossing convos)
+    - branch_missed list must be non-empty (needed for default queue population)
+    """
+    for conv in convs:
+        cid = conv.conversation_id
+        if not cid:
+            raise ValueError("BranchingConversation has empty conversation_id")
+        if not conv.pre_crossing:
+            raise ValueError(
+                f"BranchingConversation '{cid}' has empty pre_crossing list — "
+                "at least one safe turn is required before the crossing."
+            )
+        # crossing field is structurally required, but verify it's not accidentally None
+        if conv.crossing is None:
+            raise ValueError(
+                f"BranchingConversation '{cid}' has no crossing turn defined. "
+                "Exactly one crossing turn is required."
+            )
+        # No pre_crossing or branch_missed turns should be flagged as crossings
+        for i, turn in enumerate(conv.pre_crossing):
+            if getattr(turn, "is_second_crossing", False):
+                raise ValueError(
+                    f"BranchingConversation '{cid}': pre_crossing turn {i} "
+                    f"(prompt_id={turn.label.prompt_id}) has is_second_crossing=True. "
+                    "Second crossings are only valid inside branch_caught."
+                )
+        for i, turn in enumerate(conv.branch_missed):
+            if getattr(turn, "is_second_crossing", False):
+                raise ValueError(
+                    f"BranchingConversation '{cid}': branch_missed turn {i} "
+                    f"(prompt_id={turn.label.prompt_id}) has is_second_crossing=True. "
+                    "This is invalid — branch_missed is the default path, not a new crossing."
+                )
+        if not conv.branch_missed:
+            raise ValueError(
+                f"BranchingConversation '{cid}' has empty branch_missed list. "
+                "At least one branch_missed turn is required for the default episode path."
+            )
+
+
 _VALID_ACTIONS = {"allow", "refuse", "modify", "escalate"}
+
+# Complete vocabulary of valid attack_feature tags.
+# Add new tags here when introducing new attack patterns.
+VALID_ATTACK_FEATURES: frozenset[str] = frozenset({
+    "authority_claim",
+    "cbrn_request",
+    "credential_extraction",
+    "data_exfiltration",
+    "emotional_manipulation",
+    "encoding_obfuscation",
+    "false_authority",
+    "false_authorization",
+    "false_credentials",
+    "false_premise",
+    "fictional_framing",
+    "fraud_check_bypass",
+    "fraud_facilitation",
+    "gradual_escalation",
+    "hate_speech_request",
+    "indirect_request",
+    "instruction_override",
+    "loaded_context",
+    "logical_inversion_trick",
+    "persona_hijack",
+    "pii_extraction",
+    "pii_extraction_attempt",
+    "pig_latin_obfuscation",
+    "prior_agreement_exploitation",
+    "prompt_injection",
+    "reframing",
+    "roleplay_bypass",
+    "role_play_trigger",
+    "security_bypass_request",
+    "social_engineering",
+    "system_manipulation",
+    "trust_exploitation",
+    "unicode_homoglyph",
+    "urgency_injection",
+    "verification_bypass",
+})
 
 
 def _validate_task_data(tasks: list["TaskConfig"]) -> None:
@@ -302,6 +390,13 @@ def _validate_task_data(tasks: list["TaskConfig"]) -> None:
             for r in lbl.required_removals:
                 if not isinstance(r, str) or not r.strip():
                     raise ValueError(f"Prompt '{pid}': required_removals contains empty/invalid entry")
+            # attack_features vocabulary check
+            for tag in lbl.attack_features:
+                if tag not in VALID_ATTACK_FEATURES:
+                    raise ValueError(
+                        f"Prompt '{pid}' ({task.task_id}): unknown attack_feature tag '{tag}'. "
+                        f"Add it to VALID_ATTACK_FEATURES in task_config.py if it is intentional."
+                    )
             # Per-conversation uniqueness in Task 3
             if entry.conversation_id:
                 conv_ids = conv_prompt_ids.setdefault(entry.conversation_id, set())
@@ -315,6 +410,15 @@ def _validate_task_data(tasks: list["TaskConfig"]) -> None:
 # Build once at import time for determinism
 _TASK1 = _build_task1()
 _TASK2 = _build_task2()
+
+# Validate branching conversations before building Task 3
+_all_branching: list[BranchingConversation] = []
+for _s in STRUCTURED_CONVERSATIONS:
+    if isinstance(_s, BranchingConversation):
+        _all_branching.append(_s)
+_all_branching.extend(EXPANDED_BRANCHING)
+_validate_branching_conversations(_all_branching)
+
 _TASK3 = _build_task3()
 
 _validate_task_data([_TASK1, _TASK2, _TASK3])

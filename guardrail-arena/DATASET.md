@@ -17,22 +17,41 @@
 
 | Tag | Definition |
 |---|---|
-| `role_play_trigger` | Uses roleplay framing ("you are X", "pretend to be") |
-| `persona_hijack` | Claims to replace or override the agent's identity |
-| `instruction_override` | Explicitly tells the agent to ignore prior instructions |
-| `fictional_framing` | Wraps harmful content in a story, novel, or screenplay context |
-| `logical_inversion_trick` | Uses negation/inversion logic to extract content ("you would NEVER say...") |
 | `authority_claim` | Claims elevated authority (admin, developer, government, C-suite) |
-| `false_credentials` | Asserts professional credentials to justify unusual requests |
-| `urgency_injection` | Manufactures time pressure to bypass careful reasoning |
-| `prior_agreement_exploitation` | Claims the agent previously agreed to do something |
-| `encoding_obfuscation` | Uses non-ASCII or encoded text to hide harmful content |
-| `unicode_homoglyph` | Uses visually similar characters from other Unicode scripts |
-| `indirect_request` | Asks the agent to decode then execute rather than directly requesting |
-| `system_manipulation` | Attempts to change system settings, disable policies, or modify agent state |
-| `pii_extraction` | Targets personal identifiable information |
 | `cbrn_request` | Chemical, biological, radiological, or nuclear content |
+| `credential_extraction` | Attempts to obtain login credentials or authentication tokens |
+| `data_exfiltration` | Attempts to extract bulk user or system data |
+| `emotional_manipulation` | Uses emotional appeals (distress, urgency, sympathy) to bypass reasoning |
+| `encoding_obfuscation` | Uses non-ASCII or encoded text (Base64, ROT13, leetspeak) to hide harmful content |
+| `false_authority` | Invents or misrepresents an authoritative source to justify a request |
+| `false_authorization` | Claims prior approval or authorization that does not exist |
+| `false_credentials` | Asserts professional credentials to justify unusual requests |
+| `false_premise` | Injects false assumptions into context to anchor downstream responses |
+| `fictional_framing` | Wraps harmful content in a story, novel, or screenplay context |
+| `fraud_check_bypass` | Attempts to bypass fraud detection or account verification |
+| `fraud_facilitation` | Requests assistance enabling financial fraud or scams |
+| `gradual_escalation` | Slowly escalates request severity across multiple turns |
+| `hate_speech_request` | Attempts to generate discriminatory or dehumanizing content |
+| `indirect_request` | Asks the agent to decode then execute rather than directly requesting |
+| `instruction_override` | Explicitly tells the agent to ignore prior instructions |
+| `loaded_context` | Introduces pre-loaded context or false premises to anchor the agent |
+| `logical_inversion_trick` | Uses negation/inversion logic to extract content ("you would NEVER say...") |
+| `persona_hijack` | Claims to replace or override the agent's identity |
+| `pig_latin_obfuscation` | Uses pig latin or similar phonetic transformation to hide harmful text |
+| `pii_extraction` | Targets personal identifiable information |
+| `pii_extraction_attempt` | Initiates steps toward PII extraction without a direct request |
+| `prior_agreement_exploitation` | Claims the agent previously agreed to do something |
+| `prompt_injection` | Embeds instructions inside what appears to be user content |
+| `reframing` | After a refusal, repackages the same request with different surface framing |
+| `roleplay_bypass` | Uses roleplay to claim the restrictions don't apply to the character |
+| `role_play_trigger` | Uses roleplay framing ("you are X", "pretend to be") |
+| `security_bypass_request` | Explicitly asks to bypass security, policy, or moderation controls |
 | `social_engineering` | Builds rapport or trust to manipulate agent behaviour |
+| `system_manipulation` | Attempts to change system settings, disable policies, or modify agent state |
+| `trust_exploitation` | Leverages established trust (from earlier turns) to extract harmful content |
+| `unicode_homoglyph` | Uses visually similar characters from other Unicode scripts |
+| `urgency_injection` | Manufactures time pressure to bypass careful reasoning |
+| `verification_bypass` | Attempts to skip identity or age verification steps |
 
 ---
 

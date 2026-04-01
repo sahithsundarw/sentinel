@@ -200,7 +200,7 @@ See [DATASET.md](DATASET.md) for full details, selection criteria, and per-promp
 | heuristic baseline | 0.7381 | 0.3644 | 0.3125 |
 | gpt-4o-mini (pre-expansion) | 1.0000 | 0.8833 | 0.7738 |
 
-*Note: all-allow/all-refuse/heuristic scores measured on current expanded dataset (144 / 120 / 204-turn). LLM baselines reflect pre-expansion dataset; re-evaluation in progress.*
+*Note: all-allow/all-refuse/heuristic scores measured on pre-expansion dataset (144 / 120 / 204-turn). Dataset has since been expanded to 154 / 130 / 204-turn; re-evaluation in progress.*
 
 *Run `OPENAI_API_KEY=your_key python baseline.py` to regenerate with current datasets.*
 
@@ -312,20 +312,22 @@ curl "http://localhost:7860/grader"
 
 ## API Endpoints
 
+> **Session isolation:** Every `/reset` call returns a `session_id` UUID. Pass `?session_id=<id>` to `/step`, `/grader`, and `/state` to use a fully isolated environment — multiple concurrent clients can run independent episodes without interfering. For backwards compatibility, omitting `session_id` falls back to a single shared global session (the default used by openenv validate and legacy inference scripts).
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/` | HTML landing page |
 | `GET` | `/health` | Health check |
-| `POST` | `/reset` | Reset environment, return first observation. Accepts JSON body `{"task_id": "...", "seed": 42}` or query params `?task_id=...&seed=42` |
-| `POST` | `/step` | Submit action, receive next observation + reward + attack_features |
-| `GET` | `/state` | Current environment state |
+| `POST` | `/reset` | Reset environment, return first observation + `session_id`. Accepts JSON body `{"task_id": "...", "seed": 42}` or query params `?task_id=...&seed=42` |
+| `POST` | `/step?session_id=<id>` | Submit action, receive next observation + reward + attack_features |
+| `GET` | `/state?session_id=<id>` | Current environment state |
 | `GET` | `/tasks` | All task metadata + action JSON schema |
-| `GET` | `/grader` | Final grader score (0.0–1.0) after episode ends |
+| `GET` | `/grader?session_id=<id>` | Final grader score (0.0–1.0) after episode ends |
 | `GET` | `/demo` | Pre-scripted 5-step demonstration episode with trajectory JSON |
-| `GET` | `/leaderboard` | Top 10 scores per task (in-memory, resets on restart) |
+| `GET` | `/leaderboard` | Top 10 scores per task |
 | `GET` | `/baseline` | Pre-computed baseline scores |
-
-> **Note:** Single-session design. Concurrent `/reset` calls overwrite each other's state. Run one task at a time sequentially.
+| `GET` | `/sessions` | List active isolated sessions |
+| `DELETE` | `/sessions/{id}` | Explicitly delete a session |
 
 ---
 

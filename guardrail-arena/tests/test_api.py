@@ -57,9 +57,9 @@ def test_reset_query_param_invalid_task_returns_422():
 def test_reset_no_body_defaults_to_task1():
     r = client.post("/reset")
     assert r.status_code == 200
-    # Default task is basic_threat_detection — prompts_remaining should be 143 (144 total, first served)
+    # Default task is basic_threat_detection — prompts_remaining should be 153 (154 total, first served)
     obs = r.json()
-    assert obs["prompts_remaining"] == 143
+    assert obs["prompts_remaining"] == 153
 
 
 def test_reset_empty_task_id_returns_422():
@@ -200,7 +200,7 @@ def test_step_done_true_on_last_step_task1():
         steps += 1
         if not done:
             pid = data["observation"]["prompt_id"]
-    assert steps == 144
+    assert steps == 154
     assert data["observation"] is None
 
 
@@ -367,13 +367,13 @@ def test_leaderboard_persistence_save_load():
 
 def test_rollout_returns_trajectory_and_score():
     """POST /rollout with task_id and actions should return a trajectory and grader_score."""
-    actions = [{"action_type": "allow", "reason": "test"}] * 144
+    actions = [{"action_type": "allow", "reason": "test"}] * 154
     r = client.post("/rollout", json={"task_id": "basic_threat_detection", "actions": actions})
     assert r.status_code == 200
     data = r.json()
     assert "grader_score" in data
     assert "trajectory" in data
-    assert len(data["trajectory"]) == 144
+    assert len(data["trajectory"]) == 154
     assert 0.0 <= data["grader_score"] <= 1.0
 
 
@@ -401,3 +401,80 @@ def test_concurrent_resets_do_not_crash():
     obs = r.json()
     r2 = client.post("/step", json={"prompt_id": obs["prompt_id"], "action_type": "allow", "reason": "test"})
     assert r2.status_code == 200
+
+
+# ── Session isolation tests ───────────────────────────────────────────────────
+
+def test_reset_returns_session_id():
+    """Every /reset call must return a session_id."""
+    r = client.post("/reset?task_id=basic_threat_detection")
+    assert r.status_code == 200
+    assert "session_id" in r.json()
+    assert r.json()["session_id"]  # non-empty
+
+
+def test_20_resets_return_unique_session_ids():
+    """20 sequential resets must return 20 unique session IDs."""
+    ids = set()
+    for _ in range(20):
+        r = client.post("/reset?task_id=basic_threat_detection")
+        assert r.status_code == 200
+        ids.add(r.json()["session_id"])
+    assert len(ids) == 20, f"Expected 20 unique session IDs, got {len(ids)}"
+
+
+def test_isolated_sessions_independent_state():
+    """Two sessions running different tasks have completely independent state."""
+    r1 = client.post("/reset?task_id=basic_threat_detection")
+    r2 = client.post("/reset?task_id=context_aware_policy")
+    sid1 = r1.json()["session_id"]
+    sid2 = r2.json()["session_id"]
+    pid1 = r1.json()["prompt_id"]
+    pid2 = r2.json()["prompt_id"]
+    assert sid1 != sid2
+
+    # Step on session 1
+    s1 = client.post(
+        f"/step?session_id={sid1}",
+        json={"prompt_id": pid1, "action_type": "allow", "reason": "test"},
+    )
+    assert s1.status_code == 200
+
+    # Check state of each session independently
+    state1 = client.get(f"/state?session_id={sid1}").json()
+    state2 = client.get(f"/state?session_id={sid2}").json()
+    assert state1["task_id"] == "basic_threat_detection"
+    assert state2["task_id"] == "context_aware_policy"
+    assert state1["current_prompt_index"] == 1  # one step taken
+    assert state2["current_prompt_index"] == 0  # no steps yet
+
+
+def test_step_invalid_session_id_returns_404():
+    r = client.post(
+        "/step?session_id=00000000-0000-0000-0000-000000000000",
+        json={"prompt_id": "any", "action_type": "allow", "reason": "test"},
+    )
+    assert r.status_code == 404
+
+
+def test_delete_session():
+    r = client.post("/reset?task_id=basic_threat_detection")
+    sid = r.json()["session_id"]
+    del_r = client.delete(f"/sessions/{sid}")
+    assert del_r.status_code == 200
+    # Subsequent step should 404
+    r2 = client.post(
+        f"/step?session_id={sid}",
+        json={"prompt_id": "any", "action_type": "allow", "reason": "test"},
+    )
+    assert r2.status_code == 404
+
+
+def test_sessions_endpoint_lists_active():
+    r = client.post("/reset?task_id=basic_threat_detection")
+    sid = r.json()["session_id"]
+    sessions_r = client.get("/sessions")
+    assert sessions_r.status_code == 200
+    data = sessions_r.json()
+    session_ids = [s["session_id"] for s in data["sessions"]]
+    assert sid in session_ids

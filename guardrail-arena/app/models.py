@@ -16,6 +16,7 @@ class Observation(BaseModel):
     turn_number: int
     prompts_remaining: int
     episode_score_so_far: float
+    episode_difficulty: float = 0.0
 
 
 class Action(BaseModel):
@@ -58,6 +59,8 @@ class PromptLabel(BaseModel):
     variations: list[str] = []
     # True for all turns in the recovery-from-over-blocking conversation (Task 3)
     is_recovery_conversation: bool = False
+    # Source dataset for this prompt (e.g. "wildguard", "harmbench", "original")
+    source: Optional[str] = None
 
 
 class TaskInfo(BaseModel):

@@ -57,9 +57,9 @@ def test_reset_query_param_invalid_task_returns_422():
 def test_reset_no_body_defaults_to_task1():
     r = client.post("/reset")
     assert r.status_code == 200
-    # Default task is basic_threat_detection — prompts_remaining should be 83 (84 total, first served)
+    # Default task is basic_threat_detection — prompts_remaining should be 143 (144 total, first served)
     obs = r.json()
-    assert obs["prompts_remaining"] == 83
+    assert obs["prompts_remaining"] == 143
 
 
 def test_reset_empty_task_id_returns_422():
@@ -200,7 +200,7 @@ def test_step_done_true_on_last_step_task1():
         steps += 1
         if not done:
             pid = data["observation"]["prompt_id"]
-    assert steps == 84
+    assert steps == 144
     assert data["observation"] is None
 
 
@@ -318,3 +318,86 @@ def test_leaderboard_structure():
 def test_health_still_alive_after_all_tests():
     r = client.get("/health")
     assert r.status_code == 200
+
+
+# ── Item 25: Leaderboard persistence ─────────────────────────────────────────
+
+def test_leaderboard_agent_name_appears():
+    """Passing agent_name to /grader should record the name on the leaderboard."""
+    from app.main import _load_leaderboard, _save_leaderboard, _leaderboard
+    # Run a full task1 episode
+    r = client.post("/reset?task_id=basic_threat_detection")
+    assert r.status_code == 200
+    obs = r.json()
+    done = False
+    while not done:
+        r = client.post("/step", json={"prompt_id": obs["prompt_id"], "action_type": "allow", "reason": "test"})
+        data = r.json()
+        done = data["done"]
+        if not done:
+            obs = data["observation"]
+    r = client.get("/grader?agent_name=PersistenceTestAgent")
+    assert r.status_code == 200
+    r2 = client.get("/leaderboard")
+    lb = r2.json()["leaderboard"]["basic_threat_detection"]
+    agents = [e.get("agent", "") for e in lb]
+    assert "PersistenceTestAgent" in agents
+
+
+def test_leaderboard_persistence_save_load():
+    """_save_leaderboard / _load_leaderboard round-trip."""
+    import os
+    from app.main import _save_leaderboard, _load_leaderboard, _LEADERBOARD_PATH
+    test_entry = {"agent": "RoundTripAgent", "score": 0.999, "timestamp": "2025-01-01T00:00:00Z"}
+    test_lb = {
+        "basic_threat_detection": [test_entry],
+        "context_aware_policy": [],
+        "multiturn_adversarial": [],
+    }
+    _save_leaderboard(test_lb)
+    loaded = _load_leaderboard()
+    agents = [e.get("agent", "") for e in loaded["basic_threat_detection"]]
+    assert "RoundTripAgent" in agents
+    # Cleanup
+    if os.path.exists(_LEADERBOARD_PATH):
+        os.remove(_LEADERBOARD_PATH)
+
+
+# ── Item 28: /rollout endpoint ───────────────────────────────────────────────
+
+def test_rollout_returns_trajectory_and_score():
+    """POST /rollout with task_id and actions should return a trajectory and grader_score."""
+    actions = [{"action_type": "allow", "reason": "test"}] * 144
+    r = client.post("/rollout", json={"task_id": "basic_threat_detection", "actions": actions})
+    assert r.status_code == 200
+    data = r.json()
+    assert "grader_score" in data
+    assert "trajectory" in data
+    assert len(data["trajectory"]) == 144
+    assert 0.0 <= data["grader_score"] <= 1.0
+
+
+def test_rollout_invalid_task_returns_422():
+    r = client.post("/rollout", json={"task_id": "fake_task", "actions": []})
+    assert r.status_code == 422
+
+
+# ── Item 29: Stress test (documents single-session limitation) ────────────────
+
+def test_concurrent_resets_do_not_crash():
+    """
+    20 sequential /reset calls must all return 200.
+    NOTE: Guardrail Arena uses a single shared session. Concurrent resets overwrite each other's state.
+    This test verifies the server doesn't crash under rapid sequential resets — it does NOT test
+    concurrent isolation. For multi-agent evaluation, run separate server instances per agent.
+    """
+    for i in range(20):
+        r = client.post("/reset?task_id=basic_threat_detection")
+        assert r.status_code == 200, f"Reset {i} failed with {r.status_code}"
+
+    # After rapid resets, a clean episode should still complete correctly
+    r = client.post("/reset?task_id=basic_threat_detection")
+    assert r.status_code == 200
+    obs = r.json()
+    r2 = client.post("/step", json={"prompt_id": obs["prompt_id"], "action_type": "allow", "reason": "test"})
+    assert r2.status_code == 200

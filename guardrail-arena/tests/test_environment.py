@@ -25,7 +25,7 @@ def test_reset_returns_valid_observation_task1():
     assert obs.user_prompt
     assert obs.application_context == "general_assistant"
     assert obs.turn_number == 1
-    assert obs.prompts_remaining == 83  # 84 total, first one served
+    assert obs.prompts_remaining == 143  # 144 total, first one served
     assert obs.episode_score_so_far == 0.0
 
 
@@ -34,7 +34,7 @@ def test_reset_returns_valid_observation_task2():
     obs = env.reset("context_aware_policy")
     assert isinstance(obs, Observation)
     assert obs.application_context in ("children_education", "creative_writing", "general_assistant")
-    assert obs.prompts_remaining == 94  # 95 total, first one served
+    assert obs.prompts_remaining == 119  # 120 total, first one served
 
 
 def test_reset_returns_valid_observation_task3():
@@ -175,7 +175,7 @@ def test_task1_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 84
+    assert steps == 144
     assert env.is_done()
 
 
@@ -190,7 +190,7 @@ def test_task2_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 95
+    assert steps == 120
     assert env.is_done()
 
 
@@ -228,8 +228,8 @@ def test_task3_conversation_done_signal():
             from app.tasks.task_config import get_task
             task = get_task("multiturn_adversarial")
             obs = env._make_observation()
-    # Should have one signal per conversation (19 total: 5 original + 11 expanded + 3 new)
-    assert len(conversation_done_signals) == 21
+    # Should have one signal per conversation (33 total: 5 original + 19 expanded flat + 9 branching)
+    assert len(conversation_done_signals) == 33
 
 
 def test_grader_score_is_deterministic():
@@ -453,3 +453,157 @@ def test_task3_branching_catch_vs_miss():
         "Expected branch_caught and branch_missed to produce different next prompts, "
         f"but both returned prompt_id={caught_next_prompt_id}"
     )
+
+
+# ── Item 23: Recovery conversation over-block penalty ─────────────────────────
+
+def test_recovery_conversation_over_block_penalty():
+    """Over-blocking >2 turns in a recovery conversation lowers the grader score."""
+    from app.tasks.task_config import get_task
+    task = get_task("multiturn_adversarial")
+    recovery_entries = [e for e in task.prompts if e.label.is_recovery_conversation]
+    assert len(recovery_entries) >= 3, "Need at least 3 recovery turns to test penalty"
+
+    env_ok = GuardrailEnvironment()
+    obs = env_ok.reset("multiturn_adversarial")
+    recovery_ids = {e.label.prompt_id for e in recovery_entries}
+    recovery_over_block_count = 0
+    while not env_ok.is_done():
+        # Over-block first 2 recovery turns only (should NOT penalize)
+        if obs.prompt_id in recovery_ids and recovery_over_block_count < 2:
+            action_type = "refuse"
+            recovery_over_block_count += 1
+        else:
+            action_type = "allow"
+        next_obs, _, done, _ = env_ok.step(make_action(action_type, obs.prompt_id))
+        if not done:
+            obs = next_obs
+    score_ok = env_ok.get_grader_score()
+
+    env_bad = GuardrailEnvironment()
+    obs = env_bad.reset("multiturn_adversarial")
+    recovery_over_block_count = 0
+    while not env_bad.is_done():
+        # Over-block first 4 recovery turns (should penalize — >2)
+        if obs.prompt_id in recovery_ids and recovery_over_block_count < 4:
+            action_type = "refuse"
+            recovery_over_block_count += 1
+        else:
+            action_type = "allow"
+        next_obs, _, done, _ = env_bad.step(make_action(action_type, obs.prompt_id))
+        if not done:
+            obs = next_obs
+    score_bad = env_bad.get_grader_score()
+
+    assert score_ok > score_bad, (
+        f"Expected over-blocking >2 recovery turns to lower score: ok={score_ok}, bad={score_bad}"
+    )
+
+
+# ── Item 26: Multi-crossing test ──────────────────────────────────────────────
+
+def test_multi_crossing_second_crossing_matters():
+    """Catching both crossings should score differently from catching only first or neither."""
+    from app.tasks.task_config import get_task
+    task = get_task("multiturn_adversarial")
+
+    # Second crossing entries live in branch_specs["{id}:2"].caught (injected dynamically)
+    multi_crossing_specs = {k: v for k, v in task.branch_specs.items() if k.endswith(":2")}
+    if not multi_crossing_specs:
+        pytest.skip("No multi-crossing conversations found")
+
+    # Collect second crossing prompt ids from all ":2" specs
+    second_crossing_ids: set[str] = set()
+    for spec in multi_crossing_specs.values():
+        for entry in spec["caught"]:
+            second_crossing_ids.add(entry.label.prompt_id)
+
+    # First crossing prompt ids (conv ids that have a :2 spec)
+    base_conv_ids = {k.split(":")[0] for k in multi_crossing_specs}
+    first_crossing_ids = {
+        e.label.prompt_id for e in task.prompts
+        if e.is_crossing and e.conversation_id in base_conv_ids
+    }
+
+    def run_with_strategy(block_first: bool, block_second: bool) -> float:
+        env = GuardrailEnvironment()
+        obs = env.reset("multiturn_adversarial")
+        while not env.is_done():
+            if obs.prompt_id in first_crossing_ids:
+                action_type = "refuse" if block_first else "allow"
+            elif obs.prompt_id in second_crossing_ids:
+                action_type = "refuse" if block_second else "allow"
+            else:
+                action_type = "allow"
+            next_obs, _, done, _ = env.step(make_action(action_type, obs.prompt_id))
+            if not done:
+                obs = next_obs
+        return env.get_grader_score()
+
+    score_both_caught = run_with_strategy(True, True)
+    score_first_only = run_with_strategy(True, False)
+    score_neither = run_with_strategy(False, False)
+
+    # Catching both should score >= catching only first
+    assert score_both_caught >= score_first_only, (
+        f"Catching both crossings ({score_both_caught}) should score >= first only ({score_first_only})"
+    )
+    # Catching at least first should score better than catching neither
+    assert score_first_only > score_neither, (
+        f"Catching first crossing ({score_first_only}) should score > neither ({score_neither})"
+    )
+
+
+# ── Item 27: user_risk_score_delta test ──────────────────────────────────────
+
+def test_risk_score_delta_negative_on_missed_attack():
+    """Reward breakdown must include user_risk_score_delta, negative after missing an attack."""
+    from app.tasks.task_config import get_task
+    task = get_task("basic_threat_detection")
+    env = GuardrailEnvironment()
+    obs = env.reset("basic_threat_detection")
+
+    # Find an attack prompt
+    attack_entry = next(
+        (e for e in task.prompts if e.label.category != "safe"), None
+    )
+    assert attack_entry is not None
+
+    # Step through to find and allow an attack
+    while not env.is_done():
+        if obs.prompt_id == attack_entry.label.prompt_id:
+            _, reward, _, _ = env.step(make_action("allow", obs.prompt_id))
+            assert "user_risk_score_delta" in reward.breakdown
+            assert reward.breakdown["user_risk_score_delta"] < 0, (
+                f"Expected negative delta after missed attack, got {reward.breakdown['user_risk_score_delta']}"
+            )
+            return
+        next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+        if not done:
+            obs = next_obs
+
+    pytest.fail("Attack entry not encountered during episode")
+
+
+def test_risk_score_delta_positive_on_correct_block():
+    """user_risk_score_delta should be positive after correctly blocking an attack."""
+    from app.tasks.task_config import get_task
+    task = get_task("basic_threat_detection")
+    env = GuardrailEnvironment()
+    obs = env.reset("basic_threat_detection")
+
+    attack_entry = next(
+        (e for e in task.prompts if e.label.category != "safe"), None
+    )
+    assert attack_entry is not None
+
+    while not env.is_done():
+        if obs.prompt_id == attack_entry.label.prompt_id:
+            _, reward, _, _ = env.step(make_action("refuse", obs.prompt_id))
+            assert reward.breakdown["user_risk_score_delta"] > 0
+            return
+        next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+        if not done:
+            obs = next_obs
+
+    pytest.fail("Attack entry not encountered")

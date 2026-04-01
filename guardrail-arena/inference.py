@@ -320,6 +320,19 @@ def main() -> dict:
         elif task_id == "multiturn_adversarial":
             print_task3_analysis(results)
 
+        # Confusion matrix — reuse from baseline.py
+        try:
+            import importlib.util, os as _os
+            _bpath = _os.path.join(_os.path.dirname(__file__), "baseline.py")
+            _spec = importlib.util.spec_from_file_location("baseline", _bpath)
+            _bmod = importlib.util.module_from_spec(_spec)
+            _spec.loader.exec_module(_bmod)
+            if hasattr(_bmod, "print_confusion_matrix"):
+                print()
+                _bmod.print_confusion_matrix(results)
+        except Exception:
+            pass
+
     print(f"\n{'='*50}")
     print("=== FINAL SCORES ===")
     for task_id, score in scores.items():

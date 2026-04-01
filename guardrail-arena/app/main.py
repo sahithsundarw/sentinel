@@ -12,13 +12,30 @@ Endpoints:
 """
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ValidationError
-from typing import Optional
+from typing import Optional, Literal
 from datetime import datetime, timezone
+import threading
+import logging
+import os
+import json
+from logging.handlers import RotatingFileHandler
 
 from app.environment import GuardrailEnvironment
 from app.models import Action, TaskInfo
 from app.grader import grade_task1
+
+# Rotating step audit log
+os.makedirs("logs", exist_ok=True)
+_step_logger = logging.getLogger("step_audit")
+_step_logger.setLevel(logging.INFO)
+_step_handler = RotatingFileHandler("logs/step_audit.log", maxBytes=10 * 1024 * 1024, backupCount=3)
+_step_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+_step_logger.addHandler(_step_handler)
+
+_LEADERBOARD_PATH = "leaderboard.json"
+_leaderboard_lock = threading.Lock()
 
 _HTML_LANDING_PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -55,9 +72,9 @@ a:hover { text-decoration: underline; }
 <h2>Tasks</h2>
 <table>
 <tr><th>Task ID</th><th>Difficulty</th><th>Prompts</th><th>All-Allow Baseline</th></tr>
-<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>76</td><td>0.5789</td></tr>
-<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>87</td><td>0.1852</td></tr>
-<tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>76 turns / 16 convos</td><td>0.4079</td></tr>
+<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>99</td><td>0.5595</td></tr>
+<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>100</td><td>0.1695</td></tr>
+<tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>173 turns / 28 convos</td><td>0.4000</td></tr>
 </table>
 
 <h2>Quick Start</h2>
@@ -105,14 +122,15 @@ app = FastAPI(
     version="1.0.0",
 )
 
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
 # Single-session design: one active episode at a time.
 # Concurrent /reset calls from multiple clients will overwrite each other's state.
 # For evaluation, run one task at a time sequentially (as all standard harnesses do).
 env = GuardrailEnvironment()
 
 # Pre-seeded with named baselines so judges immediately see a score distribution.
-# Entries are sorted descending; live runs from /grader will displace them.
-_leaderboard: dict[str, list[dict]] = {
+_BASELINE_ENTRIES: dict[str, list[dict]] = {
     "basic_threat_detection": [
         {"agent": "all-allow",   "score": 0.5595, "timestamp": "2025-01-01T00:00:00Z"},
         {"agent": "heuristic",   "score": 0.7381, "timestamp": "2025-01-01T00:00:00Z"},
@@ -129,6 +147,57 @@ _leaderboard: dict[str, list[dict]] = {
         {"agent": "all-refuse",  "score": 0.1303, "timestamp": "2025-01-01T00:00:00Z"},
     ],
 }
+
+def _load_leaderboard() -> dict[str, list[dict]]:
+    """Load leaderboard from disk, merging with baseline entries."""
+    data = {k: list(v) for k, v in _BASELINE_ENTRIES.items()}
+    if os.path.exists(_LEADERBOARD_PATH):
+        try:
+            with open(_LEADERBOARD_PATH, "r") as f:
+                saved = json.load(f)
+            for task_id, entries in saved.items():
+                if task_id in data:
+                    data[task_id].extend(entries)
+                    data[task_id].sort(key=lambda x: x["score"], reverse=True)
+                    data[task_id] = data[task_id][:10]
+        except Exception:
+            pass
+    return data
+
+def _save_leaderboard(leaderboard: dict[str, list[dict]]) -> None:
+    """Persist live (non-baseline) entries to disk."""
+    baseline_agents = {"all-allow", "all-refuse", "heuristic"}
+    to_save: dict[str, list[dict]] = {}
+    for task_id, entries in leaderboard.items():
+        live = [e for e in entries if e.get("agent", "") not in baseline_agents]
+        if live:
+            to_save[task_id] = live
+    try:
+        with open(_LEADERBOARD_PATH, "w") as f:
+            json.dump(to_save, f)
+    except Exception:
+        pass
+
+_leaderboard: dict[str, list[dict]] = _load_leaderboard()
+
+_computed_baselines: dict[str, float] = {}
+
+
+@app.on_event("startup")
+async def _compute_baselines() -> None:
+    """Compute all-allow baseline scores at startup and cache them."""
+    from app.tasks.task_config import get_task
+    for task_id in ("basic_threat_detection", "context_aware_policy", "multiturn_adversarial"):
+        try:
+            b_env = GuardrailEnvironment()
+            obs = b_env.reset(task_id)
+            while not b_env.is_done():
+                action = Action(prompt_id=obs.prompt_id, action_type="allow", reason="baseline")
+                next_obs, _, done, _ = b_env.step(action)
+                obs = next_obs if not done else obs
+            _computed_baselines[task_id] = b_env.get_grader_score()
+        except Exception:
+            pass
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -212,12 +281,21 @@ async def step(action: Action):
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    return {
+    result = {
         "observation": observation.model_dump() if observation else None,
         "reward": reward.model_dump(),
         "done": done,
         "info": info,
     }
+    _step_logger.info(
+        "task=%s prompt_id=%s action=%s reward=%.4f outcome=%s",
+        env.current_task_id or "unknown",
+        action.prompt_id,
+        action.action_type,
+        reward.score,
+        reward.breakdown.get("outcome", ""),
+    )
+    return result
 
 
 @app.get("/state")
@@ -238,38 +316,41 @@ async def tasks():
 
 @app.get("/baseline")
 async def baseline():
-    """
-    Return pre-computed baseline scores. Does NOT make live LLM calls.
-    Scores are hardcoded from when baseline.py was last run.
-    This ensures the endpoint always responds even without OPENAI_API_KEY.
-    Run baseline.py locally to regenerate scores.
-    """
+    """Return baseline scores. all_allow is computed live at startup; others are pre-measured."""
     return {
-        "status": "cached",
-        "note": "Run baseline.py locally with OPENAI_API_KEY to regenerate scores",
+        "status": "ok",
         "baselines": {
-            "all_allow":  {"basic_threat_detection": 0.5595, "context_aware_policy": 0.1695, "multiturn_adversarial": 0.4000},
+            "all_allow": _computed_baselines if _computed_baselines else {
+                "basic_threat_detection": 0.5595,
+                "context_aware_policy": 0.1695,
+                "multiturn_adversarial": 0.4000,
+            },
             "all_refuse": {"basic_threat_detection": 0.4405, "context_aware_policy": 0.3686, "multiturn_adversarial": 0.1303},
             "heuristic":  {"basic_threat_detection": 0.7381, "context_aware_policy": 0.3284, "multiturn_adversarial": 0.2941},
         },
-        "note": "Heuristic = keyword-based classifier, no LLM. Run baseline.py --heuristic to reproduce.",
+        "note": "all_allow computed live at server startup. heuristic/all_refuse are pre-measured.",
     }
 
 
 @app.get("/grader")
-async def grader():
-    """Return grader score for the current completed episode."""
+async def grader(agent_name: Optional[str] = Query(default=None)):
+    """Return grader score for the current completed episode. Optionally pass agent_name to record on leaderboard."""
     if not env.is_done():
         raise HTTPException(status_code=400, detail="Episode not complete. Finish all steps first.")
     score = env.get_grader_score()
     task_id = env.current_task_id
-    if task_id in _leaderboard:
-        _leaderboard[task_id].append({
-            "score": score,
-            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        })
-        _leaderboard[task_id].sort(key=lambda x: x["score"], reverse=True)
-        _leaderboard[task_id] = _leaderboard[task_id][:10]
+    with _leaderboard_lock:
+        if task_id in _leaderboard:
+            entry = {
+                "score": score,
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+            if agent_name:
+                entry["agent"] = agent_name
+            _leaderboard[task_id].append(entry)
+            _leaderboard[task_id].sort(key=lambda x: x["score"], reverse=True)
+            _leaderboard[task_id] = _leaderboard[task_id][:10]
+            _save_leaderboard(_leaderboard)
     return {"task_id": task_id, "score": score}
 
 
@@ -322,3 +403,139 @@ async def demo():
             f"Demonstrates reward signal: correct blocks, missed attacks, and over-blocks."
         ),
     }
+
+
+# ── /submit ───────────────────────────────────────────────────────────────────
+
+_VALID_TASK_IDS = {"basic_threat_detection", "context_aware_policy", "multiturn_adversarial"}
+
+
+class SubmitRequest(BaseModel):
+    agent_name: str
+    score: float
+    task_id: str
+
+
+@app.post("/submit")
+async def submit(req: SubmitRequest):
+    """Submit a score to the leaderboard without running a live episode."""
+    if req.task_id not in _VALID_TASK_IDS:
+        raise HTTPException(status_code=422, detail=f"Unknown task_id '{req.task_id}'")
+    score = max(0.0, min(1.0, req.score))
+    entry = {
+        "agent": req.agent_name,
+        "score": score,
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    with _leaderboard_lock:
+        _leaderboard[req.task_id].append(entry)
+        _leaderboard[req.task_id].sort(key=lambda x: x["score"], reverse=True)
+        _leaderboard[req.task_id] = _leaderboard[req.task_id][:10]
+        _save_leaderboard(_leaderboard)
+    return {"status": "ok", "task_id": req.task_id, "score": score}
+
+
+# ── /rollout ──────────────────────────────────────────────────────────────────
+
+class RolloutActionRequest(BaseModel):
+    action_type: Literal["allow", "refuse", "modify", "escalate"]
+    reason: str = ""
+    modified_prompt: Optional[str] = None
+
+
+class RolloutRequest(BaseModel):
+    task_id: str
+    actions: list[RolloutActionRequest]
+
+
+@app.post("/rollout")
+async def rollout(req: RolloutRequest):
+    """Run a complete episode with pre-supplied actions. Returns trajectory and grader score."""
+    if req.task_id not in _VALID_TASK_IDS:
+        raise HTTPException(status_code=422, detail=f"Unknown task_id '{req.task_id}'")
+    roll_env = GuardrailEnvironment()
+    obs = roll_env.reset(req.task_id)
+    trajectory = []
+    action_iter = iter(req.actions)
+
+    while not roll_env.is_done():
+        try:
+            act_req = next(action_iter)
+        except StopIteration:
+            # Pad remaining steps with "allow"
+            act_req = RolloutActionRequest(action_type="allow", reason="auto-pad")
+        action = Action(
+            prompt_id=obs.prompt_id,
+            action_type=act_req.action_type,
+            reason=act_req.reason,
+            modified_prompt=act_req.modified_prompt,
+        )
+        next_obs, reward, done, info = roll_env.step(action)
+        trajectory.append({
+            "prompt_id": action.prompt_id,
+            "user_prompt": obs.user_prompt,
+            "action_type": act_req.action_type,
+            "reward": reward.score,
+            "outcome": reward.breakdown.get("outcome", ""),
+            "correct_action": info.get("ground_truth_action", ""),
+        })
+        obs = next_obs if not done else obs
+
+    grader_score = roll_env.get_grader_score()
+    return {"task_id": req.task_id, "grader_score": grader_score, "trajectory": trajectory}
+
+
+# ── /replay ───────────────────────────────────────────────────────────────────
+
+class ReplayActionRequest(BaseModel):
+    prompt_id: str
+    action_type: Literal["allow", "refuse", "modify", "escalate"]
+    reason: str = ""
+    modified_prompt: Optional[str] = None
+
+
+class ReplayRequest(BaseModel):
+    task_id: str
+    actions: list[ReplayActionRequest]
+
+
+@app.post("/replay")
+async def replay(req: ReplayRequest):
+    """Replay a sequence of prompt_id→action pairs. Validates all prompt_ids exist, then scores."""
+    if req.task_id not in _VALID_TASK_IDS:
+        raise HTTPException(status_code=422, detail=f"Unknown task_id '{req.task_id}'")
+    from app.tasks.task_config import get_task
+    task = get_task(req.task_id)
+    valid_ids = {e.label.prompt_id for e in task.prompts}
+    for act in req.actions:
+        if act.prompt_id not in valid_ids:
+            raise HTTPException(status_code=422, detail=f"Unknown prompt_id '{act.prompt_id}'")
+
+    replay_env = GuardrailEnvironment()
+    obs = replay_env.reset(req.task_id)
+    trajectory = []
+    action_map = {a.prompt_id: a for a in req.actions}
+
+    while not replay_env.is_done():
+        pid = obs.prompt_id
+        if pid in action_map:
+            act_req = action_map[pid]
+            action = Action(
+                prompt_id=pid,
+                action_type=act_req.action_type,
+                reason=act_req.reason,
+                modified_prompt=act_req.modified_prompt,
+            )
+        else:
+            action = Action(prompt_id=pid, action_type="allow", reason="no action provided")
+        next_obs, reward, done, info = replay_env.step(action)
+        trajectory.append({
+            "prompt_id": pid,
+            "action_type": action.action_type,
+            "reward": reward.score,
+            "outcome": reward.breakdown.get("outcome", ""),
+        })
+        obs = next_obs if not done else obs
+
+    grader_score = replay_env.get_grader_score()
+    return {"task_id": req.task_id, "grader_score": grader_score, "trajectory": trajectory}

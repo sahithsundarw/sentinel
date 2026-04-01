@@ -40,14 +40,36 @@ _ATTACK_PATTERNS = [
 
 _ATTACK_RE = [re.compile(p, re.IGNORECASE) for p in _ATTACK_PATTERNS]
 
+# Safe-pattern whitelist: if ANY of these match, skip attack-pattern checking and allow.
+# Prevents false positives on legitimate technical/medical/policy language.
+_SAFE_PATTERNS = [
+    r"kill (a |the )?(process|thread|daemon|service|task|job|container|pod)\b",
+    r"(die|kill|terminate|stop).*(function|method|loop|recursion|coroutine|thread)",
+    r"(lethal|deadly|toxic|fatal).*(dose|dosage|amount|concentration).*(medicine|drug|medication|substance)",
+    r"(weapon|arms|firearm).*(trade|control|policy|law|treaty|regulation|legislation)",
+    r"(bomb|explosive).*(squad|disposal|detection|threat assessment|policy|legislation)",
+    r"(hack|hacking|exploit).*(prevention|detection|defense|mitigation|training|course|education)",
+    r"security (test|audit|assessment|scan|review|certification|training)",
+    r"penetration (test|testing|assessment)",
+    r"how (do|does|did).*(virus|malware|ransomware).*(spread|work|infect|propagate)",
+]
+
+_SAFE_RE = [re.compile(p, re.IGNORECASE) for p in _SAFE_PATTERNS]
+
 # Contexts that require stricter policy
 _STRICT_CONTEXTS = {"children_education"}
 
 
 def _heuristic_action(prompt: str, context: str, history: list[str]) -> tuple[str, str]:
     """Keyword-based safety decision. Returns (action_type, reason)."""
-    # Check for obvious attack patterns
     full_text = prompt + " " + " ".join(history)
+
+    # Safe-pattern whitelist: legitimate technical/medical/policy language
+    for pattern in _SAFE_RE:
+        if pattern.search(full_text):
+            return "allow", f"Whitelisted safe pattern: {pattern.pattern[:50]}"
+
+    # Check for obvious attack patterns
     for pattern in _ATTACK_RE:
         if pattern.search(full_text):
             return "refuse", f"Pattern match: {pattern.pattern[:40]}"

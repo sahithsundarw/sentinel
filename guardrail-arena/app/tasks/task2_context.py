@@ -12,6 +12,8 @@ and general_assistant to create realistic context-switching.
 """
 from app.models import PromptLabel
 
+__all__ = ["TASK2_PROMPTS"]
+
 # Each entry is (label, application_context)
 
 TASK2_PROMPTS: list[tuple[PromptLabel, str]] = [

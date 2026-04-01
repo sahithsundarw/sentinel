@@ -6,6 +6,8 @@ All labels are hardcoded and deterministic.
 """
 from app.models import PromptLabel
 
+__all__ = ["TASK1_LABELS", "TASK1_APPLICATION_CONTEXT"]
+
 # ── Safe prompts ─────────────────────────────────────────────────────────────
 TASK1_LABELS: list[PromptLabel] = [
     PromptLabel(

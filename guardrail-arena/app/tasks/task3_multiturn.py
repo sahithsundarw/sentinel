@@ -14,6 +14,8 @@ Data structure:
 from dataclasses import dataclass
 from app.models import PromptLabel
 
+__all__ = ["ConversationTurn", "BranchingConversation", "STRUCTURED_CONVERSATIONS", "TASK3_APPLICATION_CONTEXT"]
+
 
 @dataclass
 class ConversationTurn:
@@ -23,6 +25,7 @@ class ConversationTurn:
     turn_number: int
     is_last_turn: bool
     assistant_response: str = ""
+    is_second_crossing: bool = False  # True if this turn is a nested crossing inside branch_caught
 
 
 @dataclass

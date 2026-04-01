@@ -1,0 +1,55 @@
+# Changelog
+
+## [1.2.0] — 2026-04-01
+
+### Added
+- **15 new Task 1 attacks** (UUIDs f0000230–f0000244): morse code encoding, pig latin substitution, unicode homoglyph obfuscation, authority impersonation, and novel roleplay vectors (ancestor AI, opposite-world, training-data framing)
+- **5 new Task 2 risk-dependent prompts** (UUIDs aa222222-...-0059–0063): high-value account changes that should be escalated for low-trust users
+- **5 new Task 3 branching conversations**: Slow Trust Build (CONV_V), False Authority Escalation (CONV_W), Emotional Manipulation (CONV_X), Loaded Context Injection (CONV_Y), Second Recovery Conversation (CONV_Z)
+- **2 multi-crossing conversations** (CONV_AA, CONV_BB): second decision point inside `branch_caught` path, tracked via `{conv_id}:2` branch_specs entries
+- **`episode_difficulty`** field in Observation: rolling `cumulative_score / max_possible_so_far` signal
+- **`attack_confidence`** in step info dict: model-estimated attack probability (post-action, non-cheatable)
+- **`user_risk_score_delta`** in reward breakdown: signed delta showing how risk score changed each step
+- **Per-turn severity escalation** in Task 3: attack severity scales with turn position, reflecting compounding adversarial pressure
+- **CORS middleware**: all origins allowed
+- **`/rollout` endpoint**: run a full episode with pre-supplied actions, returns trajectory + grader score
+- **`/submit` endpoint**: record a pre-computed score on the leaderboard
+- **`/replay` endpoint**: replay prompt_id→action pairs, validates all IDs, returns per-step breakdown
+- **`agent_name` param on `/grader`**: named leaderboard entries
+- **Persistent leaderboard**: saved to `leaderboard.json` across restarts via `threading.Lock()`
+- **Step audit logging**: rotating log at `logs/step_audit.log` (10 MB, 3 backups)
+- **Computed baselines at startup**: `all_allow` score computed live on server start, served at `/baseline`
+- **Data validation at task load**: checks duplicate IDs, severity range, valid action values, required_removals, per-conversation uniqueness
+- `__all__` exports in all 6 task files
+- Full type annotations in `task_config.py` including `BranchSpec` TypedDict
+- `tests/conftest.py` with shared `client` and `fresh_env` fixtures
+- 10 new tests: recovery over-block penalty, modify quality tiers, leaderboard persistence, multi-crossing, risk_score_delta, rollout, stress test
+- `AGENTS.md`: complete agent-building guide
+- `DATASET.md`: attack taxonomy, feature vocabulary, severity guidelines, construction methodology
+
+### Changed
+- Task 1: 84 → 99 prompts. Task 2: 95 → 100 prompts. Task 3: 26 → 28 conversations, 120 → 173 turns
+- Updated all hardcoded count assertions in tests
+- Fixed HTML landing page with current prompt counts and baseline scores
+- Updated `task_config.py` task descriptions with accurate counts
+
+## [1.1.0] — 2025-12-01
+
+### Added
+- Task 2 expanded dataset (58 additional prompts across three contexts)
+- Task 3 expanded dataset (14 conversations, CONV_F through CONV_U)
+- CONV_Q, CONV_R, CONV_U dynamic branching conversations
+- `is_recovery_conversation` flag; grader penalty for >2 over-blocks on CONV_S
+- Dynamic `user_risk_score` per conversation in Task 3 (previously single float)
+- `seed` parameter on `/reset` for reproducible prompt ordering and variation substitution
+- Variation surface forms for each attack prompt
+
+## [1.0.0] — 2025-11-01
+
+### Added
+- Initial release: 3 tasks (basic_threat_detection, context_aware_policy, multiturn_adversarial)
+- FastAPI server with OpenEnv-spec endpoints: `/reset`, `/step`, `/state`, `/tasks`, `/grader`, `/leaderboard`, `/baseline`, `/demo`
+- Dynamic `user_risk_score` with 1.5× missed-attack penalty multiplier
+- Asymmetric graders: missing attacks costs 2× more than over-blocking
+- Task 3 live branching at crossing points
+- HuggingFace Spaces deployment with Docker

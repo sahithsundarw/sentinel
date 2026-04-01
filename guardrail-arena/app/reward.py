@@ -12,6 +12,7 @@ def compute_step_reward(
     ground_truth: PromptLabel,
     application_context: str,
     user_risk_score: float = 0.5,
+    severity_override: float = None,
 ) -> tuple[float, dict]:
     """
     Compute reward for a single step.
@@ -76,7 +77,7 @@ def compute_step_reward(
 
     # ── Case 2: Prompt is an attack ──────────────────────────────────────────
     else:
-        severity = ground_truth.severity  # 0.1 to 1.0
+        severity = severity_override if severity_override is not None else ground_truth.severity
         attack_label = ground_truth.attack_type or "attack"
 
         if action_type == correct_action:

@@ -245,11 +245,11 @@ def _get_session_env(session_id: Optional[str]) -> GuardrailEnvironment:
 def _cleanup_stale_sessions() -> int:
     """Evict sessions idle for > _SESSION_TTL_SECONDS. Returns count evicted."""
     now = time.monotonic()
-    stale = [
-        sid for sid, entry in _SESSION_STORE.items()
-        if now - entry["last_activity"] > _SESSION_TTL_SECONDS
-    ]
     with _SESSION_STORE_LOCK:
+        stale = [
+            sid for sid, entry in _SESSION_STORE.items()
+            if now - entry["last_activity"] > _SESSION_TTL_SECONDS
+        ]
         for sid in stale:
             _SESSION_STORE.pop(sid, None)
     return len(stale)
@@ -322,7 +322,8 @@ def _save_leaderboard(leaderboard: dict[str, list[dict]]) -> None:
     baseline_agents = {"all-allow", "all-refuse", "heuristic"}
     to_save: dict[str, list[dict]] = {}
     for task_id, entries in leaderboard.items():
-        live = [e for e in entries if e.get("agent", "") not in baseline_agents]
+        # Only persist named entries that aren't baseline agents
+        live = [e for e in entries if e.get("agent") and e.get("agent", "") not in baseline_agents]
         if live:
             to_save[task_id] = live
     try:
@@ -404,10 +405,10 @@ async def reset(
     try:
         # Create an isolated session for this client.
         session_env, session_id = _create_session()
-        session_env.reset(task_id=resolved_task_id, seed=resolved_seed)
+        observation = session_env.reset(task_id=resolved_task_id, seed=resolved_seed)
 
         # Also update the global env so clients that don't use session_id continue to work.
-        observation = env.reset(task_id=resolved_task_id, seed=resolved_seed)
+        env.reset(task_id=resolved_task_id, seed=resolved_seed)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     result = observation.model_dump()
@@ -493,6 +494,7 @@ async def grader(
         raise HTTPException(status_code=400, detail="Episode not complete. Finish all steps first.")
     score = target_env.get_grader_score()
     task_id = target_env.current_task_id
+    snapshot = None
     with _leaderboard_lock:
         if task_id in _leaderboard:
             entry = {
@@ -504,7 +506,9 @@ async def grader(
             _leaderboard[task_id].append(entry)
             _leaderboard[task_id].sort(key=lambda x: x["score"], reverse=True)
             _leaderboard[task_id] = _leaderboard[task_id][:10]
-            _save_leaderboard(_leaderboard)
+            snapshot = dict(_leaderboard)
+    if snapshot is not None:
+        _save_leaderboard(snapshot)
     return {"task_id": task_id, "score": score}
 
 
@@ -552,14 +556,20 @@ async def leaderboard():
 @app.get("/demo")
 async def demo():
     """Run a pre-scripted 5-step demonstration episode. No API key needed."""
-    demo_env = GuardrailEnvironment()
-    obs = demo_env.reset("basic_threat_detection")
+    try:
+        demo_env = GuardrailEnvironment()
+        obs = demo_env.reset("basic_threat_detection")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Demo init failed: {e}")
     hardcoded_actions = ["allow", "allow", "refuse", "allow", "refuse"]
     trajectory = []
 
     for i, action_type in enumerate(hardcoded_actions):
         action = Action(prompt_id=obs.prompt_id, action_type=action_type, reason="demo")
-        next_obs, reward, done, info = demo_env.step(action)
+        try:
+            next_obs, reward, done, info = demo_env.step(action)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Demo step {i+1} failed: {e}")
         trajectory.append({
             "step": i + 1,
             "prompt": obs.user_prompt,
@@ -617,7 +627,8 @@ async def submit(req: SubmitRequest):
         _leaderboard[req.task_id].append(entry)
         _leaderboard[req.task_id].sort(key=lambda x: x["score"], reverse=True)
         _leaderboard[req.task_id] = _leaderboard[req.task_id][:10]
-        _save_leaderboard(_leaderboard)
+        snapshot = dict(_leaderboard)
+    _save_leaderboard(snapshot)
     return {"status": "ok", "task_id": req.task_id, "score": score}
 
 
@@ -656,7 +667,10 @@ async def rollout(req: RolloutRequest):
             reason=act_req.reason,
             modified_prompt=act_req.modified_prompt,
         )
-        next_obs, reward, done, info = roll_env.step(action)
+        try:
+            next_obs, reward, done, info = roll_env.step(action)
+        except (ValueError, RuntimeError) as e:
+            raise HTTPException(status_code=422, detail=str(e))
         trajectory.append({
             "prompt_id": action.prompt_id,
             "user_prompt": obs.user_prompt,
@@ -714,7 +728,10 @@ async def replay(req: ReplayRequest):
             )
         else:
             action = Action(prompt_id=pid, action_type="allow", reason="no action provided")
-        next_obs, reward, done, info = replay_env.step(action)
+        try:
+            next_obs, reward, done, info = replay_env.step(action)
+        except (ValueError, RuntimeError) as e:
+            raise HTTPException(status_code=422, detail=str(e))
         trajectory.append({
             "prompt_id": pid,
             "action_type": action.action_type,

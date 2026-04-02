@@ -25,7 +25,7 @@ def test_reset_returns_valid_observation_task1():
     assert obs.user_prompt
     assert obs.application_context == "general_assistant"
     assert obs.turn_number == 1
-    assert obs.prompts_remaining == 167  # 168 total, first one served
+    assert obs.prompts_remaining == 182  # 183 total, first one served
     assert obs.episode_score_so_far == 0.0
 
 
@@ -196,7 +196,7 @@ def test_task1_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 168
+    assert steps == 183
     assert env.is_done()
 
 

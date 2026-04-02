@@ -65,6 +65,10 @@ class PromptLabel(BaseModel):
     is_recovery_conversation: bool = False
     # Source dataset for this prompt (e.g. "wildguard", "harmbench", "original")
     source: Optional[str] = None
+    # Sequential consistency fields — used for Task 1 mini-sequence grading.
+    # Non-empty sequence_group ties 3 turns together (positions 1=safe, 2=safe, 3=attack).
+    sequence_group: str = ""
+    sequence_position: int = 0  # 1, 2, or 3; 0 means not part of a sequence
     # Trajectory metadata — populated by environment.py during step() recording.
     # These fields are NOT part of the static dataset; they are set per-episode.
     grader_conversation_id: str = ""   # populated from PromptEntry.conversation_id

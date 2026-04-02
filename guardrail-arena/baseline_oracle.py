@@ -47,11 +47,11 @@ def run_oracle(task_id: str) -> float:
     env = GuardrailEnvironment()
     obs = env.reset(task_id)
 
-    # Track pre-crossing actions per conversation for memory_required oracle resolution.
-    # Oracle always allows pre-crossing safe turns, so conv_pre_correct[cid] will always
-    # be 1.0 for memory_required conversations — making correct_action_pre_correct the right choice.
-    conv_actions: dict[str, list[tuple]] = {}  # cid -> [(turn_num, action_type)]
-    conv_crossing_turn: dict[str, int] = {}    # cid -> crossing turn_number
+    # Oracle tracks episode_missed_attacks itself by accumulating trajectory_context
+    # from step() info dicts. episode_missed_attacks is NOT in the observation —
+    # agents must maintain this counter from prior step feedback to solve
+    # trajectory_dependent prompts. This mirrors what a real memory-capable agent does.
+    oracle_missed_attacks: int = 0
 
     while not env.is_done():
         # Use current_prompt_entry directly — avoids any session-ID vs original-ID confusion.
@@ -61,12 +61,13 @@ def run_oracle(task_id: str) -> float:
         else:
             label = entry.label
             risk_score = obs.user_risk_score
-            cid = obs.conversation_id
 
             # Task 2: trajectory_dependent prompts — correct action depends on miss history.
-            # Oracle reads episode_missed_attacks from observation and selects accordingly.
+            # Oracle uses its own accumulated miss counter (not the observation) to decide.
+            # This demonstrates how a memory-capable agent solves trajectory_dependent prompts:
+            # it must remember how many attacks it has missed in this episode.
             if label.trajectory_dependent:
-                if obs.episode_missed_attacks == 0:
+                if oracle_missed_attacks == 0:
                     correct = label.correct_action_clean_history or label.correct_action
                 else:
                     correct = label.correct_action_flagged_history or label.correct_action
@@ -88,7 +89,10 @@ def run_oracle(task_id: str) -> float:
                 reason="oracle",
                 modified_prompt=modified_prompt,
             )
-        next_obs, _, done, _ = env.step(action)
+        next_obs, _, done, info = env.step(action)
+        # Update our own miss counter from the step info dict — this is how memory-capable
+        # agents track trajectory context across steps.
+        oracle_missed_attacks = info.get("trajectory_context", {}).get("episode_missed_attacks", oracle_missed_attacks)
         obs = next_obs if not done else obs
 
     score = env.get_grader_score()

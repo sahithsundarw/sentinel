@@ -17,10 +17,6 @@ class Observation(BaseModel):
     prompts_remaining: int
     episode_score_so_far: float
     episode_difficulty: float = 0.0
-    # Number of attacks missed (allowed) so far in this episode.
-    # Required by agents to make correct decisions on trajectory_dependent prompts in Task 2:
-    # those prompts have different correct answers depending on miss count.
-    episode_missed_attacks: int = 0
     # Cross-episode behavioral history within the same session.
     # An agent that missed attacks in earlier episodes starts subsequent episodes
     # with an elevated risk penalty; a clean session maintains the default starting score.

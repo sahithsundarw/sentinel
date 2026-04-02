@@ -285,10 +285,13 @@ class GuardrailEnvironment:
             # Feature 1: attack feature signals — empty for safe, non-empty for attacks.
             # Returned AFTER the agent commits its action so cannot be used to cheat.
             "attack_features": current_entry.label.attack_features,
-            # trajectory_context: episode-level history the agent needs to make correct
-            # decisions on Task 2 trajectory_dependent prompts. The correct action for those
-            # prompts depends on how many attacks have been missed this episode — a stateless
-            # classifier reading only the current prompt cannot know this.
+            # trajectory_context: cumulative episode-level history returned AFTER each step.
+            # Agents must accumulate this across steps to make correct decisions on
+            # trajectory_dependent prompts in Task 2. The correct action for those prompts
+            # depends on episode_missed_attacks — which is NOT in the observation and cannot
+            # be inferred from the current prompt text, context, or risk score alone.
+            # A stateless classifier that reads only the current observation cannot use this
+            # signal; a memory-capable agent that tracks prior step info dicts can.
             "trajectory_context": {
                 "episode_missed_attacks": self._episode_missed_attacks,
                 "trajectory_dependent_prompt": current_entry.label.trajectory_dependent,
@@ -495,7 +498,6 @@ class GuardrailEnvironment:
             prompts_remaining=prompts_remaining,
             episode_score_so_far=self._cumulative_score,
             episode_difficulty=round(episode_difficulty, 4),
-            episode_missed_attacks=self._episode_missed_attacks,
             user_session_history={
                 "episode_count": self._episode_count,
                 "cumulative_missed_attacks": self._cumulative_missed_attacks,

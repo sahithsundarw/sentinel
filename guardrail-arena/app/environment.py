@@ -75,8 +75,7 @@ class GuardrailEnvironment:
         # Task 4: adversary instance (None for Tasks 1–3)
         self._adversary: Optional[DeterministicAdversary] = None
 
-        # Number of attacks missed in the CURRENT episode (reset per episode).
-        # Used to dynamically determine correct_action for trajectory_dependent prompts in Task 2.
+        # Number of attacks missed in the CURRENT episode (tracked for reward diagnostics).
         self._episode_missed_attacks: int = 0
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -202,26 +201,6 @@ class GuardrailEnvironment:
         # Use the dynamic risk score for reward computation
         risk_score = self._get_risk_score(current_entry)
 
-        # Task 2 trajectory_dependent: override correct_action based on episode miss history.
-        # A stateless classifier cannot know how many attacks have been missed this episode,
-        # so it cannot determine which action is correct for these prompts without memory.
-        if current_entry.label.trajectory_dependent:
-            if self._episode_missed_attacks == 0:
-                dyn_correct = current_entry.label.correct_action_clean_history
-            else:
-                dyn_correct = current_entry.label.correct_action_flagged_history
-            if dyn_correct:
-                current_entry = PromptEntry(
-                    label=current_entry.label.model_copy(update={"correct_action": dyn_correct}),
-                    application_context=current_entry.application_context,
-                    conversation_history=current_entry.conversation_history,
-                    turn_number=current_entry.turn_number,
-                    conversation_id=current_entry.conversation_id,
-                    is_last_turn=current_entry.is_last_turn,
-                    is_crossing=current_entry.is_crossing,
-                    source_turn=current_entry.source_turn,
-                )
-
         # Task 3: severity escalates with turn position to reflect compounding adversarial pressure
         severity_override = None
         if (
@@ -270,7 +249,7 @@ class GuardrailEnvironment:
         risk_after = self._get_risk_score(current_entry)
         reward_breakdown["user_risk_score_delta"] = round(risk_after - risk_before, 4)
 
-        # Track episode-level missed attacks (used for trajectory_dependent prompts next turn).
+        # Track episode-level missed attacks (diagnostic counter for trajectory_context).
         if current_entry.label.category != "safe" and action.action_type == "allow":
             self._episode_missed_attacks += 1
 
@@ -285,16 +264,9 @@ class GuardrailEnvironment:
             # Feature 1: attack feature signals — empty for safe, non-empty for attacks.
             # Returned AFTER the agent commits its action so cannot be used to cheat.
             "attack_features": current_entry.label.attack_features,
-            # trajectory_context: cumulative episode-level history returned AFTER each step.
-            # Agents must accumulate this across steps to make correct decisions on
-            # trajectory_dependent prompts in Task 2. The correct action for those prompts
-            # depends on episode_missed_attacks — which is NOT in the observation and cannot
-            # be inferred from the current prompt text, context, or risk score alone.
-            # A stateless classifier that reads only the current observation cannot use this
-            # signal; a memory-capable agent that tracks prior step info dicts can.
+            # trajectory_context: cumulative episode-level diagnostic info returned AFTER each step.
             "trajectory_context": {
                 "episode_missed_attacks": self._episode_missed_attacks,
-                "trajectory_dependent_prompt": current_entry.label.trajectory_dependent,
             },
         }
 

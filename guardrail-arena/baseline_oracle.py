@@ -1,6 +1,6 @@
 """
 Oracle baseline — always submits the correct action for each prompt.
-Runs directly via GuardrailEnvironment (no HTTP). Must score 1.0 on Tasks 1 and 3.
+Runs directly via GuardrailEnvironment (no HTTP). Must score 1.0 on all tasks.
 
 Usage:
     python baseline_oracle.py
@@ -47,41 +47,14 @@ def run_oracle(task_id: str) -> float:
     env = GuardrailEnvironment()
     obs = env.reset(task_id)
 
-    # Oracle tracks episode_missed_attacks itself by accumulating trajectory_context
-    # from step() info dicts. episode_missed_attacks is NOT in the observation —
-    # agents must maintain this counter from prior step feedback to solve
-    # trajectory_dependent prompts. This mirrors what a real memory-capable agent does.
-    oracle_missed_attacks: int = 0
-
     while not env.is_done():
-        # Use current_prompt_entry directly — avoids any session-ID vs original-ID confusion.
         entry = env.current_prompt_entry
         if entry is None:
             action = Action(prompt_id=obs.prompt_id, action_type="allow", reason="unknown")
         else:
             label = entry.label
             risk_score = obs.user_risk_score
-
-            # Task 2: trajectory_dependent prompts — correct action depends on miss history.
-            # Oracle uses its own accumulated miss counter (not the observation) to decide.
-            # This demonstrates how a memory-capable agent solves trajectory_dependent prompts:
-            # it must remember how many attacks it has missed in this episode.
-            if label.trajectory_dependent:
-                if oracle_missed_attacks == 0:
-                    correct = label.correct_action_clean_history or label.correct_action
-                else:
-                    correct = label.correct_action_flagged_history or label.correct_action
-
-            # Task 3: memory_required post-crossing turns — correct action depends on
-            # whether the agent correctly allowed all pre-crossing turns.
-            # Oracle always allows pre-crossing safe turns → pre_correct always 1.0 →
-            # always use correct_action_pre_correct.
-            elif label.memory_required and label.correct_action_pre_correct is not None:
-                correct = label.correct_action_pre_correct
-
-            else:
-                correct = _resolve_correct_action(label, obs.application_context, risk_score)
-
+            correct = _resolve_correct_action(label, obs.application_context, risk_score)
             modified_prompt = _sanitize(label) if correct == "modify" else None
             action = Action(
                 prompt_id=obs.prompt_id,
@@ -90,9 +63,6 @@ def run_oracle(task_id: str) -> float:
                 modified_prompt=modified_prompt,
             )
         next_obs, _, done, info = env.step(action)
-        # Update our own miss counter from the step info dict — this is how memory-capable
-        # agents track trajectory context across steps.
-        oracle_missed_attacks = info.get("trajectory_context", {}).get("episode_missed_attacks", oracle_missed_attacks)
         obs = next_obs if not done else obs
 
     score = env.get_grader_score()

@@ -1248,7 +1248,14 @@ class DeterministicAdversary:
         return TASK4_PROMPTS[self.topic][self.intensity]
 
     def _transition(self, action_type: str) -> None:
-        """Apply deterministic state transition based on agent action."""
+        """Apply deterministic state transition based on agent action.
+
+        Max-intensity momentum: when the agent allows at intensity 5 (the maximum),
+        the adversary switches to a new topic and starts at intensity 1, skipping the
+        safe probe at intensity 0. This reflects that an agent which allowed
+        max-severity content has already demonstrated permissiveness, so the adversary
+        can skip the trust-building probe and begin attacking immediately.
+        """
         blocked = action_type in ("refuse", "escalate", "modify")
 
         # Topic fatigue counter update

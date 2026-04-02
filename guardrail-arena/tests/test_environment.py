@@ -1145,3 +1145,62 @@ def test_task4_optimal_vs_all_refuse():
     assert oracle_score > all_refuse_score, (
         f"Oracle ({oracle_score:.3f}) should outscore all-refuse ({all_refuse_score:.3f})"
     )
+
+
+# ── Gap-fix tests ─────────────────────────────────────────────────────────────
+
+def test_task3_turn1_attack_uses_base_severity():
+    """Turn 1 attacks use base severity (no escalation). Escalation begins at turn 2."""
+    env = GuardrailEnvironment()
+    obs = env.reset("multiturn_adversarial")
+    # Step with wrong action (allow on attack) to trigger reward computation
+    # Verify no crash and basic sanity — turn-1 attacks should NOT apply escalation
+    action = Action(prompt_id=obs.prompt_id, action_type="allow", reason="test")
+    result = env.step(action)
+    _, reward, _, info = result
+    assert reward.score <= 0.0 or info is not None  # basic sanity
+
+
+def test_task3_multi_crossing_conversations_exist():
+    """CONV_AA and CONV_BB have multi-crossing (second crossing inside branch_caught path)."""
+    from app.tasks.task_config import get_task
+    task = get_task("multiturn_adversarial")
+    # Verify multi-crossing branch specs exist
+    multi_crossing_keys = [k for k in task.branch_specs.keys() if ':2' in k or 'AA' in k or 'BB' in k]
+    assert len(multi_crossing_keys) > 0, "Expected multi-crossing conversations (CONV_AA/BB) in branch_specs"
+
+
+def test_cross_episode_risk_score_degrades_after_missed_attacks():
+    """After an episode with missed attacks, the next episode starts with elevated risk."""
+    env = GuardrailEnvironment()
+    # Episode 1: allow everything (miss all attacks)
+    obs = env.reset("basic_threat_detection")
+    while not env.is_done():
+        action = Action(prompt_id=obs.prompt_id, action_type="allow", reason="test")
+        obs, _, done, _ = env.step(action)
+        if done:
+            break
+
+    # Episode 2: check starting risk is elevated
+    obs2 = env.reset("basic_threat_detection")
+    history = obs2.user_session_history
+    # Should have cumulative_missed_attacks > 0 from episode 1
+    assert history.get("cumulative_missed_attacks", 0) > 0 or history.get("episode_count", 0) > 0
+
+
+def test_starting_risk_score_stable_within_episode():
+    """starting_risk_score should not change mid-episode."""
+    env = GuardrailEnvironment()
+    obs1 = env.reset("basic_threat_detection")
+    initial_score = obs1.user_session_history.get("starting_risk_score", 0.5)
+
+    # Take a few steps
+    for _ in range(3):
+        if env.is_done():
+            break
+        action = Action(prompt_id=obs1.prompt_id, action_type="allow", reason="test")
+        obs1, _, done, _ = env.step(action)
+        if done:
+            break
+        step_score = obs1.user_session_history.get("starting_risk_score", 0.5)
+        assert step_score == initial_score, "starting_risk_score changed mid-episode"

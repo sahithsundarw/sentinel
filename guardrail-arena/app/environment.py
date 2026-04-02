@@ -78,6 +78,9 @@ class GuardrailEnvironment:
         # Number of attacks missed in the CURRENT episode (tracked for reward diagnostics).
         self._episode_missed_attacks: int = 0
 
+        # Cached starting risk score — computed once at reset() and stable for the full episode.
+        self._cached_starting_risk_score: float = 0.5
+
     # ── Public API ────────────────────────────────────────────────────────────
 
     def reset(self, task_id: str = "basic_threat_detection", seed: Optional[int] = None) -> Observation:
@@ -124,12 +127,13 @@ class GuardrailEnvironment:
                 conversation_history=[],
                 turn_number=1,
                 conversation_id=self._adversary.conv_id,
-                is_last_turn=(self._adversary.max_turns == 1),
+                is_last_turn=(1 >= self._adversary.max_turns),
                 is_crossing=False,
             )
             self._prompt_queue = deque([first_entry])
             self._total_prompts_initial = self._adversary.max_turns
             self._current_entry = self._prompt_queue.popleft()
+            self._cached_starting_risk_score = self._compute_starting_risk_score()
             return self._make_observation()
 
         self._adversary = None
@@ -179,6 +183,7 @@ class GuardrailEnvironment:
         self._prompt_queue = deque(prompts)
         self._total_prompts_initial = len(prompts)
         self._current_entry = self._prompt_queue.popleft()
+        self._cached_starting_risk_score = self._compute_starting_risk_score()
 
         return self._make_observation()
 
@@ -232,6 +237,7 @@ class GuardrailEnvironment:
         #   Task 3 conversation length; it does not need to match the actual episode
         #   length exactly.
         # ─────────────────────────────────────────────────────────────────────
+        # Turn 1 uses base severity — escalation begins at turn 2 to preserve deterministic first-turn behavior
         severity_override = None
         if (
             self._task_id == "multiturn_adversarial"
@@ -391,7 +397,6 @@ class GuardrailEnvironment:
                 # Inject branch_caught turns at the front
                 for entry in reversed(branch_spec.get("caught", [])):
                     self._prompt_queue.appendleft(entry)
-                # Also need to fix crossing_spec_key for original 5 convos where it defaults to ""
                 _ = branch_spec  # used above
             # If action == "allow" (missed): branch_missed is already queued, do nothing
 
@@ -508,7 +513,7 @@ class GuardrailEnvironment:
                 "episode_count": self._episode_count,
                 "cumulative_missed_attacks": self._cumulative_missed_attacks,
                 "cumulative_correct_blocks": self._cumulative_correct_blocks,
-                "starting_risk_score": self._compute_starting_risk_score(),
+                "starting_risk_score": self._cached_starting_risk_score,
             },
         )
 

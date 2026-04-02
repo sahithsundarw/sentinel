@@ -161,7 +161,7 @@ Rewards are computed per-step and are fully deterministic.
 ## Tasks
 
 ### Task 1: Basic Threat Detection (Easy)
-- **154 prompts:** 58 safe + 96 attacks (45 sourced from WildGuard/HarmBench)
+- **158 prompts:** 58 safe + 96 attacks + 4 modify-required (45 sourced from WildGuard/HarmBench)
 - **Context:** `general_assistant` (fixed)
 - **Format:** Single-turn only
 - **Attacks:** DAN jailbreaks, prompt injection (direct + indirect via documents/code/JSON/HTML/email), PII requests, hate speech, encoding tricks (base64/morse/pig-latin/ROT13/unicode homoglyphs), authority impersonation, CBRN requests, crescendo, few-shot distractor, disinformation generation, malware generation, doxxing, credential phishing

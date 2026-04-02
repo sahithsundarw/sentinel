@@ -346,7 +346,40 @@ async def root():
     return HTMLResponse(content=_HTML_LANDING_PAGE)
 
 
-@app.get("/health")
+# ── Response Models ───────────────────────────────────────────────────────────
+
+class HealthResponse(BaseModel):
+    status: str
+    environment: str
+    version: str
+
+class GraderResponse(BaseModel):
+    task_id: str
+    score: float
+
+class SubmitResponse(BaseModel):
+    status: str
+    task_id: str
+    score: float
+
+class SessionEntry(BaseModel):
+    session_id: str
+    idle_seconds: float
+    task_id: Optional[str]
+    done: bool
+
+class SessionsResponse(BaseModel):
+    sessions: list[SessionEntry]
+    count: int
+    max_capacity: int
+    ttl_seconds: int
+
+class DeleteSessionResponse(BaseModel):
+    status: str
+    session_id: str
+
+
+@app.get("/health", response_model=HealthResponse)
 async def health():
     """Health check. Returns status=healthy for OpenEnv spec compliance."""
     return {"status": "healthy", "environment": "guardrail-arena", "version": "1.0.0"}
@@ -406,9 +439,6 @@ async def reset(
         # Create an isolated session for this client.
         session_env, session_id = _create_session()
         observation = session_env.reset(task_id=resolved_task_id, seed=resolved_seed)
-
-        # Also update the global env so clients that don't use session_id continue to work.
-        env.reset(task_id=resolved_task_id, seed=resolved_seed)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     result = observation.model_dump()
@@ -482,7 +512,7 @@ async def baseline():
     }
 
 
-@app.get("/grader")
+@app.get("/grader", response_model=GraderResponse)
 async def grader(
     agent_name: Optional[str] = Query(default=None),
     session_id: Optional[str] = Query(default=None),
@@ -512,7 +542,7 @@ async def grader(
     return {"task_id": task_id, "score": score}
 
 
-@app.get("/sessions")
+@app.get("/sessions", response_model=SessionsResponse)
 async def list_sessions():
     """List active isolated sessions. Useful for debugging concurrent clients."""
     now = time.monotonic()
@@ -534,7 +564,7 @@ async def list_sessions():
     }
 
 
-@app.delete("/sessions/{session_id}")
+@app.delete("/sessions/{session_id}", response_model=DeleteSessionResponse)
 async def delete_session(session_id: str):
     """Explicitly delete a session and free its resources."""
     with _SESSION_STORE_LOCK:
@@ -593,7 +623,8 @@ async def demo():
         "task_id": "basic_threat_detection",
         "description": "A 5-step demonstration showing the reward signal in action",
         "trajectory": trajectory,
-        "final_grader_score": grader_score,
+        "partial_grader_score": grader_score,
+        "partial_grader_note": "Score over 5 of 154 prompts only — run a full episode for a comparable grader score",
         "summary": (
             f"Agent correctly handled {correct}/5 prompts. "
             f"Demonstrates reward signal: correct blocks, missed attacks, and over-blocks."
@@ -612,12 +643,24 @@ class SubmitRequest(BaseModel):
     task_id: str
 
 
-@app.post("/submit")
-async def submit(req: SubmitRequest):
-    """Submit a score to the leaderboard without running a live episode."""
+@app.post("/submit", response_model=SubmitResponse)
+async def submit(req: SubmitRequest, session_id: Optional[str] = Query(default=None)):
+    """Submit a score to the leaderboard. Requires a completed session_id to prevent score forgery."""
     if req.task_id not in _VALID_TASK_IDS:
         raise HTTPException(status_code=422, detail=f"Unknown task_id '{req.task_id}'")
-    score = max(0.0, min(1.0, req.score))
+    if session_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail="session_id is required. Complete an episode via /reset + /step, then submit with the session_id from /reset.",
+        )
+    # Verify the session exists and has completed a full episode
+    target_env = _get_session_env(session_id)
+    if not target_env.is_done():
+        raise HTTPException(status_code=422, detail="Episode not complete. Finish all steps before submitting.")
+    if target_env.current_task_id != req.task_id:
+        raise HTTPException(status_code=422, detail=f"Session task '{target_env.current_task_id}' does not match submitted task_id '{req.task_id}'.")
+    # Compute score from the actual completed session — ignore client-supplied score
+    score = target_env.get_grader_score()
     entry = {
         "agent": req.agent_name,
         "score": score,

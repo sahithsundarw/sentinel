@@ -89,13 +89,15 @@ def test_reset_different_seeds_different_first_prompt():
 
 # ── /step ─────────────────────────────────────────────────────────────────────
 
-def _fresh_prompt_id(task_id="basic_threat_detection"):
-    return client.post(f"/reset?task_id={task_id}").json()["prompt_id"]
+def _fresh_session(task_id="basic_threat_detection"):
+    """Return (prompt_id, session_id) from a fresh /reset call."""
+    obs = client.post(f"/reset?task_id={task_id}").json()
+    return obs["prompt_id"], obs["session_id"]
 
 
 def test_step_valid_allow():
-    pid = _fresh_prompt_id()
-    r = client.post("/step", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
+    pid, sid = _fresh_session()
+    r = client.post(f"/step?session_id={sid}", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
     assert r.status_code == 200
     data = r.json()
     assert "reward" in data
@@ -105,14 +107,14 @@ def test_step_valid_allow():
 
 
 def test_step_valid_refuse():
-    pid = _fresh_prompt_id()
-    r = client.post("/step", json={"prompt_id": pid, "action_type": "refuse", "reason": "test"})
+    pid, sid = _fresh_session()
+    r = client.post(f"/step?session_id={sid}", json={"prompt_id": pid, "action_type": "refuse", "reason": "test"})
     assert r.status_code == 200
 
 
 def test_step_valid_modify_with_modified_prompt():
-    pid = _fresh_prompt_id()
-    r = client.post("/step", json={
+    pid, sid = _fresh_session()
+    r = client.post(f"/step?session_id={sid}", json={
         "prompt_id": pid,
         "action_type": "modify",
         "reason": "test",
@@ -123,8 +125,8 @@ def test_step_valid_modify_with_modified_prompt():
 
 def test_step_valid_modify_null_modified_prompt():
     """modify with null modified_prompt is valid — scores as low-quality."""
-    pid = _fresh_prompt_id()
-    r = client.post("/step", json={
+    pid, sid = _fresh_session()
+    r = client.post(f"/step?session_id={sid}", json={
         "prompt_id": pid,
         "action_type": "modify",
         "reason": "test",
@@ -134,14 +136,14 @@ def test_step_valid_modify_null_modified_prompt():
 
 
 def test_step_invalid_action_type_returns_422():
-    pid = _fresh_prompt_id()
-    r = client.post("/step", json={"prompt_id": pid, "action_type": "invalid", "reason": "test"})
+    pid, sid = _fresh_session()
+    r = client.post(f"/step?session_id={sid}", json={"prompt_id": pid, "action_type": "invalid", "reason": "test"})
     assert r.status_code == 422
 
 
 def test_step_wrong_prompt_id_returns_422():
-    _fresh_prompt_id()  # reset to get valid state
-    r = client.post("/step", json={"prompt_id": "wrong-id", "action_type": "allow", "reason": "test"})
+    _, sid = _fresh_session()
+    r = client.post(f"/step?session_id={sid}", json={"prompt_id": "wrong-id", "action_type": "allow", "reason": "test"})
     assert r.status_code == 422
 
 
@@ -154,13 +156,13 @@ def test_step_before_reset_returns_400():
     r = client.post("/step", json={"prompt_id": "x", "action_type": "allow", "reason": "test"})
     assert r.status_code == 400
     # Restore state
-    client.post("/reset?task_id=basic_threat_detection")
+    env._initialized = True
 
 
 def test_step_empty_modified_prompt_is_treated_as_no_sanitization():
     """Empty string modified_prompt is accepted but reward.py treats it as no real sanitization."""
-    pid = _fresh_prompt_id()
-    r = client.post("/step", json={"prompt_id": pid, "action_type": "modify", "reason": "test", "modified_prompt": ""})
+    pid, sid = _fresh_session()
+    r = client.post(f"/step?session_id={sid}", json={"prompt_id": pid, "action_type": "modify", "reason": "test", "modified_prompt": ""})
     assert r.status_code == 200
     # reward breakdown should reflect partial credit, not full sanitization
     breakdown = r.json()["reward"]["breakdown"]
@@ -168,20 +170,20 @@ def test_step_empty_modified_prompt_is_treated_as_no_sanitization():
 
 
 def test_step_info_has_ground_truth_action():
-    pid = _fresh_prompt_id()
-    r = client.post("/step", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
+    pid, sid = _fresh_session()
+    r = client.post(f"/step?session_id={sid}", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
     assert "ground_truth_action" in r.json()["info"]
 
 
 def test_step_info_attack_features_is_list():
-    pid = _fresh_prompt_id()
-    r = client.post("/step", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
+    pid, sid = _fresh_session()
+    r = client.post(f"/step?session_id={sid}", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
     assert isinstance(r.json()["info"]["attack_features"], list)
 
 
 def test_step_reward_structure():
-    pid = _fresh_prompt_id()
-    r = client.post("/step", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
+    pid, sid = _fresh_session()
+    r = client.post(f"/step?session_id={sid}", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
     reward = r.json()["reward"]
     for field in ("score", "cumulative_score", "feedback", "breakdown"):
         assert field in reward, f"Missing reward field: {field}"
@@ -190,11 +192,12 @@ def test_step_reward_structure():
 def test_step_done_true_on_last_step_task1():
     """Complete a full Task 1 episode and verify done=True on last step."""
     obs = client.post("/reset?task_id=basic_threat_detection").json()
+    sid = obs["session_id"]
     pid = obs["prompt_id"]
     done = False
     steps = 0
     while not done:
-        r = client.post("/step", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
+        r = client.post(f"/step?session_id={sid}", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
         data = r.json()
         done = data["done"]
         steps += 1
@@ -207,46 +210,50 @@ def test_step_done_true_on_last_step_task1():
 def test_step_after_done_returns_400():
     """Calling step after episode ends must return 400, not crash."""
     obs = client.post("/reset?task_id=basic_threat_detection").json()
+    sid = obs["session_id"]
     pid = obs["prompt_id"]
     done = False
     while not done:
-        r = client.post("/step", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
+        r = client.post(f"/step?session_id={sid}", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
         data = r.json()
         done = data["done"]
         if not done:
             pid = data["observation"]["prompt_id"]
     # Episode is now done — extra step should 400
-    r = client.post("/step", json={"prompt_id": "any", "action_type": "allow", "reason": "test"})
+    r = client.post(f"/step?session_id={sid}", json={"prompt_id": "any", "action_type": "allow", "reason": "test"})
     assert r.status_code == 400
 
 
 # ── /grader ───────────────────────────────────────────────────────────────────
 
 def test_grader_before_done_returns_400():
-    client.post("/reset?task_id=basic_threat_detection")
-    r = client.get("/grader")
+    obs = client.post("/reset?task_id=basic_threat_detection").json()
+    sid = obs["session_id"]
+    r = client.get(f"/grader?session_id={sid}")
     assert r.status_code == 400
 
 
 def test_grader_mid_episode_returns_400():
     obs = client.post("/reset?task_id=basic_threat_detection").json()
+    sid = obs["session_id"]
     pid = obs["prompt_id"]
-    client.post("/step", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
-    r = client.get("/grader")
+    client.post(f"/step?session_id={sid}", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
+    r = client.get(f"/grader?session_id={sid}")
     assert r.status_code == 400
 
 
 def test_grader_after_complete_episode_returns_score():
     obs = client.post("/reset?task_id=basic_threat_detection").json()
+    sid = obs["session_id"]
     pid = obs["prompt_id"]
     done = False
     while not done:
-        r = client.post("/step", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
+        r = client.post(f"/step?session_id={sid}", json={"prompt_id": pid, "action_type": "allow", "reason": "test"})
         data = r.json()
         done = data["done"]
         if not done:
             pid = data["observation"]["prompt_id"]
-    r = client.get("/grader")
+    r = client.get(f"/grader?session_id={sid}")
     assert r.status_code == 200
     body = r.json()
     assert "score" in body
@@ -267,18 +274,19 @@ def test_demo_has_5_trajectory_steps():
     assert len(data["trajectory"]) == 5
 
 
-def test_demo_has_final_grader_score():
+def test_demo_has_partial_grader_score():
     r = client.get("/demo")
     data = r.json()
-    assert "final_grader_score" in data
-    assert isinstance(data["final_grader_score"], float)
+    assert "partial_grader_score" in data
+    assert isinstance(data["partial_grader_score"], float)
 
 
 # ── /state ────────────────────────────────────────────────────────────────────
 
 def test_state_returns_valid_structure():
-    client.post("/reset?task_id=basic_threat_detection")
-    r = client.get("/state")
+    obs = client.post("/reset?task_id=basic_threat_detection").json()
+    sid = obs["session_id"]
+    r = client.get(f"/state?session_id={sid}")
     assert r.status_code == 200
     state = r.json()
     for field in ("task_id", "current_prompt_index", "total_prompts", "cumulative_score", "done"):
@@ -329,14 +337,15 @@ def test_leaderboard_agent_name_appears():
     r = client.post("/reset?task_id=basic_threat_detection")
     assert r.status_code == 200
     obs = r.json()
+    sid = obs["session_id"]
     done = False
     while not done:
-        r = client.post("/step", json={"prompt_id": obs["prompt_id"], "action_type": "allow", "reason": "test"})
+        r = client.post(f"/step?session_id={sid}", json={"prompt_id": obs["prompt_id"], "action_type": "allow", "reason": "test"})
         data = r.json()
         done = data["done"]
         if not done:
             obs = data["observation"]
-    r = client.get("/grader?agent_name=PersistenceTestAgent")
+    r = client.get(f"/grader?agent_name=PersistenceTestAgent&session_id={sid}")
     assert r.status_code == 200
     r2 = client.get("/leaderboard")
     lb = r2.json()["leaderboard"]["basic_threat_detection"]
@@ -385,12 +394,7 @@ def test_rollout_invalid_task_returns_422():
 # ── Item 29: Stress test (documents single-session limitation) ────────────────
 
 def test_concurrent_resets_do_not_crash():
-    """
-    20 sequential /reset calls must all return 200.
-    NOTE: Guardrail Arena uses a single shared session. Concurrent resets overwrite each other's state.
-    This test verifies the server doesn't crash under rapid sequential resets — it does NOT test
-    concurrent isolation. For multi-agent evaluation, run separate server instances per agent.
-    """
+    """20 sequential /reset calls must all return 200 with unique session IDs."""
     for i in range(20):
         r = client.post("/reset?task_id=basic_threat_detection")
         assert r.status_code == 200, f"Reset {i} failed with {r.status_code}"
@@ -399,7 +403,8 @@ def test_concurrent_resets_do_not_crash():
     r = client.post("/reset?task_id=basic_threat_detection")
     assert r.status_code == 200
     obs = r.json()
-    r2 = client.post("/step", json={"prompt_id": obs["prompt_id"], "action_type": "allow", "reason": "test"})
+    sid = obs["session_id"]
+    r2 = client.post(f"/step?session_id={sid}", json={"prompt_id": obs["prompt_id"], "action_type": "allow", "reason": "test"})
     assert r2.status_code == 200
 
 

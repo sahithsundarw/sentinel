@@ -57,9 +57,9 @@ def test_reset_query_param_invalid_task_returns_422():
 def test_reset_no_body_defaults_to_task1():
     r = client.post("/reset")
     assert r.status_code == 200
-    # Default task is basic_threat_detection — prompts_remaining should be 153 (154 total, first served)
+    # Default task is basic_threat_detection — prompts_remaining should be 157 (158 total, first served)
     obs = r.json()
-    assert obs["prompts_remaining"] == 153
+    assert obs["prompts_remaining"] == 157
 
 
 def test_reset_empty_task_id_returns_422():
@@ -204,7 +204,7 @@ def test_step_done_true_on_last_step_task1():
         steps += 1
         if not done:
             pid = data["observation"]["prompt_id"]
-    assert steps == 154
+    assert steps == 158
     assert data["observation"] is None
 
 
@@ -377,13 +377,13 @@ def test_leaderboard_persistence_save_load():
 
 def test_rollout_returns_trajectory_and_score():
     """POST /rollout with task_id and actions should return a trajectory and grader_score."""
-    actions = [{"action_type": "allow", "reason": "test"}] * 154
+    actions = [{"action_type": "allow", "reason": "test"}] * 158
     r = client.post("/rollout", json={"task_id": "basic_threat_detection", "actions": actions})
     assert r.status_code == 200
     data = r.json()
     assert "grader_score" in data
     assert "trajectory" in data
-    assert len(data["trajectory"]) == 154
+    assert len(data["trajectory"]) == 158
     assert 0.0 <= data["grader_score"] <= 1.0
 
 

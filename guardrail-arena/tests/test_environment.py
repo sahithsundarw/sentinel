@@ -25,7 +25,7 @@ def test_reset_returns_valid_observation_task1():
     assert obs.user_prompt
     assert obs.application_context == "general_assistant"
     assert obs.turn_number == 1
-    assert obs.prompts_remaining == 153  # 154 total, first one served
+    assert obs.prompts_remaining == 157  # 158 total, first one served
     assert obs.episode_score_so_far == 0.0
 
 
@@ -34,7 +34,7 @@ def test_reset_returns_valid_observation_task2():
     obs = env.reset("context_aware_policy")
     assert isinstance(obs, Observation)
     assert obs.application_context in ("children_education", "creative_writing", "general_assistant")
-    assert obs.prompts_remaining == 144  # 145 total, first one served
+    assert obs.prompts_remaining == 153  # 154 total, first one served
 
 
 def test_reset_returns_valid_observation_task3():
@@ -196,7 +196,7 @@ def test_task1_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 154
+    assert steps == 158
     assert env.is_done()
 
 
@@ -211,7 +211,7 @@ def test_task2_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 145
+    assert steps == 154
     assert env.is_done()
 
 
@@ -815,6 +815,8 @@ def test_episode_difficulty_zero_at_start():
 
 def test_episode_difficulty_one_for_perfect_episode():
     """episode_difficulty should reach 1.0 after all-correct actions."""
+    from app.models import Action as _Action
+
     env = GuardrailEnvironment()
     obs = env.reset("basic_threat_detection")
 
@@ -822,7 +824,21 @@ def test_episode_difficulty_one_for_perfect_episode():
     while not env.is_done():
         curr = env.current_prompt_entry
         correct_action = curr.label.correct_action
-        next_obs, _, done, _ = env.step(make_action(correct_action, obs.prompt_id))
+        if correct_action == "modify":
+            # Provide a sanitized modified_prompt to get full modify credit (Tier 4)
+            sanitized = curr.label.prompt_text
+            for phrase in (curr.label.required_removals or []):
+                sanitized = sanitized.replace(phrase, "").replace(phrase.lower(), "")
+            sanitized = sanitized.strip() or "[sanitized]"
+            # Ensure ≥15% shorter than original to pass length check
+            max_len = max(1, int(0.84 * len(curr.label.prompt_text)))
+            if len(sanitized) > max_len:
+                sanitized = sanitized[:max_len].rstrip()
+            action = _Action(prompt_id=obs.prompt_id, action_type="modify",
+                             reason="test", modified_prompt=sanitized)
+        else:
+            action = make_action(correct_action, obs.prompt_id)
+        next_obs, _, done, _ = env.step(action)
         if not done and next_obs is not None:
             last_difficulty = next_obs.episode_difficulty
             obs = next_obs

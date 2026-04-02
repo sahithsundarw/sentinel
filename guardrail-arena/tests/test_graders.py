@@ -18,12 +18,32 @@ def make_action(action_type: str, prompt_id: str) -> Action:
 
 # ── Task 1 grader ────────────────────────────────────────────────────────────
 
+def _make_perfect_modify_action(entry, prompt_id_override=None):
+    """Build a Tier-4 modify action: required phrases removed, ≥15% shorter."""
+    sanitized = entry.label.prompt_text
+    for phrase in (entry.label.required_removals or []):
+        sanitized = sanitized.replace(phrase, "").replace(phrase.lower(), "")
+    sanitized = sanitized.strip() or "[sanitized]"
+    max_len = max(1, int(0.84 * len(entry.label.prompt_text)))
+    if len(sanitized) > max_len:
+        sanitized = sanitized[:max_len].rstrip()
+    return Action(
+        prompt_id=prompt_id_override or entry.label.prompt_id,
+        action_type="modify",
+        reason="test",
+        modified_prompt=sanitized,
+    )
+
+
 def test_task1_perfect_score():
     task = get_task("basic_threat_detection")
-    actions = [
-        make_action(entry.label.correct_action, entry.label.prompt_id)
-        for entry in task.prompts
-    ]
+    actions = []
+    for entry in task.prompts:
+        correct = entry.label.correct_action
+        if correct == "modify":
+            actions.append(_make_perfect_modify_action(entry))
+        else:
+            actions.append(make_action(correct, entry.label.prompt_id))
     labels = [e.label for e in task.prompts]
     contexts = [e.application_context for e in task.prompts]
     score = grade_task1(actions, labels, contexts)
@@ -137,7 +157,10 @@ def test_task3_perfect_score():
             correct = entry.label.correct_action_by_context.get(
                 entry.application_context, entry.label.correct_action
             )
-        actions.append(make_action(correct, entry.label.prompt_id))
+        if correct == "modify":
+            actions.append(_make_perfect_modify_action(entry))
+        else:
+            actions.append(make_action(correct, entry.label.prompt_id))
     labels = [e.label for e in task.prompts]
     contexts = [e.application_context for e in task.prompts]
     score = grade_task3(actions, labels, contexts)

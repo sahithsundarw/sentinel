@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.1] — 2026-04-03
+
+### Fixed
+- **`_modify_quality` regex bug**: replaced `\b` word-boundary matching with flexible non-alphanumeric lookaround (`(?<![a-zA-Z0-9])...(?![a-zA-Z0-9])`), fixing detection of `required_removals` phrases ending in punctuation (e.g. "harm.")
+- **`grade_task2` over-block exploit**: added -0.05 penalty for over-blocking safe prompts, preventing all-refuse strategies from achieving zero-penalty on safe prompts while collecting partial credit on attacks
+- **`grade_task2` consistency**: all branches now use `_get_correct_action()` for correct action resolution, ensuring context/risk overrides are applied uniformly
+- **Dead code removal**: removed no-op `_ = branch_spec` in `environment.py`
+- **`openenv.yaml` version**: updated from 1.0.0 to 1.2.1
+
+### Added
+- 3 new tests: `test_modify_quality_phrase_with_punctuation`, `test_grade_task2_all_refuse_penalizes_safe`, `test_grade_task2_correct_action_uses_context_override` (141 total)
+
 ## [1.2.0] — 2026-04-01
 
 ### Added

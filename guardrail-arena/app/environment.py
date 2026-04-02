@@ -400,7 +400,6 @@ class GuardrailEnvironment:
                 # Inject branch_caught turns at the front
                 for entry in reversed(branch_spec.get("caught", [])):
                     self._prompt_queue.appendleft(entry)
-                _ = branch_spec  # used above
             # If action == "allow" (missed): branch_missed is already queued, do nothing
 
         # Advance to next prompt

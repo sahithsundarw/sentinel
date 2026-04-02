@@ -321,6 +321,12 @@ def _validate_branching_conversations(convs: list[BranchingConversation]) -> Non
                 f"BranchingConversation '{cid}' has empty branch_missed list. "
                 "At least one branch_missed turn is required for the default episode path."
             )
+        if not conv.branch_caught:
+            raise ValueError(
+                f"BranchingConversation '{cid}' has empty branch_caught list. "
+                "At least one branch_caught turn is required so the agent can receive "
+                "feedback after correctly blocking the crossing attack."
+            )
 
 
 _VALID_ACTIONS = {"allow", "refuse", "modify", "escalate"}

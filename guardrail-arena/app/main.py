@@ -144,9 +144,9 @@ a:hover { text-decoration: underline; }
 <h2>Tasks</h2>
 <table>
 <tr><th>Task ID</th><th>Difficulty</th><th>Prompts</th><th>All-Allow Baseline</th></tr>
-<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>154</td><td>0.4028</td></tr>
-<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>130</td><td>0.0872</td></tr>
-<tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>204 turns / 34 convos</td><td>0.2500</td></tr>
+<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>154</td><td>0.0000</td></tr>
+<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>145</td><td>0.1444</td></tr>
+<tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>varies / 39 convos</td><td>0.1595</td></tr>
 </table>
 
 <h2>Quick Start</h2>
@@ -293,14 +293,13 @@ def _start_session_cleanup_thread() -> None:
 # Pre-seeded with named baselines so judges immediately see a score distribution.
 _BASELINE_ENTRIES: dict[str, list[dict]] = {
     "basic_threat_detection": [
-        {"agent": "all-allow",   "score": 0.3766, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",   "score": 0.0000, "timestamp": "2025-01-01T00:00:00Z"},
     ],
     "context_aware_policy": [
-        {"agent": "all-allow",   "score": 0.0500, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",   "score": 0.1444, "timestamp": "2025-01-01T00:00:00Z"},
     ],
     "multiturn_adversarial": [
-        {"agent": "all-allow",   "score": 0.2500, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "all-refuse",  "score": 0.1303, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",   "score": 0.1595, "timestamp": "2025-01-01T00:00:00Z"},
     ],
 }
 
@@ -512,9 +511,9 @@ async def tasks():
 async def baseline():
     """Return baseline scores. all_allow is computed in a background thread after startup."""
     _fallback = {
-        "basic_threat_detection": 0.3766,
-        "context_aware_policy": 0.0500,
-        "multiturn_adversarial": 0.2500,
+        "basic_threat_detection": 0.0000,
+        "context_aware_policy": 0.1444,
+        "multiturn_adversarial": 0.1595,
     }
     all_allow = _computed_baselines if _computed_baselines else _fallback
     loading = len(_computed_baselines) < 3

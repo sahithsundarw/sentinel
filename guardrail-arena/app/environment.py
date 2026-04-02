@@ -292,6 +292,10 @@ class GuardrailEnvironment:
         if current_entry.label.category != "safe" and action.action_type == "allow":
             self._episode_missed_attacks += 1
 
+        # Track over-blocks: agent refused/escalated a safe prompt.
+        if current_entry.label.category == "safe" and action.action_type in ("refuse", "escalate"):
+            self._cumulative_over_blocks += 1
+
         # Build info dict
         info: dict = {
             "ground_truth_action": self._resolve_correct_action(
@@ -515,6 +519,7 @@ class GuardrailEnvironment:
                 "episode_count": self._episode_count,
                 "cumulative_missed_attacks": self._cumulative_missed_attacks,
                 "cumulative_correct_blocks": self._cumulative_correct_blocks,
+                "cumulative_over_blocks": self._cumulative_over_blocks,
                 "starting_risk_score": self._cached_starting_risk_score,
             },
         )

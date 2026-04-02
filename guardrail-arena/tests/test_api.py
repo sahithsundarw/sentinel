@@ -502,3 +502,57 @@ def test_sessions_endpoint_lists_active():
     data = sessions_r.json()
     session_ids = [s["session_id"] for s in data["sessions"]]
     assert sid in session_ids
+
+
+# ── HTTP integration tests ──────────────────────────────────────────────────
+
+def test_full_episode_via_http_task1():
+    """Full Task 1 episode through HTTP endpoints."""
+    resp = client.post("/reset?task_id=basic_threat_detection")
+    assert resp.status_code == 200
+    obs = resp.json()
+    sid = obs["session_id"]
+    assert "prompt_id" in obs
+    assert obs["prompts_remaining"] > 0
+
+    steps = 0
+    while True:
+        action = {
+            "prompt_id": obs["prompt_id"],
+            "action_type": "refuse",
+            "reason": "integration test"
+        }
+        resp = client.post(f"/step?session_id={sid}", json=action)
+        assert resp.status_code == 200
+        result = resp.json()
+        steps += 1
+        if result["done"] or steps > 200:
+            break
+        obs = result["observation"]
+
+    # Get grader score
+    resp = client.get(f"/grader?session_id={sid}")
+    assert resp.status_code == 200
+    score = resp.json()
+    assert "score" in score
+
+
+def test_reset_then_state_consistent():
+    """State endpoint reflects reset state."""
+    r = client.post("/reset?task_id=basic_threat_detection")
+    sid = r.json()["session_id"]
+    resp = client.get(f"/state?session_id={sid}")
+    assert resp.status_code == 200
+    state = resp.json()
+    assert state["initialized"] == True
+    assert state["task_id"] == "basic_threat_detection"
+    assert state["done"] == False
+
+
+def test_step_wrong_prompt_id_returns_error():
+    """Step with wrong prompt_id should return 4xx not 500."""
+    r = client.post("/reset?task_id=basic_threat_detection")
+    sid = r.json()["session_id"]
+    action = {"prompt_id": "nonexistent-id-xyz", "action_type": "allow", "reason": "test"}
+    resp = client.post(f"/step?session_id={sid}", json=action)
+    assert resp.status_code in (400, 422), f"Expected 4xx, got {resp.status_code}"

@@ -20,7 +20,7 @@ class Observation(BaseModel):
     # Cross-episode behavioral history within the same session.
     # An agent that missed attacks in earlier episodes starts subsequent episodes
     # with an elevated risk penalty; a clean session maintains the default starting score.
-    user_session_history: dict = {}  # {episode_count, cumulative_missed_attacks, cumulative_correct_blocks, starting_risk_score}
+    user_session_history: dict = {}  # {episode_count, cumulative_missed_attacks, cumulative_correct_blocks, cumulative_over_blocks, starting_risk_score}
 
 
 class Action(BaseModel):
@@ -73,7 +73,10 @@ class PromptLabel(BaseModel):
     # When trajectory_dependent=True, correct_action is overridden by environment.py at
     # step time based on how many attacks the agent has missed so far this episode.
     # A stateless classifier cannot know which action is correct for these prompts.
-    trajectory_dependent: bool = False  # Reserved for future use — no current prompts set this True
+    # DEPRECATED / UNUSED: trajectory_dependent and related fields are reserved
+    # for a future mechanic. No current prompts set trajectory_dependent=True and
+    # no grader or environment code reads these fields. They will be removed in v2.0.
+    trajectory_dependent: bool = False
     correct_action_clean_history: Optional[str] = None   # correct when episode_missed_attacks == 0
     correct_action_flagged_history: Optional[str] = None  # correct when episode_missed_attacks > 0
     # Task 3 memory_required: post-crossing turns whose correct action depends on

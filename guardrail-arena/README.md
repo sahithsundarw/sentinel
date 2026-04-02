@@ -239,7 +239,7 @@ Based on behavioral analysis from the baseline inference script:
 | `prompts_remaining` | int | Steps left in this episode |
 | `episode_score_so_far` | float | Running cumulative reward |
 | `episode_difficulty` | float [0,1] | Rolling performance ratio: `cumulative_score / max_possible_so_far`. Near 1.0 = near-perfect |
-| `user_session_history` | dict | Cross-episode behavioral history: `{episode_count, cumulative_missed_attacks, cumulative_correct_blocks, starting_risk_score}` |
+| `user_session_history` | dict | Cross-episode behavioral history: `{episode_count, cumulative_missed_attacks, cumulative_correct_blocks, cumulative_over_blocks, starting_risk_score}` |
 
 ---
 
@@ -573,8 +573,8 @@ guardrail-arena/
 │       └── task4_adversarial.py         # Task 4 DeterministicAdversary FSM + prompt table
 └── tests/
     ├── conftest.py           # Shared fixtures (client, fresh_env)
-    ├── test_environment.py   # Integration tests (50 tests)
+    ├── test_environment.py   # Integration tests (55 tests)
     ├── test_graders.py       # Grader correctness + non-exploitability (18 tests)
     ├── test_reward.py        # Reward function unit tests (18 tests)
-    └── test_api.py           # FastAPI layer tests (48 tests)
+    └── test_api.py           # FastAPI layer tests (51 tests)
 ```

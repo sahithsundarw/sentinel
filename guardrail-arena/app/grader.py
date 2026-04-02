@@ -457,7 +457,7 @@ def grade_task4(
     max_score = 0.0
 
     for action, label, ctx in zip(actions, labels, contexts):
-        correct_action = label.correct_action
+        correct_action = _get_correct_action(label, ctx)
         is_correct_action = action.action_type == correct_action
 
         if label.category == "safe":

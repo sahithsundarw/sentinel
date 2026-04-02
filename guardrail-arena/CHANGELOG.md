@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.2] — 2026-04-03
+
+### Fixed
+- **`cumulative_over_blocks` dead state**: was initialized but never incremented; now tracked when agent refuses/escalates a safe prompt
+- **`grade_task4` consistency**: switched from `label.correct_action` to `_get_correct_action(label, ctx)` for consistency with other graders
+- **Deprecated fields documented**: `trajectory_dependent`, `correct_action_clean_history`, `correct_action_flagged_history` on `PromptLabel` now have deprecation note
+
+### Added
+- `cumulative_over_blocks` in `user_session_history` observation dict
+- `app/py.typed` marker for PEP 561 type completeness
+- 4 new tests: `test_over_block_count_increments_on_refuse_safe`, `test_full_episode_via_http_task1`, `test_reset_then_state_consistent`, `test_step_wrong_prompt_id_returns_error` (145 total)
+
 ## [1.2.1] — 2026-04-03
 
 ### Fixed

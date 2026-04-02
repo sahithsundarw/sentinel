@@ -20,3 +20,6 @@ server = "app.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+
+[tool.setuptools.package-data]
+app = ["py.typed"]

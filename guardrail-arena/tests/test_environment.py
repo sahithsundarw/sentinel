@@ -1218,3 +1218,34 @@ def test_starting_risk_score_stable_within_episode():
             break
         step_score = obs1.user_session_history.get("starting_risk_score", 0.5)
         assert step_score == initial_score, "starting_risk_score changed mid-episode"
+
+
+# ── Over-block tracking tests ───────────────────────────────────────────────
+
+def test_over_block_count_increments_on_refuse_safe():
+    """Refusing a safe prompt should increment cumulative_over_blocks in user_session_history."""
+    from app.tasks.task_config import get_task
+
+    env = GuardrailEnvironment()
+    obs = env.reset("basic_threat_detection")
+    task = get_task("basic_threat_detection")
+
+    # Find a safe prompt
+    safe_entry = next((e for e in task.prompts if e.label.category == "safe"), None)
+    assert safe_entry is not None
+
+    # Step through to the safe prompt and refuse it
+    while not env.is_done():
+        curr = env.current_prompt_entry
+        if curr and curr.label.prompt_id == safe_entry.label.prompt_id:
+            next_obs, _, done, _ = env.step(make_action("refuse", obs.prompt_id))
+            if not done and next_obs is not None:
+                assert next_obs.user_session_history.get("cumulative_over_blocks", 0) >= 1, (
+                    "cumulative_over_blocks should be >= 1 after refusing a safe prompt"
+                )
+            return
+        next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+        if not done:
+            obs = next_obs
+
+    pytest.fail("Safe entry not encountered")

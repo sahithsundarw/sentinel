@@ -171,7 +171,7 @@ All sourced prompts were:
 1. Reviewed manually for severity calibration consistency with existing prompts
 2. Assigned random UUID4-based prompt_ids (no sequential patterns)
 3. Verified via `_validate_task_data()` for no duplicate IDs across all tasks
-4. Confirmed with oracle baseline (1.0 score on all three tasks post-addition)
+4. Confirmed with oracle baseline (1.0 score on all four tasks post-addition)
 
 ---
 

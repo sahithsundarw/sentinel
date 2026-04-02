@@ -21,11 +21,11 @@ This file is for other team members' Claude instances. Read this before touching
 | `app/models.py` | All Pydantic models. `PromptLabel` is the central data model — read it first. |
 | `app/environment.py` | The RL engine. `reset()`, `step()`, `state()`. This is where branching and risk score evolution live. |
 | `app/reward.py` | `compute_step_reward()` — fully deterministic per-step reward. |
-| `app/grader.py` | Three task graders. Called once at episode end. |
+| `app/grader.py` | Four task graders. Called once at episode end. |
 | `app/main.py` | FastAPI endpoints. `/reset`, `/step`, `/grader`, `/demo`, `/tasks`, `/leaderboard`. |
 | `app/tasks/task_config.py` | Builds `TaskConfig` objects from raw data. This is the bridge between data files and the environment. **Read this before editing any task data file.** |
-| `app/tasks/task1_basic.py` + `task1_basic_expanded.py` | Task 1 prompt data (154 prompts total). |
-| `app/tasks/task2_context.py` + `task2_context_expanded.py` | Task 2 prompt data (154 prompts total). |
+| `app/tasks/task1_basic.py` + `task1_basic_expanded.py` | Task 1 prompt data (183 prompts total). |
+| `app/tasks/task2_context.py` + `task2_context_expanded.py` | Task 2 prompt data (162 prompts total). |
 | `app/tasks/task3_multiturn.py` | Task 3 original 5 conversations. Defines `ConversationTurn` and `BranchingConversation` dataclasses. |
 | `app/tasks/task3_multiturn_expanded.py` | Task 3 expanded conversations. Exports `EXPANDED_CONVERSATIONS` (flat) + `EXPANDED_BRANCHING` (9 branching conversations). |
 | `tests/test_environment.py` | Integration tests for the environment loop. |
@@ -36,7 +36,7 @@ This file is for other team members' Claude instances. Read this before touching
 
 ---
 
-## The Three Tasks
+## The Four Tasks
 
 ### Task 1: Basic Threat Detection (Easy)
 - **154 prompts**, single-turn, fixed context (`general_assistant`)

@@ -1,5 +1,5 @@
 """
-Tests for the three task graders.
+Tests for the four task graders.
 Verifies: determinism, perfect score = 1.0, worst case ≈ 0.0, asymmetric weighting.
 """
 import sys

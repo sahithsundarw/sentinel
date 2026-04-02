@@ -393,6 +393,23 @@ def test_rollout_invalid_task_returns_422():
     assert r.status_code == 422
 
 
+def test_rollout_task4_returns_trajectory():
+    """POST /rollout for adversarial_adaptation should return 12-step trajectory."""
+    actions = [{"action_type": "refuse", "reason": "test"}] * 12
+    r = client.post("/rollout", json={"task_id": "adversarial_adaptation", "actions": actions})
+    assert r.status_code == 200
+    data = r.json()
+    assert "grader_score" in data
+    assert len(data["trajectory"]) == 12
+    assert 0.0 <= data["grader_score"] <= 1.0
+
+
+def test_replay_task4_rejected():
+    """Replay is not supported for adversarial_adaptation."""
+    r = client.post("/replay", json={"task_id": "adversarial_adaptation", "actions": []})
+    assert r.status_code == 422
+
+
 # ── Item 29: Stress test (documents single-session limitation) ────────────────
 
 def test_concurrent_resets_do_not_crash():

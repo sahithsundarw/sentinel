@@ -1030,9 +1030,17 @@ def test_task4_all_allow_vs_all_refuse_different_trajectories():
     allow_prompts = collect_prompt_sequence("allow")
     refuse_prompts = collect_prompt_sequence("refuse")
 
-    # After the first turn (always the same probe), trajectories must diverge
-    assert allow_prompts[0] == refuse_prompts[0], (
-        "Turn 1 must always be the same (safe probe)"
+    # After the first turn (always the same safe probe node), trajectories must diverge.
+    # Note: text may differ across sessions due to session-salt variant selection,
+    # but both must come from the (topic=0, intensity=0) node.
+    from app.tasks.task4_adversarial import TASK4_PROMPTS
+    t0i0 = TASK4_PROMPTS[0][0]
+    valid_turn1_texts = {t0i0.prompt_text} | set(t0i0.variations)
+    assert allow_prompts[0] in valid_turn1_texts, (
+        "Turn 1 must be a variant of (topic=0, intensity=0) safe probe"
+    )
+    assert refuse_prompts[0] in valid_turn1_texts, (
+        "Turn 1 must be a variant of (topic=0, intensity=0) safe probe"
     )
     # By turn 3, the trajectories should definitely differ
     allow_set = set(allow_prompts[1:])

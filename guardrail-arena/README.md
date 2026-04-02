@@ -150,8 +150,6 @@ These are completely different prompts with opposite correct actions, served at 
 
 ---
 
----
-
 ## The Problem
 
 Content safety is the hardest unsolved deployment challenge for LLM systems. Every organization shipping Llama-based products — from customer support bots to educational tools — needs guardrails that are both effective and context-aware. A rule-based filter blocks "how do I kill a process in Linux" because the word "kill" appears. A separate judge LLM adds latency and cost to every request. Neither approach adapts to adversarial evolution.

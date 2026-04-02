@@ -28,7 +28,7 @@
 - `DATASET.md`: attack taxonomy, feature vocabulary, severity guidelines, construction methodology
 
 ### Changed
-- Task 1: 84 → 99 prompts. Task 2: 95 → 100 prompts. Task 3: 26 → 28 conversations, 120 → 173 turns
+- Task 1: 84 → 183 prompts. Task 2: 95 → 162 prompts. Task 3: 26 → 39 conversations, 120 → 238+ turns
 - Updated all hardcoded count assertions in tests
 - Fixed HTML landing page with current prompt counts and baseline scores
 - Updated `task_config.py` task descriptions with accurate counts

@@ -144,9 +144,10 @@ a:hover { text-decoration: underline; }
 <h2>Tasks</h2>
 <table>
 <tr><th>Task ID</th><th>Difficulty</th><th>Prompts</th><th>All-Allow Baseline</th></tr>
-<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>158</td><td>0.1291</td></tr>
-<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>154</td><td>0.0918</td></tr>
+<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>183</td><td>0.1291</td></tr>
+<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>162</td><td>0.0918</td></tr>
 <tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>varies / 39 convos</td><td>0.1595</td></tr>
+<tr><td>adversarial_adaptation</td><td><span class="badge hard">expert</span></td><td>12 (dynamic)</td><td>N/A</td></tr>
 </table>
 
 <h2>Quick Start</h2>
@@ -188,7 +189,7 @@ curl -X POST "http://localhost:7860/reset?task_id=basic_threat_detection&amp;see
 def _compute_baselines_background() -> None:
     """Run all-allow episode for each task and populate _computed_baselines.
     Runs in a background daemon thread so server startup is not blocked."""
-    for task_id in ("basic_threat_detection", "context_aware_policy", "multiturn_adversarial"):
+    for task_id in ("basic_threat_detection", "context_aware_policy", "multiturn_adversarial", "adversarial_adaptation"):
         try:
             b_env = GuardrailEnvironment()
             obs = b_env.reset(task_id)
@@ -301,6 +302,9 @@ _BASELINE_ENTRIES: dict[str, list[dict]] = {
     "multiturn_adversarial": [
         {"agent": "all-allow",   "score": 0.1595, "timestamp": "2025-01-01T00:00:00Z"},
     ],
+    "adversarial_adaptation": [
+        {"agent": "all-allow",   "score": 0.0, "timestamp": "2025-01-01T00:00:00Z"},
+    ],
 }
 
 def _load_leaderboard() -> dict[str, list[dict]]:
@@ -404,8 +408,9 @@ async def metadata():
         "name": "Guardrail Arena",
         "description": (
             "An OpenEnv-spec RL environment for training AI content safety agents. "
-            "Agents learn to moderate LLM prompts across three difficulty tiers: "
-            "basic threat detection, context-aware policy enforcement, and multi-turn adversarial defense."
+            "Agents learn to moderate LLM prompts across four difficulty tiers: "
+            "basic threat detection, context-aware policy enforcement, multi-turn adversarial defense, "
+            "and adversarial adaptation against a dynamic rule-based attacker."
         ),
         "version": "1.0.0",
         "tags": ["openenv", "safety", "guardrails", "content-moderation", "adversarial", "llm-safety"],
@@ -514,15 +519,16 @@ async def baseline():
         "basic_threat_detection": 0.1291,
         "context_aware_policy": 0.0918,
         "multiturn_adversarial": 0.1595,
+        "adversarial_adaptation": 0.0,
     }
     all_allow = _computed_baselines if _computed_baselines else _fallback
-    loading = len(_computed_baselines) < 3
+    loading = len(_computed_baselines) < 4
     return {
         "status": "loading" if loading else "ok",
         "baselines": {
             "all_allow": all_allow,
-            "all_refuse": {"basic_threat_detection": None, "context_aware_policy": None, "multiturn_adversarial": 0.1303},
-            "heuristic":  {"basic_threat_detection": None, "context_aware_policy": None, "multiturn_adversarial": None},
+            "all_refuse": {"basic_threat_detection": None, "context_aware_policy": None, "multiturn_adversarial": 0.1303, "adversarial_adaptation": None},
+            "heuristic":  {"basic_threat_detection": None, "context_aware_policy": None, "multiturn_adversarial": None, "adversarial_adaptation": None},
         },
         "note": "all_allow computed in background thread after startup. Status 'loading' means computation is still in progress.",
     }
@@ -643,7 +649,7 @@ async def demo():
         "description": "A 5-step demonstration showing the reward signal in action (seed=1: safe, attack, safe, attack, subtle_attack)",
         "trajectory": trajectory,
         "partial_grader_score": grader_score,
-        "partial_grader_note": "Score over 5 of 154 prompts only — run a full episode for a comparable grader score",
+        "partial_grader_note": "Score over 5 of 183 prompts only — run a full episode for a comparable grader score",
         "summary": (
             f"Agent correctly handled {correct}/5 prompts. "
             f"Demonstrates reward signal: correct blocks, missed attacks, and over-blocks."
@@ -653,7 +659,7 @@ async def demo():
 
 # ── /submit ───────────────────────────────────────────────────────────────────
 
-_VALID_TASK_IDS = {"basic_threat_detection", "context_aware_policy", "multiturn_adversarial"}
+_VALID_TASK_IDS = {"basic_threat_detection", "context_aware_policy", "multiturn_adversarial", "adversarial_adaptation"}
 
 
 class SubmitRequest(BaseModel):
@@ -714,7 +720,9 @@ async def rollout(req: RolloutRequest):
     if req.task_id not in _VALID_TASK_IDS:
         raise HTTPException(status_code=422, detail=f"Unknown task_id '{req.task_id}'")
     from app.tasks.task_config import get_task as _get_task
-    expected = len(_get_task(req.task_id).prompts)
+    from app.tasks.task4_adversarial import TASK4_EPISODE_LENGTH
+    task_cfg = _get_task(req.task_id)
+    expected = TASK4_EPISODE_LENGTH if req.task_id == "adversarial_adaptation" else len(task_cfg.prompts)
     if len(req.actions) < expected:
         raise HTTPException(
             status_code=400,
@@ -773,6 +781,8 @@ async def replay(req: ReplayRequest):
     """Replay a sequence of prompt_id→action pairs. Validates all prompt_ids exist, then scores."""
     if req.task_id not in _VALID_TASK_IDS:
         raise HTTPException(status_code=422, detail=f"Unknown task_id '{req.task_id}'")
+    if req.task_id == "adversarial_adaptation":
+        raise HTTPException(status_code=422, detail="Replay is not supported for adversarial_adaptation (dynamic prompt_ids)")
     from app.tasks.task_config import get_task
     task = get_task(req.task_id)
     valid_ids = {e.label.prompt_id for e in task.prompts}

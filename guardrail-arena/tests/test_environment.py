@@ -1112,3 +1112,28 @@ def test_branching_diverges_after_crossing():
             f"Branching conversation '{conv.conversation_id}' has identical "
             f"branch_caught and branch_missed text — branching is not real"
         )
+
+
+def test_task4_optimal_vs_all_refuse():
+    """Verify optimal policy (oracle) outscores all-refuse on Task 4."""
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+    from baseline_oracle import run_oracle
+
+    # Run all-refuse episode
+    env1 = GuardrailEnvironment()
+    obs = env1.reset("adversarial_adaptation")
+    while not env1.is_done():
+        action = make_action("refuse", obs.prompt_id)
+        result = env1.step(action)
+        obs, _, done, _ = result
+        if done:
+            break
+    all_refuse_score = env1.get_grader_score()
+
+    # Run oracle episode
+    oracle_score = run_oracle("adversarial_adaptation")
+
+    assert oracle_score > all_refuse_score, (
+        f"Oracle ({oracle_score:.3f}) should outscore all-refuse ({all_refuse_score:.3f})"
+    )

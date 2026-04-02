@@ -296,15 +296,16 @@ def test_state_returns_valid_structure():
 
 # ── /tasks ────────────────────────────────────────────────────────────────────
 
-def test_tasks_returns_three_tasks():
+def test_tasks_returns_four_tasks():
     r = client.get("/tasks")
     assert r.status_code == 200
     data = r.json()
-    assert len(data["tasks"]) == 3
+    assert len(data["tasks"]) == 4
     task_ids = [t["id"] for t in data["tasks"]]
     assert "basic_threat_detection" in task_ids
     assert "context_aware_policy" in task_ids
     assert "multiturn_adversarial" in task_ids
+    assert "adversarial_adaptation" in task_ids
 
 
 # ── /leaderboard ──────────────────────────────────────────────────────────────

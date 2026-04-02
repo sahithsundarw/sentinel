@@ -973,3 +973,115 @@ def test_branching_history_coherent_after_crossing():
                 assert entry.lower().startswith("assistant:"), (
                     f"Expected 'Assistant:' at index {i}, got: {entry!r}"
                 )
+
+
+# ── Task 4: adversarial_adaptation tests ─────────────────────────────────────
+
+def test_task4_reset_returns_valid_observation():
+    """Task 4 reset must return a valid Observation with correct fields."""
+    env = GuardrailEnvironment()
+    obs = env.reset("adversarial_adaptation")
+    assert isinstance(obs, Observation)
+    assert obs.user_prompt
+    assert obs.application_context == "customer_support"
+    assert obs.turn_number == 1
+    assert obs.prompts_remaining == 11  # 12 total, first served, 11 remaining
+
+
+def test_task4_episode_runs_for_exactly_max_turns():
+    """Task 4 episode should complete in exactly TASK4_EPISODE_LENGTH steps."""
+    from app.tasks.task4_adversarial import TASK4_EPISODE_LENGTH
+    env = GuardrailEnvironment()
+    obs = env.reset("adversarial_adaptation")
+    steps = 0
+    done = False
+    while not done:
+        _, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+        steps += 1
+        if not done:
+            obs = env._make_observation()
+    assert steps == TASK4_EPISODE_LENGTH, (
+        f"Expected {TASK4_EPISODE_LENGTH} steps but got {steps}"
+    )
+
+
+def test_task4_all_allow_vs_all_refuse_different_trajectories():
+    """
+    THE KEY RL TEST: an all-allow and an all-refuse agent must face completely
+    different prompts from turn 2 onwards. This proves the environment cannot
+    be solved by a stateless classifier — the distribution of what you face
+    depends entirely on your policy.
+    """
+    def collect_prompt_sequence(action_type: str) -> list[str]:
+        env = GuardrailEnvironment()
+        obs = env.reset("adversarial_adaptation", seed=0)
+        prompts = [obs.user_prompt]
+        done = False
+        while not done:
+            _, _, done, _ = env.step(make_action(action_type, obs.prompt_id))
+            if not done:
+                obs = env._make_observation()
+                prompts.append(obs.user_prompt)
+        return prompts
+
+    allow_prompts = collect_prompt_sequence("allow")
+    refuse_prompts = collect_prompt_sequence("refuse")
+
+    # After the first turn (always the same probe), trajectories must diverge
+    assert allow_prompts[0] == refuse_prompts[0], (
+        "Turn 1 must always be the same (safe probe)"
+    )
+    # By turn 3, the trajectories should definitely differ
+    allow_set = set(allow_prompts[1:])
+    refuse_set = set(refuse_prompts[1:])
+    assert allow_set != refuse_set, (
+        "All-allow and all-refuse agents must face different prompts — "
+        "the adversary should adapt based on the agent's actions."
+    )
+
+
+def test_task4_oracle_scores_1_0():
+    """The oracle (always correct action per label) must score 1.0 on Task 4."""
+    import re
+    env = GuardrailEnvironment()
+    obs = env.reset("adversarial_adaptation")
+    while not env.is_done():
+        entry = env.current_prompt_entry
+        correct = entry.label.correct_action
+        action = Action(prompt_id=obs.prompt_id, action_type=correct, reason="oracle")
+        next_obs, _, done, _ = env.step(action)
+        obs = next_obs if not done else obs
+    score = env.get_grader_score()
+    assert score >= 0.99, f"Task 4 oracle should score 1.0, got {score}"
+
+
+def test_task4_all_allow_score_lower_than_oracle():
+    """An all-allow agent must score below the oracle on Task 4."""
+    env = GuardrailEnvironment()
+    obs = env.reset("adversarial_adaptation", seed=0)
+    done = False
+    while not done:
+        _, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+        if not done:
+            obs = env._make_observation()
+    allow_score = env.get_grader_score()
+    assert allow_score < 1.0, (
+        f"All-allow should not score 1.0 on Task 4, got {allow_score}"
+    )
+
+
+def test_task4_conversation_history_grows_with_turns():
+    """Each subsequent observation in Task 4 should have a longer conversation history."""
+    env = GuardrailEnvironment()
+    obs = env.reset("adversarial_adaptation")
+    prev_hist_len = len(obs.conversation_history)
+    assert prev_hist_len == 0, "Turn 1 should have empty history"
+    for _ in range(3):
+        _, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+        if done:
+            break
+        obs = env._make_observation()
+        assert len(obs.conversation_history) > prev_hist_len, (
+            "Conversation history should grow with each turn"
+        )
+        prev_hist_len = len(obs.conversation_history)

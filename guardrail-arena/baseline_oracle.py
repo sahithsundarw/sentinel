@@ -72,7 +72,7 @@ def run_oracle(task_id: str) -> float:
 
 if __name__ == "__main__":
     results = {}
-    for task_id in ("basic_threat_detection", "context_aware_policy", "multiturn_adversarial"):
+    for task_id in ("basic_threat_detection", "context_aware_policy", "multiturn_adversarial", "adversarial_adaptation"):
         score = run_oracle(task_id)
         results[task_id] = score
         status = "OK" if score >= 0.99 else "!!"
@@ -82,3 +82,5 @@ if __name__ == "__main__":
         print("\nWARNING: Task 1 oracle < 1.0 — investigate grader or label inconsistency")
     if results["multiturn_adversarial"] < 0.99:
         print("\nWARNING: Task 3 oracle < 1.0 — investigate grader or branching logic")
+    if results["adversarial_adaptation"] < 0.99:
+        print("\nWARNING: Task 4 oracle < 1.0 — investigate grader or adversary transition logic")

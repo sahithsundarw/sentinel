@@ -1,7 +1,7 @@
 """
 Task 3: Multi-Turn Adversarial Defense — Expanded Dataset
-19 flat conversations + 9 branching conversations (CONV_F through CONV_GG).
-CONV_Q and CONV_R are additionally exported as BranchingConversation objects
+7 flat conversations + 27 branching conversations (CONV_F through CONV_GG).
+All adversarial conversations are exported as BranchingConversation objects
 for live dynamic branching (see EXPANDED_BRANCHING).
 
 Conversation types:

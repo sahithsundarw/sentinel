@@ -249,7 +249,7 @@ def test_task3_conversation_done_signal():
             from app.tasks.task_config import get_task
             task = get_task("multiturn_adversarial")
             obs = env._make_observation()
-    # Should have one signal per conversation (39 total: 5 original + 20 expanded flat + 9 branching + 5 gradual)
+    # Should have one signal per conversation (39 total: 5 original + 7 expanded flat + 27 expanded branching)
     assert len(conversation_done_signals) == 39
 
 

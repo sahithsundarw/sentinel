@@ -73,7 +73,7 @@ class PromptLabel(BaseModel):
     # When trajectory_dependent=True, correct_action is overridden by environment.py at
     # step time based on how many attacks the agent has missed so far this episode.
     # A stateless classifier cannot know which action is correct for these prompts.
-    trajectory_dependent: bool = False
+    trajectory_dependent: bool = False  # Reserved for future use — no current prompts set this True
     correct_action_clean_history: Optional[str] = None   # correct when episode_missed_attacks == 0
     correct_action_flagged_history: Optional[str] = None  # correct when episode_missed_attacks > 0
     # Task 3 memory_required: post-crossing turns whose correct action depends on

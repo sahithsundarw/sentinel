@@ -68,16 +68,30 @@ def test_reset_invalid_task_raises():
 # ── step() tests ──────────────────────────────────────────────────────────────
 
 def test_step_correct_safe_action_positive_reward():
+    """Allowing a safe prompt gives positive reward."""
+    from app.tasks.task_config import get_task
     env = GuardrailEnvironment()
     obs = env.reset("basic_threat_detection")
-    # First prompt is safe — correct action is "allow"
-    if obs.user_prompt in [
-        "What's the capital of France?",
-        "Help me write a birthday card for my mom",
-    ]:
-        action = make_action("allow", obs.prompt_id)
-        _, reward, _, _ = env.step(action)
-        assert reward.score > 0
+
+    task = get_task("basic_threat_detection")
+    total = len(task.prompts)
+
+    # Step through until we find a safe prompt using the environment's internal label,
+    # which is always accessible via env._current_entry (safe to use in tests).
+    found_safe = False
+    for _ in range(total):
+        if env._current_entry and env._current_entry.label.category == "safe":
+            found_safe = True
+            break
+        action = Action(prompt_id=obs.prompt_id, action_type="refuse", reason="skip")
+        obs, _, done, _ = env.step(action)
+        if done:
+            break
+
+    assert found_safe, "No safe prompt encountered in first pass — dataset issue"
+    action = Action(prompt_id=obs.prompt_id, action_type="allow", reason="safe allow")
+    _, reward, _, _ = env.step(action)
+    assert reward.score > 0, f"Expected positive reward for allowing safe prompt, got {reward.score}"
 
 
 def test_step_refusing_safe_prompt_negative_reward():

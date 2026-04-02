@@ -101,6 +101,8 @@ Task 2 includes 8 borderline prompts — high-value operations (large wire trans
 - `correct_action_clean_history: str` — model field; no prompts currently use it
 - `correct_action_flagged_history: str` — model field; no prompts currently use it
 
+**Current status**: No Task 2 prompts currently use `trajectory_dependent=True`. This field is reserved for future expansion. The grader does not apply special handling for trajectory-dependent prompts in the current dataset.
+
 ---
 
 ## Dataset Construction Methodology

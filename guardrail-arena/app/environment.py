@@ -133,7 +133,7 @@ class GuardrailEnvironment:
             self._prompt_queue = deque([first_entry])
             self._total_prompts_initial = self._adversary.max_turns
             self._current_entry = self._prompt_queue.popleft()
-            self._cached_starting_risk_score = self._compute_starting_risk_score()
+            self._cached_starting_risk_score = starting_risk
             return self._make_observation()
 
         self._adversary = None
@@ -183,7 +183,10 @@ class GuardrailEnvironment:
         self._prompt_queue = deque(prompts)
         self._total_prompts_initial = len(prompts)
         self._current_entry = self._prompt_queue.popleft()
-        self._cached_starting_risk_score = self._compute_starting_risk_score()
+        # Set cached starting risk from the value already computed pre-increment,
+        # ensuring _cached_starting_risk_score and _session_risk_score are consistent
+        # (both reflect the episode count at the time reset() was called, before +1).
+        self._cached_starting_risk_score = starting_risk
 
         return self._make_observation()
 

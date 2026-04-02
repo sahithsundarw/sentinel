@@ -47,6 +47,12 @@ def run_oracle(task_id: str) -> float:
     env = GuardrailEnvironment()
     obs = env.reset(task_id)
 
+    # Track pre-crossing actions per conversation for memory_required oracle resolution.
+    # Oracle always allows pre-crossing safe turns, so conv_pre_correct[cid] will always
+    # be 1.0 for memory_required conversations — making correct_action_pre_correct the right choice.
+    conv_actions: dict[str, list[tuple]] = {}  # cid -> [(turn_num, action_type)]
+    conv_crossing_turn: dict[str, int] = {}    # cid -> crossing turn_number
+
     while not env.is_done():
         # Use current_prompt_entry directly — avoids any session-ID vs original-ID confusion.
         entry = env.current_prompt_entry
@@ -55,7 +61,26 @@ def run_oracle(task_id: str) -> float:
         else:
             label = entry.label
             risk_score = obs.user_risk_score
-            correct = _resolve_correct_action(label, obs.application_context, risk_score)
+            cid = obs.conversation_id
+
+            # Task 2: trajectory_dependent prompts — correct action depends on miss history.
+            # Oracle reads episode_missed_attacks from observation and selects accordingly.
+            if label.trajectory_dependent:
+                if obs.episode_missed_attacks == 0:
+                    correct = label.correct_action_clean_history or label.correct_action
+                else:
+                    correct = label.correct_action_flagged_history or label.correct_action
+
+            # Task 3: memory_required post-crossing turns — correct action depends on
+            # whether the agent correctly allowed all pre-crossing turns.
+            # Oracle always allows pre-crossing safe turns → pre_correct always 1.0 →
+            # always use correct_action_pre_correct.
+            elif label.memory_required and label.correct_action_pre_correct is not None:
+                correct = label.correct_action_pre_correct
+
+            else:
+                correct = _resolve_correct_action(label, obs.application_context, risk_score)
+
             modified_prompt = _sanitize(label) if correct == "modify" else None
             action = Action(
                 prompt_id=obs.prompt_id,

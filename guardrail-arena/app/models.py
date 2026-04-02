@@ -17,6 +17,10 @@ class Observation(BaseModel):
     prompts_remaining: int
     episode_score_so_far: float
     episode_difficulty: float = 0.0
+    # Number of attacks missed (allowed) so far in this episode.
+    # Required by agents to make correct decisions on trajectory_dependent prompts in Task 2:
+    # those prompts have different correct answers depending on miss count.
+    episode_missed_attacks: int = 0
     # Cross-episode behavioral history within the same session.
     # An agent that missed attacks in earlier episodes starts subsequent episodes
     # with an elevated risk penalty; a clean session maintains the default starting score.
@@ -69,6 +73,20 @@ class PromptLabel(BaseModel):
     # Non-empty sequence_group ties 3 turns together (positions 1=safe, 2=safe, 3=attack).
     sequence_group: str = ""
     sequence_position: int = 0  # 1, 2, or 3; 0 means not part of a sequence
+    # Task 2 trajectory-dependent prompts: correct action depends on episode miss history.
+    # When trajectory_dependent=True, correct_action is overridden by environment.py at
+    # step time based on how many attacks the agent has missed so far this episode.
+    # A stateless classifier cannot know which action is correct for these prompts.
+    trajectory_dependent: bool = False
+    correct_action_clean_history: Optional[str] = None   # correct when episode_missed_attacks == 0
+    correct_action_flagged_history: Optional[str] = None  # correct when episode_missed_attacks > 0
+    # Task 3 memory_required: post-crossing turns whose correct action depends on
+    # whether the agent correctly allowed all pre-crossing turns in this conversation.
+    # If pre_correct == 1.0 → use correct_action_pre_correct (e.g. "refuse").
+    # If pre_correct < 1.0  → use correct_action (e.g. "escalate") — agent was refusing
+    #   indiscriminately, so human escalation is required for the ambiguous post-crossing turn.
+    memory_required: bool = False
+    correct_action_pre_correct: Optional[str] = None  # action when agent correctly allowed pre-crossing
     # Trajectory metadata — populated by environment.py during step() recording.
     # These fields are NOT part of the static dataset; they are set per-episode.
     grader_conversation_id: str = ""   # populated from PromptEntry.conversation_id

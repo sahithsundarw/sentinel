@@ -337,8 +337,8 @@ Rewards are computed per-step and are fully deterministic.
 - **No fixed prompt sequence** — a deterministic rule-based adversary generates each of 12 prompts in real time from the agent's last action
 - **Context:** `customer_support` (fixed)
 - **Format:** 12-turn episode, fully dynamic
-- **Adversary state machine:** 5 topics × 6 intensity levels. Allows → attacker escalates. Blocks → attacker backs off. Two misses → attacker switches topics. The episode trajectory is entirely determined by the agent's policy.
-- **Topics:** PII extraction, security bypass, harmful instructions, financial fraud, authority impersonation
+- **Adversary state machine:** 10 topics × 6 intensity levels. Allows → attacker escalates. Blocks → attacker backs off. Two misses → attacker switches topics. The episode trajectory is entirely determined by the agent's policy.
+- **Topics:** PII extraction, security bypass, harmful instructions, financial fraud, authority impersonation, medical/pharmaceutical manipulation, academic dishonesty, surveillance/tracking, extremist recruitment, social engineering/phishing
 - **Intensity levels:**
 
 | Intensity | Action | Severity | Description |

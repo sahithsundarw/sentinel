@@ -230,7 +230,12 @@ class GuardrailEnvironment:
 
         # Record for grader
         self._actions.append(action)
-        self._labels.append(current_entry.label)
+        enriched_label = current_entry.label.model_copy(update={
+            "grader_conversation_id": current_entry.conversation_id,
+            "grader_turn_number": current_entry.turn_number,
+            "grader_is_crossing": current_entry.is_crossing,
+        })
+        self._labels.append(enriched_label)
         self._contexts.append(current_entry.application_context)
         self._step_risk_scores.append(risk_score)
 

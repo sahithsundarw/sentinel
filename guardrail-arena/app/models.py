@@ -65,6 +65,11 @@ class PromptLabel(BaseModel):
     is_recovery_conversation: bool = False
     # Source dataset for this prompt (e.g. "wildguard", "harmbench", "original")
     source: Optional[str] = None
+    # Trajectory metadata — populated by environment.py during step() recording.
+    # These fields are NOT part of the static dataset; they are set per-episode.
+    grader_conversation_id: str = ""   # populated from PromptEntry.conversation_id
+    grader_turn_number: int = 1        # populated from PromptEntry.turn_number
+    grader_is_crossing: bool = False   # populated from PromptEntry.is_crossing
 
 
 class TaskInfo(BaseModel):

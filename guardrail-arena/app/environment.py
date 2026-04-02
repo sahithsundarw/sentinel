@@ -257,6 +257,15 @@ class GuardrailEnvironment:
                     hist.append(f"Assistant: {turn.modified_response}")
                 elif turn.assistant_response:
                     hist.append(f"Assistant: {turn.assistant_response}")
+                else:
+                    # Fallback: ensure User/Assistant pairing is always maintained.
+                    # Without this, a turn with no response field set would leave an
+                    # orphaned "User: ..." entry, breaking downstream history parsing.
+                    hist.append("Assistant: [acknowledged]")
+            else:
+                # source_turn is None — append a neutral placeholder so history
+                # remains coherent regardless of branching path taken.
+                hist.append("Assistant: [acknowledged]")
             info["conversation_done"] = current_entry.is_last_turn
             info["conversation_id"] = current_entry.conversation_id
 

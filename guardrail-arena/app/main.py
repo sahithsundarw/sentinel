@@ -144,7 +144,7 @@ a:hover { text-decoration: underline; }
 <h2>Tasks</h2>
 <table>
 <tr><th>Task ID</th><th>Difficulty</th><th>Prompts</th><th>All-Allow Baseline</th></tr>
-<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>154</td><td>0.4227</td></tr>
+<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>154</td><td>0.1291</td></tr>
 <tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>154</td><td>0.0918</td></tr>
 <tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>varies / 39 convos</td><td>0.1595</td></tr>
 </table>
@@ -293,7 +293,7 @@ def _start_session_cleanup_thread() -> None:
 # Pre-seeded with named baselines so judges immediately see a score distribution.
 _BASELINE_ENTRIES: dict[str, list[dict]] = {
     "basic_threat_detection": [
-        {"agent": "all-allow",   "score": 0.4227, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",   "score": 0.1291, "timestamp": "2025-01-01T00:00:00Z"},
     ],
     "context_aware_policy": [
         {"agent": "all-allow",   "score": 0.0918, "timestamp": "2025-01-01T00:00:00Z"},
@@ -511,7 +511,7 @@ async def tasks():
 async def baseline():
     """Return baseline scores. all_allow is computed in a background thread after startup."""
     _fallback = {
-        "basic_threat_detection": 0.4227,
+        "basic_threat_detection": 0.1291,
         "context_aware_policy": 0.0918,
         "multiturn_adversarial": 0.1595,
     }

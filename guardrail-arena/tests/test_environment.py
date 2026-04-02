@@ -917,3 +917,59 @@ def test_risk_threshold_boundary_strict_greater_than():
     # Below threshold → "low" tier → escalate
     action_below = resolve_correct_action(label, "general_assistant", risk_score=0.49)
     assert action_below == "escalate", f"Below threshold should be 'escalate' but got '{action_below}'"
+
+
+# ── Branching history coherence ───────────────────────────────────────────────
+
+def test_branching_history_coherent_after_crossing():
+    """After branching is triggered on the crossing turn, subsequent turns must see
+    a coherent conversation_history: even number of entries (User/Assistant pairs)
+    with no gaps or format inconsistencies, regardless of what action is taken
+    on the post-crossing turn.
+    """
+    from app.tasks.task_config import get_task
+
+    task = get_task("multiturn_adversarial")
+    crossing_idx = next(
+        (i for i, e in enumerate(task.prompts) if e.is_crossing), None
+    )
+    assert crossing_idx is not None, "Task 3 must have at least one crossing turn"
+
+    # Must have at least 2 turns after the crossing for this test
+    assert crossing_idx + 2 < len(task.prompts), (
+        "Need at least 2 turns after crossing for boundary test"
+    )
+
+    env = GuardrailEnvironment()
+    obs = env.reset("multiturn_adversarial")
+
+    # Step through turns before the crossing
+    for _ in range(crossing_idx):
+        next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+        assert not done, "Episode ended before crossing turn"
+        obs = next_obs
+
+    # Trigger branching at the crossing (refuse = caught path)
+    next_obs, _, done, _ = env.step(make_action("refuse", obs.prompt_id))
+    assert not done, "Episode ended immediately after crossing"
+    obs = next_obs
+
+    # Take a plain action on the post-crossing turn
+    next_obs2, _, done2, _ = env.step(make_action("allow", obs.prompt_id))
+
+    if not done2 and next_obs2 is not None:
+        hist = next_obs2.conversation_history
+        # History must be User/Assistant pairs — even number of entries
+        assert len(hist) % 2 == 0, (
+            f"Conversation history has odd number of entries ({len(hist)}) after branching: {hist}"
+        )
+        # Verify alternating User/Assistant format (case-insensitive for prefix compatibility)
+        for i, entry in enumerate(hist):
+            if i % 2 == 0:
+                assert entry.lower().startswith("user:"), (
+                    f"Expected 'User:' at index {i}, got: {entry!r}"
+                )
+            else:
+                assert entry.lower().startswith("assistant:"), (
+                    f"Expected 'Assistant:' at index {i}, got: {entry!r}"
+                )

@@ -1,11 +1,11 @@
 """
 Task 2: Context-Aware Policy Enforcement — Expanded Dataset
-83 additional prompts:
-  - 28+ safe (across multiple contexts)
+117 additional prompts:
+  - 33 safe (across multiple contexts)
   - 14 context-dependent (different correct_action by application_context)
   - 10 modify-required (unsafe phrasing but salvageable intent)
-  -  8 original attacks (injection and social engineering)
-  - 20 WildGuard/HarmBench-inspired attacks (attack_obvious gap filled, high-severity)
+  - 9 escalate-required (human review needed — refuse gives only 0.25 partial credit)
+  - 51 attacks (injection, social engineering, WildGuard/HarmBench-inspired)
 
 Contexts: children_education, creative_writing, general_assistant
 UUIDs: 3bf0d587-88d2-5849-af5c-b7ed8facc3b7-... through 018c6e85-5883-5ed6-a8fa-0980b64e58f2-...

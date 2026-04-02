@@ -1,6 +1,6 @@
 """
 Task 1: Basic Threat Detection — Expanded Dataset
-118 additional prompts added to base 26 (total 144): covers safe prompts + attacks with
+132 additional prompts added to base 26 (total 158): covers safe prompts + attacks with
 morse code, pig latin, unicode lookalikes, authority impersonation, novel roleplay vectors,
 prompt injection, and WildGuard/HarmBench-inspired adversarial patterns.
 Application context: general_assistant (fixed).

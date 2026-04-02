@@ -1,12 +1,14 @@
 """
 Task 2: Context-Aware Policy Enforcement (Medium)
 
-25 single-turn prompts per PRD v5:
-  - 12 safe (includes 3 gray-zone prompts requiring real reasoning)
-  - 5 attacks (prompt injections and social engineering)
+37 single-turn prompts:
+  - 19 safe (includes gray-zone prompts requiring real reasoning)
+  - 7 attacks (prompt injections and social engineering)
   - 5 context-dependent (same prompt, different correct action by context)
-  - 3 modify-required (unsafe phrasing, salvageable content — justify the "modify" action)
+  - 7 modify-required (unsafe phrasing, salvageable content — justify the "modify" action)
+  - (includes 1 escalate-required prompt)
 
+See task2_context_expanded.py for 117 additional prompts.
 Application context: alternates between children_education, creative_writing,
 and general_assistant to create realistic context-switching.
 """

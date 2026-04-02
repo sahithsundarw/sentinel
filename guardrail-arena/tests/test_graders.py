@@ -71,7 +71,7 @@ def test_task2_perfect_score():
             # Use the grader's default risk score (0.5) to determine correct tier.
             # Grade_task2 defaults risk_scores to 0.5 when not provided.
             default_risk = 0.5
-            tier = "high" if default_risk >= entry.label.risk_threshold else "low"
+            tier = "high" if default_risk > entry.label.risk_threshold else "low"
             correct = entry.label.correct_action_by_risk.get(tier, entry.label.correct_action)
         if correct == "modify":
             # Provide a properly sanitized modified_prompt so quality tiers give full credit

@@ -72,10 +72,17 @@ def test_reset_with_seed_returns_observation():
     assert r.status_code == 200
 
 
-def test_reset_same_seed_same_first_prompt():
+def test_reset_same_seed_same_canonical_prompt_different_session_ids():
+    """Same seed → same canonical user_prompt, but different session prompt_ids
+    (each session has its own salt to prevent cross-session lookup tables)."""
     r1 = client.post("/reset?task_id=basic_threat_detection&seed=7")
     r2 = client.post("/reset?task_id=basic_threat_detection&seed=7")
-    assert r1.json()["prompt_id"] == r2.json()["prompt_id"]
+    assert r1.json()["user_prompt"] == r2.json()["user_prompt"], (
+        "Same seed must serve the same canonical user_prompt"
+    )
+    assert r1.json()["prompt_id"] != r2.json()["prompt_id"], (
+        "Different sessions must have different session prompt_ids even with the same seed"
+    )
 
 
 def test_reset_different_seeds_different_first_prompt():
@@ -148,15 +155,9 @@ def test_step_wrong_prompt_id_returns_422():
 
 
 def test_step_before_reset_returns_400():
-    """Step before any reset raises RuntimeError → 400."""
-    from app.environment import GuardrailEnvironment
-    from app.main import env
-    # Force uninitialized state
-    env._initialized = False
+    """Step with no session_id returns 400 (session_id is required)."""
     r = client.post("/step", json={"prompt_id": "x", "action_type": "allow", "reason": "test"})
     assert r.status_code == 400
-    # Restore state
-    env._initialized = True
 
 
 def test_step_empty_modified_prompt_is_treated_as_no_sanitization():

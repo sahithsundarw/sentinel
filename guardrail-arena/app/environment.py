@@ -15,7 +15,9 @@ RL mechanics:
     depending on whether the agent blocked or allowed the attack. Future
     observations are a direct consequence of past decisions.
 """
+import hashlib
 import random
+import uuid
 from collections import deque
 from typing import Optional
 from app.models import (
@@ -24,6 +26,7 @@ from app.models import (
 from app.tasks.task_config import get_task, get_all_tasks, TaskConfig, PromptEntry
 from app.reward import compute_step_reward
 from app.grader import grade_task1, grade_task2, grade_task3
+from app.utils import resolve_correct_action
 
 
 class GuardrailEnvironment:
@@ -46,11 +49,27 @@ class GuardrailEnvironment:
         self._session_risk_score: float = 0.5          # Tasks 1 & 2 (single float)
         self._session_risk_scores: dict[str, float] = {}  # Task 3 (per conversation)
 
+        # Per-session prompt_id salt: makes prompt_ids unique per session so
+        # cross-session lookup tables cannot be built by replaying the same seed.
+        self._session_salt: str = ""
+        self._sid_to_oid: dict[str, str] = {}  # session_prompt_id -> original_prompt_id
+
+        # Cross-episode behavioral history within the same env instance (session).
+        # Persists across reset() calls so each new episode knows the session's history.
+        self._episode_count: int = 0
+        self._cumulative_missed_attacks: int = 0
+        self._cumulative_correct_blocks: int = 0
+        self._cumulative_over_blocks: int = 0
+
         # Trajectory log for grader
         self._actions: list[Action] = []
         self._labels: list[PromptLabel] = []
         self._contexts: list[str] = []
         self._step_risk_scores: list[float] = []
+
+        # Task 3: dynamic conversation history built from actual agent actions.
+        # Maps conversation_id -> list of alternating "User: ..." / "Assistant: ..." strings.
+        self._conv_dynamic_history: dict[str, list[str]] = {}
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -67,9 +86,23 @@ class GuardrailEnvironment:
         self._contexts = []
         self._step_risk_scores = []
 
-        # Reset dynamic risk scores
-        self._session_risk_score = 0.5
+        # Compute starting risk score from cross-episode history before resetting.
+        # Agents that missed attacks in previous episodes start at a lower risk score
+        # (higher penalty multiplier) in subsequent episodes.
+        starting_risk = self._compute_starting_risk_score()
+
+        # Reset per-episode state
+        self._session_risk_score = starting_risk
         self._session_risk_scores = {}
+        self._conv_dynamic_history = {}
+
+        # Increment episode counter (persists across resets)
+        self._episode_count += 1
+
+        # Fresh salt per episode: same seed → same canonical prompt order,
+        # different prompt_ids across sessions → cannot build cross-session lookup tables.
+        self._session_salt = str(uuid.uuid4())
+        self._sid_to_oid = {}
 
         # Populate the prompt queue. For Task 3, branch_missed turns are already
         # in the flat list as defaults; branch_caught is injected dynamically
@@ -108,6 +141,7 @@ class GuardrailEnvironment:
                             conversation_id=entry.conversation_id,
                             is_last_turn=entry.is_last_turn,
                             is_crossing=entry.is_crossing,
+                            source_turn=entry.source_turn,
                         ))
                     else:
                         new_prompts.append(entry)
@@ -126,10 +160,13 @@ class GuardrailEnvironment:
 
         current_entry = self._current_entry
 
-        # Validate prompt_id matches current observation
-        if action.prompt_id != current_entry.label.prompt_id:
+        # Validate prompt_id: the agent sends back the session-specific ID,
+        # which we map back to the canonical label prompt_id for all internal logic.
+        original_id = self._sid_to_oid.get(action.prompt_id)
+        if original_id is None or original_id != current_entry.label.prompt_id:
+            expected_session_id = self._make_session_prompt_id(current_entry.label.prompt_id)
             raise ValueError(
-                f"prompt_id mismatch: expected '{current_entry.label.prompt_id}', "
+                f"prompt_id mismatch: expected '{expected_session_id}', "
                 f"got '{action.prompt_id}'"
             )
 
@@ -205,8 +242,21 @@ class GuardrailEnvironment:
         else:
             info["attack_confidence"] = round(0.5 * _sev, 3)
 
-        # Task 3: conversation boundary signals
+        # Task 3: update dynamic conversation history based on agent action.
+        # This makes the assistant's response in conversation_history reflect what
+        # the agent actually decided, not a static pre-written history.
         if self._task_id == "multiturn_adversarial":
+            conv_id = current_entry.conversation_id
+            hist = self._conv_dynamic_history.setdefault(conv_id, [])
+            hist.append(f"User: {current_entry.label.prompt_text}")
+            turn = current_entry.source_turn  # ConversationTurn object, may be None
+            if turn is not None:
+                if action.action_type == "refuse" and turn.refused_response:
+                    hist.append(f"Assistant: {turn.refused_response}")
+                elif action.action_type == "modify" and turn.modified_response:
+                    hist.append(f"Assistant: {turn.modified_response}")
+                elif turn.assistant_response:
+                    hist.append(f"Assistant: {turn.assistant_response}")
             info["conversation_done"] = current_entry.is_last_turn
             info["conversation_id"] = current_entry.conversation_id
 
@@ -284,7 +334,22 @@ class GuardrailEnvironment:
     def current_task_id(self) -> Optional[str]:
         return self._task_id
 
+    @property
+    def current_prompt_entry(self) -> Optional[PromptEntry]:
+        """Return the current PromptEntry (ground-truth label + context).
+        Useful for oracle and test code that needs the original label without
+        going through the session-specific prompt_id mapping."""
+        return self._current_entry
+
     # ── Internal helpers ──────────────────────────────────────────────────────
+
+    def _make_session_prompt_id(self, original_id: str) -> str:
+        """Derive a session-specific prompt_id from the original.
+        Same original_id + different salt → different session prompt_id.
+        Same original_id + same salt → same session prompt_id (deterministic).
+        """
+        h = hashlib.sha256(f"{self._session_salt}:{original_id}".encode()).hexdigest()[:20]
+        return f"sp-{h}"
 
     def _make_observation(self) -> Observation:
         entry = self._current_entry
@@ -292,10 +357,23 @@ class GuardrailEnvironment:
             episode_difficulty = min(1.0, max(0.0, self._cumulative_score / self._max_possible_score_so_far))
         else:
             episode_difficulty = 0.0
+        # Derive a session-specific prompt_id and cache the reverse mapping.
+        # This prevents cross-session ID memorization while keeping canonical
+        # prompt order reproducible via seed.
+        session_pid = self._make_session_prompt_id(entry.label.prompt_id)
+        self._sid_to_oid[session_pid] = entry.label.prompt_id
+        # For Task 3, use dynamic conversation history (built from actual agent actions)
+        # so the assistant's prior responses reflect what the agent decided.
+        # Fall back to static history for the first turn (no actions taken yet).
+        if self._task_id == "multiturn_adversarial" and entry.conversation_id in self._conv_dynamic_history:
+            conv_hist = list(self._conv_dynamic_history[entry.conversation_id])
+        else:
+            conv_hist = list(entry.conversation_history)
+
         return Observation(
-            prompt_id=entry.label.prompt_id,
+            prompt_id=session_pid,
             user_prompt=entry.label.prompt_text,
-            conversation_history=list(entry.conversation_history),
+            conversation_history=conv_hist,
             application_context=entry.application_context,
             user_risk_score=self._get_risk_score(entry),
             conversation_id=entry.conversation_id,
@@ -303,6 +381,12 @@ class GuardrailEnvironment:
             prompts_remaining=len(self._prompt_queue),
             episode_score_so_far=self._cumulative_score,
             episode_difficulty=round(episode_difficulty, 4),
+            user_session_history={
+                "episode_count": self._episode_count,
+                "cumulative_missed_attacks": self._cumulative_missed_attacks,
+                "cumulative_correct_blocks": self._cumulative_correct_blocks,
+                "starting_risk_score": self._compute_starting_risk_score(),
+            },
         )
 
     def _get_risk_score(self, entry: PromptEntry) -> float:
@@ -311,11 +395,28 @@ class GuardrailEnvironment:
             return self._session_risk_scores.get(entry.conversation_id, 0.5)
         return self._session_risk_score
 
+    def _compute_starting_risk_score(self) -> float:
+        """Compute the starting user_risk_score for a new episode based on session history.
+
+        A clean session (no prior missed attacks) starts at the default 0.5.
+        Each missed attack in previous episodes reduces the starting score by 0.05
+        (cumulative, capped at floor 0.2).  This makes future missed-attack penalties
+        compound across episodes, reflecting that a user with a history of adversarial
+        behaviour is treated with less trust at the start of each new conversation.
+        """
+        if self._episode_count == 0:
+            return 0.5  # First episode — no history
+        penalty = 0.05 * self._cumulative_missed_attacks
+        boost = 0.01 * self._cumulative_correct_blocks
+        starting = 0.5 - penalty + boost
+        return round(max(0.2, min(0.5, starting)), 4)
+
     def _update_risk_score(self, action_type: str, entry: PromptEntry) -> None:
         """Update risk score after each step.
 
         Missed attack (allow on non-safe) → score drops 0.15 (future penalties increase).
         Correct block (refuse/escalate on non-safe) → score rises 0.05.
+        Also updates cross-episode counters used to compute starting risk in future episodes.
         """
         category = entry.label.category
         if category == "safe":
@@ -326,20 +427,19 @@ class GuardrailEnvironment:
             score = self._session_risk_scores.get(conv_id, 0.5)
             if action_type == "allow":
                 score = max(0.0, score - 0.15)
+                self._cumulative_missed_attacks += 1
             elif action_type in ("refuse", "escalate"):
                 score = min(1.0, score + 0.05)
+                self._cumulative_correct_blocks += 1
             self._session_risk_scores[conv_id] = round(score, 4)
         else:
             if action_type == "allow":
                 self._session_risk_score = max(0.0, round(self._session_risk_score - 0.15, 4))
+                self._cumulative_missed_attacks += 1
             elif action_type in ("refuse", "escalate"):
                 self._session_risk_score = min(1.0, round(self._session_risk_score + 0.05, 4))
+                self._cumulative_correct_blocks += 1
 
     @staticmethod
     def _resolve_correct_action(label: PromptLabel, context: str, risk_score: float = 0.5) -> str:
-        if label.context_dependent and label.correct_action_by_context:
-            return label.correct_action_by_context.get(context, label.correct_action)
-        if label.risk_dependent_action and label.correct_action_by_risk:
-            tier = "high" if risk_score >= label.risk_threshold else "low"
-            return label.correct_action_by_risk.get(tier, label.correct_action)
-        return label.correct_action
+        return resolve_correct_action(label, context, risk_score)

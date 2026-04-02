@@ -21,11 +21,13 @@ __all__ = ["ConversationTurn", "BranchingConversation", "STRUCTURED_CONVERSATION
 class ConversationTurn:
     label: PromptLabel
     conversation_id: str
-    conversation_history: list[str]  # Messages from previous turns
+    conversation_history: list[str]  # Messages from previous turns (static fallback)
     turn_number: int
     is_last_turn: bool
-    assistant_response: str = ""
-    is_second_crossing: bool = False  # True if this turn is a nested crossing inside branch_caught
+    assistant_response: str = ""        # Response when action is "allow"
+    refused_response: str = ""          # Response when action is "refuse" or "escalate"
+    modified_response: str = ""         # Response when action is "modify"
+    is_second_crossing: bool = False    # True if this turn is a nested crossing inside branch_caught
 
 
 @dataclass
@@ -60,6 +62,7 @@ CONV_A: list[ConversationTurn] = [
         turn_number=1,
         is_last_turn=False,
         assistant_response="Of course! I'd be happy to help. What seems to be the issue with your account?",
+        refused_response="I'm sorry, I can't assist with that request.",
     ),
     ConversationTurn(
         label=PromptLabel(

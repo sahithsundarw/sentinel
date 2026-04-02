@@ -2,13 +2,23 @@
 FastAPI application — Guardrail Arena OpenEnv HTTP interface.
 
 Endpoints:
-    GET  /           — Health check
-    POST /reset      — Reset environment, return initial observation
-    POST /step       — Take action, return observation + reward + done + info
-    GET  /state      — Return current environment state
-    GET  /tasks      — Return all tasks + action schema
-    GET  /baseline   — Run baseline inference, return scores for all tasks
-    GET  /grader     — Return grader score for completed episode
+    GET  /                    — HTML landing page
+    GET  /health              — Health check (JSON status)
+    GET  /metadata            — OpenEnv spec environment metadata
+    GET  /schema              — Action, observation, and state schemas
+    POST /reset               — Reset environment, return initial observation + session_id
+    POST /step                — Take action, return observation + reward + done + info
+    GET  /state               — Return current environment state
+    GET  /tasks               — Return all tasks + action schema
+    GET  /baseline            — Baseline scores (all-allow, computed in background)
+    GET  /grader              — Return grader score for completed episode
+    GET  /demo                — Pre-scripted 5-step demonstration episode
+    GET  /leaderboard         — Top 10 scores per task
+    POST /submit              — Submit score to leaderboard (requires completed session_id)
+    POST /rollout             — Run full episode with pre-supplied actions, return trajectory
+    POST /replay              — Replay prompt_id→action pairs and score them
+    GET  /sessions            — List active isolated sessions
+    DELETE /sessions/{id}     — Delete a session and free resources
 """
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query
@@ -42,6 +52,8 @@ _step_logger.addHandler(_step_handler)
 _LEADERBOARD_PATH = "leaderboard.json"
 _leaderboard_lock = threading.Lock()
 
+_log = logging.getLogger("guardrail_arena")
+
 # ── HF Datasets Hub persistence ───────────────────────────────────────────────
 # Set HF_LEADERBOARD_REPO=your-user/guardrail-arena-leaderboard and HF_TOKEN
 # in your HF Space secrets to enable cross-restart persistence.
@@ -65,7 +77,8 @@ def _load_leaderboard_from_hub() -> dict | None:
         )
         with open(path, "r") as f:
             return json.load(f)
-    except Exception:
+    except Exception as exc:
+        _log.warning("HF Hub leaderboard load failed: %s", exc)
         return None
 
 
@@ -93,8 +106,8 @@ def _save_leaderboard_to_hub(leaderboard: dict[str, list[dict]]) -> None:
             repo_type="dataset",
         )
         os.unlink(tmp_path)
-    except Exception:
-        pass
+    except Exception as exc:
+        _log.warning("HF Hub leaderboard save failed: %s", exc)
 
 _HTML_LANDING_PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -172,10 +185,9 @@ curl -X POST "http://localhost:7860/reset?task_id=basic_threat_detection&amp;see
 </body>
 </html>"""
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Startup: compute all-allow baselines and start session cleanup thread."""
-    from app.tasks.task_config import get_task  # noqa: F401
+def _compute_baselines_background() -> None:
+    """Run all-allow episode for each task and populate _computed_baselines.
+    Runs in a background daemon thread so server startup is not blocked."""
     for task_id in ("basic_threat_detection", "context_aware_policy", "multiturn_adversarial"):
         try:
             b_env = GuardrailEnvironment()
@@ -185,9 +197,16 @@ async def lifespan(app: FastAPI):
                 next_obs, _, done, _ = b_env.step(action)
                 obs = next_obs if not done else obs
             _computed_baselines[task_id] = b_env.get_grader_score()
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.getLogger("guardrail_arena").warning("Baseline computation failed for %s: %s", task_id, exc)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: start session cleanup thread and baseline computation in background."""
     _start_session_cleanup_thread()
+    t = threading.Thread(target=_compute_baselines_background, daemon=True, name="baseline-compute")
+    t.start()
     yield
 
 
@@ -229,9 +248,12 @@ def _create_session() -> tuple[GuardrailEnvironment, str]:
 
 
 def _get_session_env(session_id: Optional[str]) -> GuardrailEnvironment:
-    """Return the env for session_id, or the global env when session_id is None."""
+    """Return the env for session_id. Raises 400 when session_id is None."""
     if session_id is None:
-        return env
+        raise HTTPException(
+            status_code=400,
+            detail="session_id is required. Call /reset first and pass the returned session_id.",
+        )
     with _SESSION_STORE_LOCK:
         if session_id not in _SESSION_STORE:
             raise HTTPException(
@@ -262,32 +284,23 @@ def _start_session_cleanup_thread() -> None:
             time.sleep(_CLEANUP_INTERVAL_SECONDS)
             try:
                 _cleanup_stale_sessions()
-            except Exception:
-                pass
+            except Exception as exc:
+                _log.warning("Session cleanup error: %s", exc)
     t = threading.Thread(target=_loop, daemon=True, name="session-cleanup")
     t.start()
 
 
-# Global env: shared fallback for clients that don't pass session_id (openenv validator,
-# existing inference scripts).  Clients that pass session_id use isolated envs above.
-env = GuardrailEnvironment()
-
 # Pre-seeded with named baselines so judges immediately see a score distribution.
 _BASELINE_ENTRIES: dict[str, list[dict]] = {
     "basic_threat_detection": [
-        {"agent": "heuristic",   "score": 0.7381, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "all-refuse",  "score": 0.5972, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "all-allow",   "score": 0.4028, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",   "score": 0.3766, "timestamp": "2025-01-01T00:00:00Z"},
     ],
     "context_aware_policy": [
-        {"agent": "all-refuse",  "score": 0.3893, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "heuristic",   "score": 0.3644, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "all-allow",   "score": 0.0872, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",   "score": 0.0500, "timestamp": "2025-01-01T00:00:00Z"},
     ],
     "multiturn_adversarial": [
         {"agent": "all-allow",   "score": 0.2500, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "heuristic",   "score": 0.3125, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "all-refuse",  "score": 0.1659, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-refuse",  "score": 0.1303, "timestamp": "2025-01-01T00:00:00Z"},
     ],
 }
 
@@ -307,8 +320,8 @@ def _load_leaderboard() -> dict[str, list[dict]]:
         try:
             with open(_LEADERBOARD_PATH, "r") as f:
                 _merge(json.load(f))
-        except Exception:
-            pass
+        except Exception as exc:
+            _log.warning("Failed to load leaderboard from disk: %s", exc)
 
     # HF Hub (takes priority for cross-restart persistence)
     hub_data = _load_leaderboard_from_hub()
@@ -329,8 +342,8 @@ def _save_leaderboard(leaderboard: dict[str, list[dict]]) -> None:
     try:
         with open(_LEADERBOARD_PATH, "w") as f:
             json.dump(to_save, f)
-    except Exception:
-        pass
+    except Exception as exc:
+        _log.warning("Failed to save leaderboard to disk: %s", exc)
     # Push to HF Hub asynchronously — errors are silently swallowed so the
     # /grader response is never blocked by Hub availability.
     _save_leaderboard_to_hub(leaderboard)
@@ -487,8 +500,9 @@ async def state(session_id: Optional[str] = Query(default=None)):
 @app.get("/tasks")
 async def tasks():
     """Return list of available tasks and action schema."""
+    from app.tasks.task_config import get_all_tasks
     return {
-        "tasks": [task.model_dump() for task in env.get_tasks()],
+        "tasks": [TaskInfo(id=t.task_id, name=t.name, description=t.description, difficulty=t.difficulty).model_dump() for t in get_all_tasks()],
         "action_schema": Action.model_json_schema(),
         "reset_params": {"seed": "optional int — shuffles prompt order deterministically; same seed always gives same order"},
     }
@@ -496,19 +510,22 @@ async def tasks():
 
 @app.get("/baseline")
 async def baseline():
-    """Return baseline scores. all_allow is computed live at startup; others are pre-measured."""
+    """Return baseline scores. all_allow is computed in a background thread after startup."""
+    _fallback = {
+        "basic_threat_detection": 0.3766,
+        "context_aware_policy": 0.0500,
+        "multiturn_adversarial": 0.2500,
+    }
+    all_allow = _computed_baselines if _computed_baselines else _fallback
+    loading = len(_computed_baselines) < 3
     return {
-        "status": "ok",
+        "status": "loading" if loading else "ok",
         "baselines": {
-            "all_allow": _computed_baselines if _computed_baselines else {
-                "basic_threat_detection": 0.5595,
-                "context_aware_policy": 0.1695,
-                "multiturn_adversarial": 0.4000,
-            },
-            "all_refuse": {"basic_threat_detection": 0.4405, "context_aware_policy": 0.3686, "multiturn_adversarial": 0.1303},
-            "heuristic":  {"basic_threat_detection": 0.7381, "context_aware_policy": 0.3284, "multiturn_adversarial": 0.2941},
+            "all_allow": all_allow,
+            "all_refuse": {"basic_threat_detection": None, "context_aware_policy": None, "multiturn_adversarial": 0.1303},
+            "heuristic":  {"basic_threat_detection": None, "context_aware_policy": None, "multiturn_adversarial": None},
         },
-        "note": "all_allow computed live at server startup. heuristic/all_refuse are pre-measured.",
+        "note": "all_allow computed in background thread after startup. Status 'loading' means computation is still in progress.",
     }
 
 
@@ -577,29 +594,34 @@ async def delete_session(session_id: str):
 @app.get("/leaderboard")
 async def leaderboard():
     """Top 10 scores per task. Populated automatically when /grader is called after an episode."""
+    with _leaderboard_lock:
+        snapshot = {k: list(v) for k, v in _leaderboard.items()}
     return {
-        "leaderboard": _leaderboard,
+        "leaderboard": snapshot,
         "note": "Top 10 scores per task. Resets when server restarts.",
     }
 
 
 @app.get("/demo")
 async def demo():
-    """Run a pre-scripted 5-step demonstration episode. No API key needed."""
+    """Run a pre-scripted 5-step demonstration episode showing genuine prompt variety.
+    Uses seed=1 to guarantee: safe → attack → safe → attack → subtle_attack.
+    No API key needed."""
     try:
         demo_env = GuardrailEnvironment()
-        obs = demo_env.reset("basic_threat_detection")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Demo init failed: {e}")
-    hardcoded_actions = ["allow", "allow", "refuse", "allow", "refuse"]
+        obs = demo_env.reset("basic_threat_detection", seed=1)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Demo init failed: {exc}")
+    # Correct actions for seed=1 first 5 prompts: safe, attack, safe, attack, attack
+    hardcoded_actions = ["allow", "refuse", "allow", "refuse", "refuse"]
     trajectory = []
 
     for i, action_type in enumerate(hardcoded_actions):
         action = Action(prompt_id=obs.prompt_id, action_type=action_type, reason="demo")
         try:
             next_obs, reward, done, info = demo_env.step(action)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Demo step {i+1} failed: {e}")
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Demo step {i+1} failed: {exc}")
         trajectory.append({
             "step": i + 1,
             "prompt": obs.user_prompt,
@@ -614,14 +636,12 @@ async def demo():
         if not done:
             obs = next_obs
 
-    # basic_threat_detection has 76 prompts; done=False after 5 steps.
-    # Compute partial grader score directly from the 5 collected steps.
     grader_score = grade_task1(demo_env._actions, demo_env._labels, demo_env._contexts)
     correct = sum(1 for t in trajectory if t["outcome"] == "correct")
 
     return {
         "task_id": "basic_threat_detection",
-        "description": "A 5-step demonstration showing the reward signal in action",
+        "description": "A 5-step demonstration showing the reward signal in action (seed=1: safe, attack, safe, attack, subtle_attack)",
         "trajectory": trajectory,
         "partial_grader_score": grader_score,
         "partial_grader_note": "Score over 5 of 154 prompts only — run a full episode for a comparable grader score",
@@ -690,20 +710,27 @@ class RolloutRequest(BaseModel):
 
 @app.post("/rollout")
 async def rollout(req: RolloutRequest):
-    """Run a complete episode with pre-supplied actions. Returns trajectory and grader score."""
+    """Run a complete episode with pre-supplied actions. Returns trajectory and grader score.
+    The actions list must contain exactly one entry per prompt in the task."""
     if req.task_id not in _VALID_TASK_IDS:
         raise HTTPException(status_code=422, detail=f"Unknown task_id '{req.task_id}'")
+    from app.tasks.task_config import get_task as _get_task
+    expected = len(_get_task(req.task_id).prompts)
+    if len(req.actions) < expected:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Task '{req.task_id}' requires exactly {expected} actions "
+                f"(received {len(req.actions)}). Provide one action per prompt."
+            ),
+        )
     roll_env = GuardrailEnvironment()
     obs = roll_env.reset(req.task_id)
     trajectory = []
     action_iter = iter(req.actions)
 
     while not roll_env.is_done():
-        try:
-            act_req = next(action_iter)
-        except StopIteration:
-            # Pad remaining steps with "allow"
-            act_req = RolloutActionRequest(action_type="allow", reason="auto-pad")
+        act_req = next(action_iter)
         action = Action(
             prompt_id=obs.prompt_id,
             action_type=act_req.action_type,

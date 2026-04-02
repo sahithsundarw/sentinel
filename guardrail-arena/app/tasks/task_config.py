@@ -33,6 +33,7 @@ class PromptEntry:
     is_last_turn: bool = True
     is_crossing: bool = False  # True on the branching decision point in Task 3
     crossing_spec_key: str = ""  # Branch spec key; defaults to conversation_id; set to "{id}:2" for 2nd crossings
+    source_turn: object = None  # ConversationTurn reference; used for action-dependent assistant responses
 
 
 @dataclass
@@ -132,6 +133,7 @@ def _build_task3() -> TaskConfig:
             is_last_turn=turn.is_last_turn,
             is_crossing=is_crossing,
             crossing_spec_key=crossing_spec_key if crossing_spec_key else turn.conversation_id,
+            source_turn=turn,
         )
 
     # Original 5 conversations — branching for adversarial, flat for safe

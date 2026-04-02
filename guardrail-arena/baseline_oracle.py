@@ -19,7 +19,7 @@ def _resolve_correct_action(label, ctx: str, risk_score: float = 0.5) -> str:
     if label.context_dependent and label.correct_action_by_context:
         return label.correct_action_by_context.get(ctx, label.correct_action)
     if label.risk_dependent_action and label.correct_action_by_risk:
-        tier = "high" if risk_score >= label.risk_threshold else "low"
+        tier = "high" if risk_score > label.risk_threshold else "low"
         return label.correct_action_by_risk.get(tier, label.correct_action)
     return label.correct_action
 
@@ -44,14 +44,13 @@ def _build_prompt_map(task_id: str):
 
 
 def run_oracle(task_id: str) -> float:
-    prompt_map = _build_prompt_map(task_id)
     env = GuardrailEnvironment()
     obs = env.reset(task_id)
 
     while not env.is_done():
-        entry = prompt_map.get(obs.prompt_id)
+        # Use current_prompt_entry directly — avoids any session-ID vs original-ID confusion.
+        entry = env.current_prompt_entry
         if entry is None:
-            # Fallback: allow unknown prompts (shouldn't happen with correct branch_specs)
             action = Action(prompt_id=obs.prompt_id, action_type="allow", reason="unknown")
         else:
             label = entry.label

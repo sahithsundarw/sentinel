@@ -34,7 +34,7 @@ def test_reset_returns_valid_observation_task2():
     obs = env.reset("context_aware_policy")
     assert isinstance(obs, Observation)
     assert obs.application_context in ("children_education", "creative_writing", "general_assistant")
-    assert obs.prompts_remaining == 129  # 130 total, first one served
+    assert obs.prompts_remaining == 144  # 145 total, first one served
 
 
 def test_reset_returns_valid_observation_task3():
@@ -47,12 +47,16 @@ def test_reset_returns_valid_observation_task3():
 
 
 def test_reset_is_deterministic():
-    """Resetting twice produces the same first prompt."""
+    """Resetting twice produces the same first canonical prompt text.
+    Note: prompt_ids differ because each reset generates a fresh session salt
+    (cross-session ID memorization prevention). The canonical content is the same."""
     env = GuardrailEnvironment()
     obs1 = env.reset("basic_threat_detection")
     obs2 = env.reset("basic_threat_detection")
-    assert obs1.prompt_id == obs2.prompt_id
+    # Same canonical content
     assert obs1.user_prompt == obs2.user_prompt
+    # Different session IDs (fresh salt each reset)
+    assert obs1.prompt_id != obs2.prompt_id
 
 
 def test_reset_invalid_task_raises():
@@ -145,22 +149,39 @@ def run_full_task(task_id: str, action_type: str = "allow") -> float:
 
 
 def _run_full_task_correctly(task_id: str) -> float:
-    """Run full task using correct actions from labels."""
-    from app.tasks.task_config import get_task
-    task = get_task(task_id)
+    """Run full task using correct actions from labels.
+    Uses env.current_prompt_entry to get the canonical label, and obs.prompt_id
+    for the action — compatible with per-session prompt_id generation.
+    """
     env = GuardrailEnvironment()
-    env.reset(task_id)
+    obs = env.reset(task_id)
     done = False
-    idx = 0
     while not done:
-        entry = task.prompts[idx]
+        entry = env.current_prompt_entry
         correct = entry.label.correct_action
         if entry.label.context_dependent and entry.label.correct_action_by_context:
             correct = entry.label.correct_action_by_context.get(
                 entry.application_context, entry.label.correct_action
             )
-        _, _, done, _ = env.step(make_action(correct, entry.label.prompt_id))
-        idx += 1
+        elif entry.label.risk_dependent_action and entry.label.correct_action_by_risk:
+            tier = "high" if obs.user_risk_score >= entry.label.risk_threshold else "low"
+            correct = entry.label.correct_action_by_risk.get(tier, entry.label.correct_action)
+        if correct == "modify":
+            import re
+            sanitized = entry.label.prompt_text
+            for phrase in entry.label.required_removals:
+                sanitized = re.sub(re.escape(phrase), "", sanitized, flags=re.IGNORECASE)
+            sanitized = sanitized.strip()
+            _, _, done, info = env.step(Action(
+                prompt_id=obs.prompt_id,
+                action_type="modify",
+                reason="test-oracle",
+                modified_prompt=sanitized,
+            ))
+        else:
+            _, _, done, info = env.step(make_action(correct, obs.prompt_id))
+        if not done:
+            obs = env._make_observation()
     return env.get_grader_score()
 
 
@@ -190,7 +211,7 @@ def test_task2_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 130
+    assert steps == 145
     assert env.is_done()
 
 
@@ -228,8 +249,8 @@ def test_task3_conversation_done_signal():
             from app.tasks.task_config import get_task
             task = get_task("multiturn_adversarial")
             obs = env._make_observation()
-    # Should have one signal per conversation (34 total: 5 original + 20 expanded flat + 9 branching)
-    assert len(conversation_done_signals) == 34
+    # Should have one signal per conversation (39 total: 5 original + 20 expanded flat + 9 branching + 5 gradual)
+    assert len(conversation_done_signals) == 39
 
 
 def test_grader_score_is_deterministic():
@@ -309,18 +330,19 @@ def test_step_info_contains_attack_features():
 def test_step_info_attack_features_empty_for_safe():
     """Safe prompts should return empty attack_features list."""
     from app.tasks.task1_basic import TASK1_LABELS
-    # Find a safe prompt id
-    safe_id = next(l.prompt_id for l in TASK1_LABELS if l.category == "safe")
+    # Find a safe prompt's original id
+    safe_original_id = next(l.prompt_id for l in TASK1_LABELS if l.category == "safe")
     env = GuardrailEnvironment()
-    env.reset("basic_threat_detection")
-    # Step through until we hit that safe prompt
+    obs = env.reset("basic_threat_detection")
+    # Step through until we hit that safe prompt (compare via current_prompt_entry)
     done = False
-    obs = env._make_observation()
-    while not done and obs.prompt_id != safe_id:
+    while not done and (env.current_prompt_entry is None or
+                        env.current_prompt_entry.label.prompt_id != safe_original_id):
         _, _, done, _ = env.step(make_action("allow", obs.prompt_id))
         if not done:
             obs = env._make_observation()
-    if obs.prompt_id == safe_id:
+    if (env.current_prompt_entry is not None and
+            env.current_prompt_entry.label.prompt_id == safe_original_id):
         _, _, _, info = env.step(make_action("allow", obs.prompt_id))
         assert info.get("attack_features") == []
 
@@ -371,19 +393,33 @@ def test_modify_quality_grading_null_modified_prompt():
 
 
 def test_modify_quality_grading_correct_removals():
-    """modify action that passes all required_removals should get full modify reward."""
+    """modify action that passes all required_removals should get full modify reward (Tier 4)."""
+    import re as _re
     from app.reward import compute_step_reward
     from app.tasks.task2_context import TASK2_PROMPTS
     TASK2_LABELS = [label for label, _ in TASK2_PROMPTS]
     modify_label = next((l for l in TASK2_LABELS if l.correct_action == "modify" and l.required_removals), None)
     if modify_label is None:
         pytest.skip("No modify-required label with required_removals in task2")
-    # Build a modified_prompt that removes all required_removals content
-    safe_text = "The hero went on a great adventure and succeeded in the end."
-    action = Action(prompt_id=modify_label.prompt_id, action_type="modify", reason="test", modified_prompt=safe_text)
+    # Sanitize by removing (not replacing) all required_removals phrases so the
+    # modified text is guaranteed to be shorter than 85% of the original.
+    sanitized = modify_label.prompt_text
+    for phrase in modify_label.required_removals:
+        sanitized = _re.sub(_re.escape(phrase), "", sanitized, flags=_re.IGNORECASE)
+    sanitized = " ".join(sanitized.split())  # collapse whitespace
+    action = Action(prompt_id=modify_label.prompt_id, action_type="modify", reason="test",
+                    modified_prompt=sanitized)
     score, breakdown = compute_step_reward(action, modify_label, "creative_writing")
     assert score > 0
-    assert breakdown["outcome"] == "correct"
+    # Should be Tier 4 (correct) if the text is now ≥15% shorter
+    if len(sanitized) <= 0.85 * len(modify_label.prompt_text):
+        assert breakdown["outcome"] == "correct", (
+            f"Expected Tier 4 (correct) but got {breakdown.get('modify_quality', {}).get('tier')}: "
+            f"{breakdown['outcome']}"
+        )
+    else:
+        # Edge case: required phrase was very short, can't get 15% shorter
+        assert breakdown["outcome"] in ("correct", "partial_credit")
 
 
 def test_grader_task3_recovery_overblock_penalty():
@@ -446,12 +482,27 @@ def test_task3_branching_catch_vs_miss():
         assert not done, "Episode ended immediately after crossing"
         return next_obs.prompt_id
 
-    caught_next_prompt_id = run_to_crossing_then_one_more(block_at_crossing=True)
-    missed_next_prompt_id = run_to_crossing_then_one_more(block_at_crossing=False)
+    # Compare user_prompt text (not prompt_id) because each env instance has a
+    # different session salt, so even the same canonical prompt produces different
+    # session IDs. The actual fork is proved by different user_prompt content.
+    def run_to_crossing_then_one_more_text(block_at_crossing: bool):
+        env = GuardrailEnvironment()
+        obs = env.reset("multiturn_adversarial")
+        for i in range(crossing_idx):
+            next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+            assert not done, "Episode ended before crossing turn"
+            obs = next_obs
+        action_at_crossing = "refuse" if block_at_crossing else "allow"
+        next_obs, _, done, _ = env.step(make_action(action_at_crossing, obs.prompt_id))
+        assert not done, "Episode ended immediately after crossing"
+        return next_obs.user_prompt
 
-    assert caught_next_prompt_id != missed_next_prompt_id, (
-        "Expected branch_caught and branch_missed to produce different next prompts, "
-        f"but both returned prompt_id={caught_next_prompt_id}"
+    caught_next_text = run_to_crossing_then_one_more_text(block_at_crossing=True)
+    missed_next_text = run_to_crossing_then_one_more_text(block_at_crossing=False)
+
+    assert caught_next_text != missed_next_text, (
+        "Expected branch_caught and branch_missed to produce different next prompt text, "
+        f"but both produced: {caught_next_text[:80]!r}"
     )
 
 
@@ -470,7 +521,9 @@ def test_recovery_conversation_over_block_penalty():
     recovery_over_block_count = 0
     while not env_ok.is_done():
         # Over-block first 2 recovery turns only (should NOT penalize)
-        if obs.prompt_id in recovery_ids and recovery_over_block_count < 2:
+        # Compare against original prompt_id via current_prompt_entry
+        curr_oid = env_ok.current_prompt_entry.label.prompt_id if env_ok.current_prompt_entry else None
+        if curr_oid in recovery_ids and recovery_over_block_count < 2:
             action_type = "refuse"
             recovery_over_block_count += 1
         else:
@@ -485,7 +538,8 @@ def test_recovery_conversation_over_block_penalty():
     recovery_over_block_count = 0
     while not env_bad.is_done():
         # Over-block first 4 recovery turns (should penalize — >2)
-        if obs.prompt_id in recovery_ids and recovery_over_block_count < 4:
+        curr_oid = env_bad.current_prompt_entry.label.prompt_id if env_bad.current_prompt_entry else None
+        if curr_oid in recovery_ids and recovery_over_block_count < 4:
             action_type = "refuse"
             recovery_over_block_count += 1
         else:
@@ -529,9 +583,13 @@ def test_multi_crossing_second_crossing_matters():
         env = GuardrailEnvironment()
         obs = env.reset("multiturn_adversarial")
         while not env.is_done():
-            if obs.prompt_id in first_crossing_ids:
+            # Compare against original prompt_id via current_prompt_entry,
+            # not the session-specific prompt_id in obs.
+            curr_oid = (env.current_prompt_entry.label.prompt_id
+                        if env.current_prompt_entry else None)
+            if curr_oid in first_crossing_ids:
                 action_type = "refuse" if block_first else "allow"
-            elif obs.prompt_id in second_crossing_ids:
+            elif curr_oid in second_crossing_ids:
                 action_type = "refuse" if block_second else "allow"
             else:
                 action_type = "allow"
@@ -563,15 +621,16 @@ def test_risk_score_delta_negative_on_missed_attack():
     env = GuardrailEnvironment()
     obs = env.reset("basic_threat_detection")
 
-    # Find an attack prompt
+    # Find an attack prompt's original id
     attack_entry = next(
         (e for e in task.prompts if e.label.category != "safe"), None
     )
     assert attack_entry is not None
 
-    # Step through to find and allow an attack
+    # Step through to find and allow an attack (compare via current_prompt_entry)
     while not env.is_done():
-        if obs.prompt_id == attack_entry.label.prompt_id:
+        curr_entry = env.current_prompt_entry
+        if curr_entry and curr_entry.label.prompt_id == attack_entry.label.prompt_id:
             _, reward, _, _ = env.step(make_action("allow", obs.prompt_id))
             assert "user_risk_score_delta" in reward.breakdown
             assert reward.breakdown["user_risk_score_delta"] < 0, (
@@ -583,6 +642,100 @@ def test_risk_score_delta_negative_on_missed_attack():
             obs = next_obs
 
     pytest.fail("Attack entry not encountered during episode")
+
+
+def test_cross_episode_history_affects_starting_risk():
+    """An episode with missed attacks must produce a lower starting risk score in the
+    next episode on the same env instance, compared to a clean first episode."""
+    from app.tasks.task_config import get_task
+
+    task = get_task("basic_threat_detection")
+    attack_entries = [e for e in task.prompts if e.label.category != "safe"]
+    assert len(attack_entries) >= 3, "Need attack prompts for this test"
+
+    # Episode 1: miss 3 attacks (all-allow)
+    env = GuardrailEnvironment()
+    obs = env.reset("basic_threat_detection")
+    attacks_missed = 0
+    while not env.is_done() and attacks_missed < 3:
+        curr = env.current_prompt_entry
+        if curr and curr.label.category != "safe":
+            env.step(make_action("allow", obs.prompt_id))
+            attacks_missed += 1
+        else:
+            env.step(make_action("allow", obs.prompt_id))
+        if not env.is_done():
+            obs = env._make_observation()
+    # Finish episode
+    while not env.is_done():
+        env.step(make_action("allow", obs.prompt_id))
+        if not env.is_done():
+            obs = env._make_observation()
+
+    # Episode 2 on SAME env: starting risk should be lower than 0.5
+    obs2 = env.reset("basic_threat_detection")
+    history = obs2.user_session_history
+    assert history["episode_count"] >= 2
+    assert history["cumulative_missed_attacks"] >= 3
+    assert history["starting_risk_score"] < 0.5, (
+        f"Expected starting_risk < 0.5 after missed attacks, got {history['starting_risk_score']}"
+    )
+    assert obs2.user_risk_score < 0.5, (
+        f"Expected user_risk_score < 0.5 in second episode after misses, got {obs2.user_risk_score}"
+    )
+
+
+def test_cross_episode_history_clean_session_stays_at_default():
+    """A perfectly clean first episode (no missed attacks) must start the second
+    episode at the default risk score (0.5)."""
+    env = GuardrailEnvironment()
+    obs = env.reset("basic_threat_detection")
+    # All-refuse episode (over-blocks safe prompts but doesn't miss any attacks)
+    while not env.is_done():
+        env.step(make_action("refuse", obs.prompt_id))
+        if not env.is_done():
+            obs = env._make_observation()
+
+    obs2 = env.reset("basic_threat_detection")
+    history = obs2.user_session_history
+    assert history["episode_count"] >= 2
+    assert history["cumulative_missed_attacks"] == 0
+    assert history["starting_risk_score"] == 0.5, (
+        f"Expected starting_risk = 0.5 after clean episode, got {history['starting_risk_score']}"
+    )
+    assert obs2.user_risk_score == 0.5
+
+
+def test_same_seed_different_session_prompt_ids_same_score():
+    """Same seed must produce different session prompt_ids across two sessions
+    (different salts) but identical grader scores (same canonical ordering)."""
+    env1 = GuardrailEnvironment()
+    env2 = GuardrailEnvironment()
+    obs1 = env1.reset("basic_threat_detection", seed=42)
+    obs2 = env2.reset("basic_threat_detection", seed=42)
+
+    # Session prompt_ids must differ (different salts)
+    assert obs1.prompt_id != obs2.prompt_id, (
+        "Same seed in different sessions must produce different session prompt_ids"
+    )
+    # But the canonical user_prompt must be the same (same seed = same order)
+    assert obs1.user_prompt == obs2.user_prompt, (
+        "Same seed must serve the same canonical prompt text"
+    )
+
+    # Full episodes must produce identical grader scores
+    done1, done2 = False, False
+    while not done1:
+        _, _, done1, _ = env1.step(make_action("allow", obs1.prompt_id))
+        if not done1:
+            obs1 = env1._make_observation()
+    while not done2:
+        _, _, done2, _ = env2.step(make_action("allow", obs2.prompt_id))
+        if not done2:
+            obs2 = env2._make_observation()
+    assert env1.get_grader_score() == env2.get_grader_score(), (
+        "Same seed in different sessions must produce identical grader scores"
+    )
 
 
 def test_risk_score_delta_positive_on_correct_block():
@@ -598,7 +751,8 @@ def test_risk_score_delta_positive_on_correct_block():
     assert attack_entry is not None
 
     while not env.is_done():
-        if obs.prompt_id == attack_entry.label.prompt_id:
+        curr_entry = env.current_prompt_entry
+        if curr_entry and curr_entry.label.prompt_id == attack_entry.label.prompt_id:
             _, reward, _, _ = env.step(make_action("refuse", obs.prompt_id))
             assert reward.breakdown["user_risk_score_delta"] > 0
             return
@@ -607,3 +761,143 @@ def test_risk_score_delta_positive_on_correct_block():
             obs = next_obs
 
     pytest.fail("Attack entry not encountered")
+
+
+def test_task3_action_dependent_conversation_history():
+    """Refusing turn 1 of CONV_A should inject refused_response into turn 2's history.
+
+    CONV_A turn 1 has both assistant_response (allow path) and refused_response (refuse path).
+    We navigate both envs to CONV_A turn 1, take different actions, then check that turn 2's
+    conversation_history contains different assistant responses.
+    """
+    from app.tasks.task3_multiturn import CONV_A_ID
+
+    def run_to_conv_a_turn1(action_on_hit: str):
+        env = GuardrailEnvironment()
+        obs = env.reset("multiturn_adversarial")
+        next_obs = obs
+        while not env.is_done():
+            curr = env.current_prompt_entry
+            if curr and curr.conversation_id == CONV_A_ID and curr.turn_number == 1:
+                result, _, done, _ = env.step(make_action(action_on_hit, next_obs.prompt_id))
+                return result  # observation for turn 2
+            result, _, done, _ = env.step(make_action("allow", next_obs.prompt_id))
+            if done or result is None:
+                return None
+            next_obs = result
+        return None
+
+    obs_after_allow = run_to_conv_a_turn1("allow")
+    obs_after_refuse = run_to_conv_a_turn1("refuse")
+
+    assert obs_after_allow is not None and obs_after_refuse is not None
+
+    allow_hist = obs_after_allow.conversation_history
+    refuse_hist = obs_after_refuse.conversation_history
+
+    # Both histories should have an "Assistant:" entry
+    allow_asst = [h for h in allow_hist if h.startswith("Assistant:")]
+    refuse_asst = [h for h in refuse_hist if h.startswith("Assistant:")]
+
+    assert allow_asst, "allow path should have assistant response in history"
+    assert refuse_asst, "refuse path should have assistant response in history"
+    assert allow_asst != refuse_asst, "Action-dependent assistant responses should differ"
+
+
+# ── episode_difficulty tests ──────────────────────────────────────────────────
+
+def test_episode_difficulty_zero_at_start():
+    """episode_difficulty should be 0.0 on first observation (no actions taken yet)."""
+    env = GuardrailEnvironment()
+    obs = env.reset("basic_threat_detection")
+    assert obs.episode_difficulty == 0.0
+
+
+def test_episode_difficulty_one_for_perfect_episode():
+    """episode_difficulty should reach 1.0 after all-correct actions."""
+    env = GuardrailEnvironment()
+    obs = env.reset("basic_threat_detection")
+
+    last_difficulty = 0.0
+    while not env.is_done():
+        curr = env.current_prompt_entry
+        correct_action = curr.label.correct_action
+        next_obs, _, done, _ = env.step(make_action(correct_action, obs.prompt_id))
+        if not done and next_obs is not None:
+            last_difficulty = next_obs.episode_difficulty
+            obs = next_obs
+
+    # After all perfect steps, difficulty should be 1.0
+    assert last_difficulty == 1.0, f"Expected 1.0 but got {last_difficulty}"
+
+
+def test_episode_difficulty_drops_after_missed_attack():
+    """episode_difficulty should drop below 1.0 after a missed attack."""
+    from app.tasks.task_config import get_task
+
+    env = GuardrailEnvironment()
+    obs = env.reset("basic_threat_detection")
+    task = get_task("basic_threat_detection")
+
+    # Find first attack entry
+    attack_entry = next((e for e in task.prompts if e.label.category != "safe"), None)
+    assert attack_entry is not None
+
+    while not env.is_done():
+        curr = env.current_prompt_entry
+        if curr and curr.label.prompt_id == attack_entry.label.prompt_id:
+            # Miss the attack
+            next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+            if not done and next_obs is not None:
+                assert next_obs.episode_difficulty < 1.0
+            return
+        next_obs, _, done, _ = env.step(make_action(curr.label.correct_action, obs.prompt_id))
+        if not done and next_obs is not None:
+            obs = next_obs
+
+    pytest.fail("Attack entry not encountered")
+
+
+def test_episode_difficulty_always_nonnegative():
+    """episode_difficulty should never go below 0.0 even after many missed attacks."""
+    env = GuardrailEnvironment()
+    obs = env.reset("basic_threat_detection")
+
+    while not env.is_done():
+        next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+        if not done and next_obs is not None:
+            assert next_obs.episode_difficulty >= 0.0
+            obs = next_obs
+
+
+# ── Risk threshold boundary test ─────────────────────────────────────────────
+
+def test_risk_threshold_boundary_strict_greater_than():
+    """At exactly risk_threshold, the tier should be 'low' (strict > not >=)."""
+    from app.utils import resolve_correct_action
+    from app.models import PromptLabel
+
+    label = PromptLabel(
+        prompt_id="test-risk-boundary-001",
+        prompt_text="boundary test prompt",
+        category="attack_subtle",
+        correct_action="allow",  # fallback, overridden by risk_dependent
+        severity=0.5,
+        risk_dependent_action=True,
+        risk_threshold=0.5,
+        correct_action_by_risk={"high": "allow", "low": "escalate"},
+    )
+
+    # Exactly at threshold → strict > means "low" tier → escalate
+    action_at_threshold = resolve_correct_action(label, "general_assistant", risk_score=0.5)
+    assert action_at_threshold == "escalate", (
+        f"At exactly risk_threshold=0.5, expected 'escalate' (low tier) but got '{action_at_threshold}'"
+    )
+
+    # Above threshold → "high" tier → allow
+    action_above = resolve_correct_action(label, "general_assistant", risk_score=0.51)
+    assert action_above == "allow", f"Above threshold should be 'allow' but got '{action_above}'"
+
+    # Below threshold → "low" tier → escalate
+    action_below = resolve_correct_action(label, "general_assistant", risk_score=0.49)
+    assert action_below == "escalate", f"Below threshold should be 'escalate' but got '{action_below}'"

@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.0] — 2026-04-03
+
+### Added
+- **Held-out eval split** (Tasks 1 and 2): category-stratified ~67%/~33% train/eval split. Episodes now serve only eval prompts (62 for Task 1, 55 for Task 2). Training prompts (121 / 107) available via new `GET /training_data?task_id=` endpoint. Prevents label memorisation.
+- **`GET /training_data` endpoint**: returns train-split prompts with prompt_text, correct_action, attack_features, category, severity, application_context.
+- **`train_agent.py`**: complete minimal RL training loop using tabular Q-learning (numpy + stdlib). 9-dimensional discrete features. Trains 50 episodes, evaluates on held-out eval split every 5 episodes. Learning curve from ~0.05 to ~0.31 vs all-allow baseline ~0.17.
+- `split` field on `PromptLabel`: "eval" (served in episodes) or "train" (available via /training_data).
+- "Training an RL Agent" section in AGENTS.md with feature table and extension guidance.
+- "Training Example" and "Train/Eval Split" sections in README.md.
+
+### Removed
+- Dead `trajectory_dependent`, `correct_action_clean_history`, `correct_action_flagged_history`, `memory_required`, `correct_action_pre_correct` fields from `PromptLabel` (deprecated/unused since v1.2.0).
+- Redundant `sys.path.insert` calls in test files (consolidated into `tests/conftest.py`).
+- `trajectory_dependent` docstring note from `grade_task2`.
+
 ## [1.2.2] — 2026-04-03
 
 ### Fixed

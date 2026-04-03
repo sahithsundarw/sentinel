@@ -243,3 +243,35 @@ tier = "high" if risk_score > risk_threshold else "low"
 This means: at exactly `risk_score == risk_threshold`, the prompt resolves to the **"low" tier** (more conservative action). The boundary belongs to the low-risk side.
 
 **Why strict `>` not `>=`:** The threshold represents the minimum score required to receive high-risk treatment. A user at exactly the threshold has not yet exceeded it — they should receive the more cautious (low-risk) action until their score strictly exceeds the boundary. This prevents agents from gaming the system by sitting exactly at the threshold to get the high-risk action while still being borderline.
+
+## Train/Eval Split
+
+Tasks 1 and 2 implement a category-stratified train/eval split to prevent prompt memorisation.
+
+**Methodology:** Within each category group (safe, attack_obvious, attack_subtle, attack_injection,
+attack_escalation), every 3rd prompt (index % 3 == 0 within the group) is assigned to the eval set;
+the remaining ~67% are assigned to the training set. This preserves the category distribution across
+both splits.
+
+**Counts:**
+
+| Task | Category | Train | Eval |
+|------|----------|-------|------|
+| basic_threat_detection | all | 121 | 62 |
+| context_aware_policy | all | 107 | 55 |
+| multiturn_adversarial | — | 0 (no split) | all turns |
+| adversarial_adaptation | — | 0 (no split) | dynamic |
+
+**Why no split for Tasks 3 and 4:**
+- Task 3 uses branching conversations. Splitting individual turns would break conversation
+  coherence — conversations must be served in full. A future version may implement
+  conversation-level splitting.
+- Task 4 uses a deterministic adversary with dynamic prompt generation. There is no fixed
+  prompt list to split.
+
+**Access:** Training prompts are returned by `GET /training_data?task_id=<id>`. Each entry
+includes `prompt_id`, `prompt_text`, `correct_action`, `attack_features`, `category`,
+`severity`, `application_context`, and `split="train"`.
+
+The `split` field is also present on every `PromptLabel` returned by the `/schema` endpoint:
+`"eval"` = served in episodes and scored; `"train"` = returned by `/training_data` only.

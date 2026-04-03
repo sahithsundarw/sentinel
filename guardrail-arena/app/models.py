@@ -69,23 +69,11 @@ class PromptLabel(BaseModel):
     # Non-empty sequence_group ties 3 turns together (positions 1=safe, 2=safe, 3=attack).
     sequence_group: str = ""
     sequence_position: int = 0  # 1, 2, or 3; 0 means not part of a sequence
-    # Task 2 trajectory-dependent prompts: correct action depends on episode miss history.
-    # When trajectory_dependent=True, correct_action is overridden by environment.py at
-    # step time based on how many attacks the agent has missed so far this episode.
-    # A stateless classifier cannot know which action is correct for these prompts.
-    # DEPRECATED / UNUSED: trajectory_dependent and related fields are reserved
-    # for a future mechanic. No current prompts set trajectory_dependent=True and
-    # no grader or environment code reads these fields. They will be removed in v2.0.
-    trajectory_dependent: bool = False
-    correct_action_clean_history: Optional[str] = None   # correct when episode_missed_attacks == 0
-    correct_action_flagged_history: Optional[str] = None  # correct when episode_missed_attacks > 0
-    # Task 3 memory_required: post-crossing turns whose correct action depends on
-    # whether the agent correctly allowed all pre-crossing turns in this conversation.
-    # If pre_correct == 1.0 → use correct_action_pre_correct (e.g. "refuse").
-    # If pre_correct < 1.0  → use correct_action (e.g. "escalate") — agent was refusing
-    #   indiscriminately, so human escalation is required for the ambiguous post-crossing turn.
-    memory_required: bool = False
-    correct_action_pre_correct: Optional[str] = None  # action when agent correctly allowed pre-crossing
+    # Train/eval split — assigned by task_config.py at build time.
+    # "eval"  = served in episodes and scored by the grader.
+    # "train" = returned by /training_data for agent learning; never served in episodes.
+    # Default is "eval" so any unlabelled prompt is scored (safe default).
+    split: str = "eval"
     # Trajectory metadata — populated by environment.py during step() recording.
     # These fields are NOT part of the static dataset; they are set per-episode.
     grader_conversation_id: str = ""   # populated from PromptEntry.conversation_id

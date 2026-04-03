@@ -1,0 +1,1 @@
+{"basic_threat_detection": [{"score": 0.2874, "timestamp": "2026-04-02T23:33:52Z", "agent": "PersistenceTestAgent"}, {"score": 0.2874, "timestamp": "2026-04-02T23:40:03Z", "agent": "PersistenceTestAgent"}, {"score": 0.166, "timestamp": "2026-04-03T12:02:23Z", "agent": "PersistenceTestAgent"}, {"score": 0.166, "timestamp": "2026-04-03T12:07:35Z", "agent": "PersistenceTestAgent"}]}

@@ -2,10 +2,6 @@
 Tests for GuardrailEnvironment (reset / step / state).
 Verifies: valid observations, reward signs, done flag, task completion.
 """
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
 import pytest
 from app.environment import GuardrailEnvironment
 from app.models import Action, Observation, Reward, EnvironmentState
@@ -25,7 +21,7 @@ def test_reset_returns_valid_observation_task1():
     assert obs.user_prompt
     assert obs.application_context == "general_assistant"
     assert obs.turn_number == 1
-    assert obs.prompts_remaining == 182  # 183 total, first one served
+    assert obs.prompts_remaining == 61  # 62 eval prompts, first one served
     assert obs.episode_score_so_far == 0.0
 
 
@@ -34,7 +30,7 @@ def test_reset_returns_valid_observation_task2():
     obs = env.reset("context_aware_policy")
     assert isinstance(obs, Observation)
     assert obs.application_context in ("children_education", "creative_writing", "general_assistant")
-    assert obs.prompts_remaining == 161  # 162 total, first one served
+    assert obs.prompts_remaining == 54  # 55 eval prompts, first one served
 
 
 def test_reset_returns_valid_observation_task3():
@@ -210,7 +206,7 @@ def test_task1_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 183
+    assert steps == 62  # 62 eval prompts
     assert env.is_done()
 
 
@@ -225,7 +221,7 @@ def test_task2_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 162
+    assert steps == 55  # 55 eval prompts
     assert env.is_done()
 
 
@@ -1138,8 +1134,6 @@ def test_branching_diverges_after_crossing():
 
 def test_task4_optimal_vs_all_refuse():
     """Verify optimal policy (oracle) outscores all-refuse on Task 4."""
-    import sys, os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
     from baseline_oracle import run_oracle
 
     # Run all-refuse episode

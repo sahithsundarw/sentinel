@@ -578,3 +578,61 @@ guardrail-arena/
     ├── test_reward.py        # Reward function unit tests (18 tests)
     └── test_api.py           # FastAPI layer tests (51 tests)
 ```
+
+## Training Example
+
+A complete minimal RL training loop is included as `train_agent.py`:
+
+```bash
+python train_agent.py
+```
+
+No API key required. Uses only numpy and the standard library — runs on any machine.
+
+The agent is a tabular Q-learner with 9-dimensional discrete features (jailbreak patterns,
+attack words, encoding signals, authority claims, user risk score, context, and turn number).
+It trains against the environment's reward signal for 50 episodes, evaluating on the held-out
+eval split every 5 episodes.
+
+**Sample output:**
+
+```
+All-allow baseline (eval split): 0.1660
+
+Ep   1 | train_score=0.2150 | eval_score=0.0492 | eps=0.920
+Ep  10 | train_score=0.2490 | eval_score=0.2169 | eps=0.434
+Ep  25 | train_score=0.2659 | eval_score=0.3504 | eps=0.124
+Ep  50 | train_score=0.3057 | eval_score=0.3113 | eps=0.050
+
+Final eval score: 0.3113  (all-allow baseline: 0.1660)
+Score improved: YES
+```
+
+The final score (~0.31) is nearly 2x the all-allow baseline (~0.17), demonstrating that
+an RL agent can learn a meaningful safety policy purely from reward signals — without
+access to ground-truth labels during evaluation.
+
+See `AGENTS.md § Training an RL Agent` for architecture details and extension guidance.
+
+## Train/Eval Split
+
+Tasks 1 and 2 use a proper held-out evaluation split to prevent label memorisation:
+
+| Task | Train prompts | Eval prompts | Split ratio |
+|------|--------------|--------------|-------------|
+| basic_threat_detection | 121 | 62 | ~67% / ~33% |
+| context_aware_policy | 107 | 55 | ~66% / ~34% |
+| multiturn_adversarial | — | all | branching structure |
+| adversarial_adaptation | — | all | dynamic generation |
+
+**Training prompts** are available via `GET /training_data?task_id=<task_id>`. Each entry
+includes the prompt text, correct action, attack features, and category — everything an
+agent needs to learn the labelling function.
+
+**Eval prompts** are what the environment actually serves during episodes. The grader scores
+only eval prompts. An agent that memorises the training set gains no advantage on evaluation
+because the 62 eval prompts for Task 1 (and 55 for Task 2) are a disjoint held-out set.
+
+The split is category-stratified: within each category (safe, attack_obvious, attack_subtle,
+etc.) every 3rd prompt is held out for evaluation, maintaining the same attack type
+distribution between train and eval.

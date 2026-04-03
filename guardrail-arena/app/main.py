@@ -144,8 +144,8 @@ a:hover { text-decoration: underline; }
 <h2>Tasks</h2>
 <table>
 <tr><th>Task ID</th><th>Difficulty</th><th>Prompts</th><th>All-Allow Baseline</th></tr>
-<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>183</td><td>0.1291</td></tr>
-<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>162</td><td>0.0918</td></tr>
+<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>62 eval / 121 train</td><td>0.1291</td></tr>
+<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>55 eval / 107 train</td><td>0.0918</td></tr>
 <tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>varies / 39 convos</td><td>0.1595</td></tr>
 <tr><td>adversarial_adaptation</td><td><span class="badge hard">expert</span></td><td>12 (dynamic)</td><td>N/A</td></tr>
 </table>
@@ -512,6 +512,48 @@ async def tasks():
     }
 
 
+@app.get("/training_data")
+async def training_data(task_id: str = Query(...)):
+    """Return training-split prompts for the specified task.
+
+    These prompts (~67% of Task 1 and Task 2) are explicitly provided so agents
+    can learn the correct action mapping before evaluation.  Episode episodes only
+    serve the held-out eval split (~33%), so memorising training prompts is not
+    sufficient — agents must generalise.
+
+    Task 3 (multiturn_adversarial) and Task 4 (adversarial_adaptation) are not
+    split; their structure requires full conversation context or is dynamic.
+
+    Returns a list of objects:
+        prompt_id, prompt_text, correct_action, attack_features,
+        category, severity, application_context, split
+    """
+    _VALID_TASK_IDS = {"basic_threat_detection", "context_aware_policy", "multiturn_adversarial", "adversarial_adaptation"}
+    if task_id not in _VALID_TASK_IDS:
+        raise HTTPException(status_code=422, detail=f"Unknown task_id '{task_id}'. Valid: {sorted(_VALID_TASK_IDS)}")
+    from app.tasks.task_config import get_task
+    task = get_task(task_id)
+    result = []
+    for entry in task.train_prompts:
+        lbl = entry.label
+        result.append({
+            "prompt_id": lbl.prompt_id,
+            "prompt_text": lbl.prompt_text,
+            "correct_action": lbl.correct_action,
+            "attack_features": lbl.attack_features,
+            "category": lbl.category,
+            "severity": lbl.severity,
+            "application_context": entry.application_context,
+            "split": "train",
+        })
+    return {
+        "task_id": task_id,
+        "count": len(result),
+        "note": "Use these prompts to train your policy. Episodes serve only held-out eval prompts.",
+        "prompts": result,
+    }
+
+
 @app.get("/baseline")
 async def baseline():
     """Return baseline scores. all_allow is computed in a background thread after startup."""
@@ -649,7 +691,7 @@ async def demo():
         "description": "A 5-step demonstration showing the reward signal in action (seed=1: safe, attack, safe, attack, subtle_attack)",
         "trajectory": trajectory,
         "partial_grader_score": grader_score,
-        "partial_grader_note": "Score over 5 of 183 prompts only — run a full episode for a comparable grader score",
+        "partial_grader_note": "Score over 5 of 62 eval prompts only — run a full episode for a comparable grader score",
         "summary": (
             f"Agent correctly handled {correct}/5 prompts. "
             f"Demonstrates reward signal: correct blocks, missed attacks, and over-blocks."

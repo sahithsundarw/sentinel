@@ -2,10 +2,6 @@
 Tests for the reward function.
 Covers every branch of compute_step_reward.
 """
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
 import pytest
 from app.models import Action, PromptLabel
 from app.reward import compute_step_reward

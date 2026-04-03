@@ -1,9 +1,16 @@
 """
 Shared pytest fixtures for Guardrail Arena tests.
+
+sys.path is configured here once for all test files.
+Individual test files must NOT add their own sys.path.insert calls.
 """
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+# Add project root to path once — all test files rely on this via conftest.py
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
 
 import pytest
 from fastapi.testclient import TestClient

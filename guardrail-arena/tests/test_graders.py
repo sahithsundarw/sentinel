@@ -2,10 +2,6 @@
 Tests for the four task graders.
 Verifies: determinism, perfect score = 1.0, worst case ≈ 0.0, asymmetric weighting.
 """
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
 import pytest
 from app.models import Action, PromptLabel
 from app.grader import grade_task1, grade_task2, grade_task3
@@ -420,9 +416,6 @@ def test_task2_modify_quality_tiers():
 
 def test_task2_oracle_still_scores_1_0():
     """Test 4: baseline_oracle scores 1.0 on all 4 tasks after trajectory changes."""
-    import sys
-    import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
     from baseline_oracle import run_oracle
     for task_id in ("basic_threat_detection", "context_aware_policy",
                     "multiturn_adversarial", "adversarial_adaptation"):

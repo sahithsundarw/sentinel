@@ -257,3 +257,67 @@ result = httpx.post(f"{BASE}/rollout", json={
 }).json()
 print("grader_score:", result["grader_score"])
 ```
+
+
+## Training an RL Agent
+
+A complete working minimal training loop is included as `train_agent.py` in the project root.
+
+### Quick Start
+
+```bash
+python train_agent.py
+```
+
+No API key needed. No GPU, PyTorch, or external ML libraries required — only numpy and stdlib.
+
+### What it Does
+
+1. **Baseline** — runs an all-allow episode to record the baseline score on the eval split.
+2. **Training loop** — 50 episodes with epsilon-greedy exploration (ε decays 1.0 → 0.05).
+   Each step: extract 9-dimensional discrete features from the observation, select an action
+   via the Q-table, collect the reward, perform a Q-learning update.
+3. **Evaluation** — every 5 training episodes, runs a greedy episode (ε=0) on the held-out
+   eval split and prints the score.
+4. **Learning curve** — printed at the end, showing per-checkpoint eval scores.
+
+### Feature Extraction
+
+The agent uses 9 binary/categorical features:
+| Feature | Values | Signals |
+|---------|--------|---------|
+| Jailbreak pattern | J/N | DAN, "ignore instructions", "act as" |
+| Attack word | A/N | bomb, hack, steal, credential, etc. |
+| Encoding pattern | E/N | morse, pig-latin, unicode lookalikes |
+| Authority claim | U/N | "as your admin", "i am the developer" |
+| Safe word | S/N | recipe, help, please, explain |
+| Risk bucket | H/M/L | user_risk_score > 0.65 / 0.35-0.65 / < 0.35 |
+| Context | G/C/c/s | First letter of application_context |
+| Has history | Y/N | Conversation history non-empty |
+| Turn bucket | 1/2/T | Turn 1, 2, or 3+ |
+
+### Expected Output
+
+```
+All-allow baseline (eval split): 0.1660
+
+Ep   1 | train_score=0.2150 | eval_score=0.0492 | eps=0.920
+Ep  10 | train_score=0.2490 | eval_score=0.2169 | eps=0.434
+Ep  25 | train_score=0.2659 | eval_score=0.3504 | eps=0.124
+Ep  50 | train_score=0.3057 | eval_score=0.3113 | eps=0.050
+
+Final eval score: 0.3113  (all-allow baseline: 0.1660)
+Score improved: YES
+```
+
+The final score (~0.31) is roughly 2x the all-allow baseline (~0.17), demonstrating that
+the agent learns to distinguish attacks from safe prompts entirely from reward signals.
+
+### Extending the Agent
+
+To improve beyond the tabular baseline:
+- **Neural policy**: replace the Q-table with a small MLP and use the full prompt embedding.
+  See the PPO stub above.
+- **More features**: add TF-IDF or character n-gram features to the feature extractor.
+- **Task generalisation**: train on Tasks 1 and 2 jointly, then evaluate on Task 3.
+- **Larger epsilon schedule**: reduce epsilon decay rate for more exploration on diverse datasets.

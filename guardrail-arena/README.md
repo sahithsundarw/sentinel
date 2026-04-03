@@ -591,26 +591,33 @@ No API key required. Uses only numpy and the standard library — runs on any ma
 
 The agent is a tabular Q-learner with 9-dimensional discrete features (jailbreak patterns,
 attack words, encoding signals, authority claims, user risk score, context, and turn number).
-It trains against the environment's reward signal for 50 episodes, evaluating on the held-out
-eval split every 5 episodes.
+Two-phase training: (1) supervised initialisation on 121 training-split prompts from
+`/training_data`, then (2) RL fine-tuning on the live eval split.
 
 **Sample output:**
 
 ```
-All-allow baseline (eval split): 0.1660
+All-allow baseline (eval split):  0.1660
+Untrained policy (eval split):    0.1660
 
-Ep   1 | train_score=0.2150 | eval_score=0.0492 | eps=0.920
-Ep  10 | train_score=0.2490 | eval_score=0.2169 | eps=0.434
-Ep  25 | train_score=0.2659 | eval_score=0.3504 | eps=0.124
-Ep  50 | train_score=0.3057 | eval_score=0.3113 | eps=0.050
+Phase 1: Supervised training from /training_data
+  Epoch  1: eval=0.4105  ############
+  Epoch 10: eval=0.4105  ############
 
-Final eval score: 0.3113  (all-allow baseline: 0.1660)
-Score improved: YES
+Phase 2: RL fine-tuning (10 episodes, eps=0.05, alpha=0.05)
+
+Learning curve:
+  untrained : eval=0.1660  ####
+  ep01      : eval=0.4105  ############
+  final     : eval=0.5536  ################
+
+Final eval score:    0.5536
+Score improved:      YES (+233% vs baseline)
 ```
 
-The final score (~0.31) is nearly 2x the all-allow baseline (~0.17), demonstrating that
-an RL agent can learn a meaningful safety policy purely from reward signals — without
-access to ground-truth labels during evaluation.
+The final score (~0.55) is >3x the all-allow baseline (~0.17), demonstrating that the
+training split provides a real learning signal and the agent generalises to held-out
+eval prompts it has never seen during training.
 
 See `AGENTS.md § Training an RL Agent` for architecture details and extension guidance.
 

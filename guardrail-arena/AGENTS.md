@@ -181,10 +181,13 @@ httpx.post(f"{BASE}/submit", json={
 
 ---
 
-## Training with Reinforcement Learning
+## Training with Policy Gradient Methods (PPO)
 
 > **Dependency note:** The PPO training stub below requires `torch`. Install it separately:
 > `pip install -r requirements-dev.txt` (not included in the base server requirements).
+>
+> **Note:** For a simpler no-dependency approach, see the tabular agent in `train_agent.py` — it uses
+> supervised initialization + online bandit policy improvement (no PyTorch required).
 
 Guardrail Arena exposes a dense reward signal at every step, making it suitable for PPO or similar policy-gradient methods. The observation fields map directly to policy inputs:
 

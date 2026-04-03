@@ -215,7 +215,7 @@ def collect_episode(policy, task_id="basic_threat_detection"):
         features = torch.tensor([
             obs["episode_difficulty"],
             obs["user_risk_score"],
-            obs["prompts_remaining"] / 200.0,  # normalise (max ~238 for Task 3)
+            obs["prompts_remaining"] / 250.0,  # Task 3 max is ~238 turns; use 250 as safe normalization denominator
         ], dtype=torch.float32)
 
         logits = policy(features)                          # your network
@@ -259,9 +259,9 @@ print("grader_score:", result["grader_score"])
 ```
 
 
-## Training an RL Agent
+## Training a Safety Agent (Tabular Approach)
 
-A complete working minimal training loop is included as `train_agent.py` in the project root.
+A minimal working training loop is included as `train_agent.py` in the project root.
 
 ### Quick Start
 
@@ -274,12 +274,20 @@ No API key needed. No GPU, PyTorch, or external ML libraries required — only n
 ### What it Does
 
 1. **Baseline** — runs an all-allow episode to record the baseline score on the eval split.
-2. **Training loop** — 50 episodes with epsilon-greedy exploration (ε decays 1.0 → 0.05).
-   Each step: extract 9-dimensional discrete features from the observation, select an action
-   via the Q-table, collect the reward, perform a Q-learning update.
-3. **Evaluation** — every 5 training episodes, runs a greedy episode (ε=0) on the held-out
+2. **Phase 1 (Supervised Initialization)** — reads training labels directly from `/training_data`
+   and sets Q-values toward +1.0 for the correct action and -0.5 for incorrect actions.
+   **This is not RL** — it uses ground-truth labels rather than environment rewards. The large
+   improvement in epoch 1 (0.17 → 0.41) happens entirely from this supervised signal.
+3. **Phase 2 (Online Policy Improvement)** — runs live episodes using environment rewards with
+   GAMMA=0 (bandit setting — no temporal credit assignment). The agent receives per-step rewards
+   and updates Q-values accordingly. Adds a further ~0.14 improvement over Phase 1.
+4. **Evaluation** — every 5 training episodes, runs a greedy episode (ε=0) on the held-out
    eval split and prints the score.
-4. **Learning curve** — printed at the end, showing per-checkpoint eval scores.
+5. **Learning curve** — printed at the end, showing per-checkpoint eval scores.
+
+**Honest limitation**: The agent learns surface keyword patterns (e.g. "hack", "DAN", morse code).
+It generalizes poorly to prompts without recognizable keyword signals — approximately 40% of novel
+attacks without keyword signatures will be missed by the tabular agent.
 
 ### Feature Extraction
 

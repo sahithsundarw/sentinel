@@ -611,3 +611,89 @@ def test_eval_and_train_prompt_ids_are_disjoint():
 def test_training_data_invalid_task_returns_422():
     r = client.get("/training_data?task_id=nonexistent_task")
     assert r.status_code == 422
+
+
+# ── /replay endpoint ──────────────────────────────────────────────────────────
+
+def test_replay_correct_actions_score_higher_than_all_allow():
+    """Replay with optimal (correct) actions must outscore all-allow replay."""
+    from app.tasks.task_config import get_task
+    from app.utils import resolve_correct_action
+
+    task = get_task("basic_threat_detection")
+
+    # Build all-allow actions using canonical prompt IDs
+    all_allow_actions = [
+        {"prompt_id": e.label.prompt_id, "action_type": "allow", "reason": "baseline"}
+        for e in task.prompts
+    ]
+
+    # Build optimal actions using correct_action from each label
+    optimal_actions = []
+    for e in task.prompts:
+        correct = resolve_correct_action(e.label, e.application_context)
+        act = {"prompt_id": e.label.prompt_id, "action_type": correct, "reason": "optimal"}
+        if correct == "modify":
+            act["modified_prompt"] = "safe version of the prompt"
+        optimal_actions.append(act)
+
+    r_allow = client.post("/replay", json={"task_id": "basic_threat_detection", "actions": all_allow_actions})
+    assert r_allow.status_code == 200, f"all-allow replay failed: {r_allow.text}"
+    score_allow = r_allow.json()["grader_score"]
+
+    r_optimal = client.post("/replay", json={"task_id": "basic_threat_detection", "actions": optimal_actions})
+    assert r_optimal.status_code == 200, f"optimal replay failed: {r_optimal.text}"
+    score_optimal = r_optimal.json()["grader_score"]
+
+    assert score_optimal > score_allow, (
+        f"Optimal actions should score higher than all-allow: {score_optimal} vs {score_allow}"
+    )
+
+
+# ── All-refuse exploit tests (API-level) ──────────────────────────────────────
+
+def test_task1_all_refuse_not_exploitable():
+    """all-refuse should not score above 0.50 on Task 1 — grader must be class-normalized."""
+    resp = client.post("/reset", params={"task_id": "basic_threat_detection"})
+    assert resp.status_code == 200
+    session_id = resp.json()["session_id"]
+    obs = resp.json()
+    while True:
+        action = {"prompt_id": obs["prompt_id"], "action_type": "refuse", "reason": "test"}
+        r = client.post("/step", params={"session_id": session_id}, json=action)
+        assert r.status_code == 200
+        if r.json()["done"]:
+            break
+        obs = r.json()["observation"]
+    score = client.get("/grader", params={"session_id": session_id}).json()["score"]
+    assert score <= 0.50, f"All-refuse Task 1 scored {score}, should be <= 0.50"
+
+
+def test_task2_all_refuse_not_exploitable():
+    """all-refuse should not score above 0.50 on Task 2."""
+    resp = client.post("/reset", params={"task_id": "context_aware_policy"})
+    assert resp.status_code == 200
+    session_id = resp.json()["session_id"]
+    obs = resp.json()
+    while True:
+        action = {"prompt_id": obs["prompt_id"], "action_type": "refuse", "reason": "test"}
+        r = client.post("/step", params={"session_id": session_id}, json=action)
+        assert r.status_code == 200
+        if r.json()["done"]:
+            break
+        obs = r.json()["observation"]
+    score = client.get("/grader", params={"session_id": session_id}).json()["score"]
+    assert score <= 0.50, f"All-refuse Task 2 scored {score}, should be <= 0.50"
+
+
+def test_task3_training_data_nonempty():
+    """/training_data for multiturn_adversarial returns non-zero results."""
+    r = client.get("/training_data?task_id=multiturn_adversarial")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["count"] > 0, "Task 3 training data should be non-empty"
+    # Verify conversation_id is present in returned items
+    for p in data["prompts"]:
+        if p.get("conversation_id"):
+            assert "turn_number" in p
+            break

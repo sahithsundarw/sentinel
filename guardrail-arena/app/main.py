@@ -51,6 +51,7 @@ _step_logger.addHandler(_step_handler)
 
 _LEADERBOARD_PATH = "leaderboard.json"
 _leaderboard_lock = threading.Lock()
+_computed_baselines_lock = threading.Lock()
 
 _log = logging.getLogger("guardrail_arena")
 
@@ -144,9 +145,9 @@ a:hover { text-decoration: underline; }
 <h2>Tasks</h2>
 <table>
 <tr><th>Task ID</th><th>Difficulty</th><th>Prompts</th><th>All-Allow Baseline</th></tr>
-<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>62 eval / 121 train</td><td>0.1291</td></tr>
-<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>55 eval / 107 train</td><td>0.0918</td></tr>
-<tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>varies / 39 convos</td><td>0.1595</td></tr>
+<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>62 eval / 121 train</td><td>0.5000</td></tr>
+<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>55 eval / 107 train</td><td>0.4905</td></tr>
+<tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>varies / 39 convos</td><td>0.0000</td></tr>
 <tr><td>adversarial_adaptation</td><td><span class="badge hard">expert</span></td><td>12 (dynamic)</td><td>N/A</td></tr>
 </table>
 
@@ -197,7 +198,8 @@ def _compute_baselines_background() -> None:
                 action = Action(prompt_id=obs.prompt_id, action_type="allow", reason="baseline")
                 next_obs, _, done, _ = b_env.step(action)
                 obs = next_obs if not done else obs
-            _computed_baselines[task_id] = b_env.get_grader_score()
+            with _computed_baselines_lock:
+                _computed_baselines[task_id] = b_env.get_grader_score()
         except Exception as exc:
             logging.getLogger("guardrail_arena").warning("Baseline computation failed for %s: %s", task_id, exc)
 
@@ -294,16 +296,19 @@ def _start_session_cleanup_thread() -> None:
 # Pre-seeded with named baselines so judges immediately see a score distribution.
 _BASELINE_ENTRIES: dict[str, list[dict]] = {
     "basic_threat_detection": [
-        {"agent": "all-allow",   "score": 0.1291, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",   "score": 0.5000, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-refuse",  "score": 0.4805, "timestamp": "2025-01-01T00:00:00Z"},
     ],
     "context_aware_policy": [
-        {"agent": "all-allow",   "score": 0.0918, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",   "score": 0.4905, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-refuse",  "score": 0.3505, "timestamp": "2025-01-01T00:00:00Z"},
     ],
     "multiturn_adversarial": [
-        {"agent": "all-allow",   "score": 0.1595, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",   "score": 0.0000, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-refuse",  "score": 0.1633, "timestamp": "2025-01-01T00:00:00Z"},
     ],
     "adversarial_adaptation": [
-        {"agent": "all-allow",   "score": 0.0, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",   "score": 0.1500, "timestamp": "2025-01-01T00:00:00Z"},
     ],
 }
 
@@ -536,7 +541,7 @@ async def training_data(task_id: str = Query(...)):
     result = []
     for entry in task.train_prompts:
         lbl = entry.label
-        result.append({
+        item: dict = {
             "prompt_id": lbl.prompt_id,
             "prompt_text": lbl.prompt_text,
             "correct_action": lbl.correct_action,
@@ -545,7 +550,13 @@ async def training_data(task_id: str = Query(...)):
             "severity": lbl.severity,
             "application_context": entry.application_context,
             "split": "train",
-        })
+        }
+        # Include conversation context for multi-turn tasks
+        if entry.conversation_id:
+            item["conversation_id"] = entry.conversation_id
+            item["turn_number"] = entry.turn_number
+            item["conversation_history"] = entry.conversation_history
+        result.append(item)
     return {
         "task_id": task_id,
         "count": len(result),
@@ -558,18 +569,20 @@ async def training_data(task_id: str = Query(...)):
 async def baseline():
     """Return baseline scores. all_allow is computed in a background thread after startup."""
     _fallback = {
-        "basic_threat_detection": 0.1291,
-        "context_aware_policy": 0.0918,
-        "multiturn_adversarial": 0.1595,
-        "adversarial_adaptation": 0.0,
+        "basic_threat_detection": 0.5000,
+        "context_aware_policy": 0.4905,
+        "multiturn_adversarial": 0.0000,
+        "adversarial_adaptation": 0.1500,
     }
-    all_allow = _computed_baselines if _computed_baselines else _fallback
-    loading = len(_computed_baselines) < 4
+    with _computed_baselines_lock:
+        baselines_snapshot = dict(_computed_baselines)
+    all_allow = baselines_snapshot if baselines_snapshot else _fallback
+    loading = len(baselines_snapshot) < 4
     return {
         "status": "loading" if loading else "ok",
         "baselines": {
             "all_allow": all_allow,
-            "all_refuse": {"basic_threat_detection": None, "context_aware_policy": None, "multiturn_adversarial": 0.1303, "adversarial_adaptation": None},
+            "all_refuse": {"basic_threat_detection": 0.4805, "context_aware_policy": 0.3505, "multiturn_adversarial": 0.1633, "adversarial_adaptation": None},
             "heuristic":  {"basic_threat_detection": None, "context_aware_policy": None, "multiturn_adversarial": None, "adversarial_adaptation": None},
         },
         "note": "all_allow computed in background thread after startup. Status 'loading' means computation is still in progress.",
@@ -600,7 +613,7 @@ async def grader(
             _leaderboard[task_id].append(entry)
             _leaderboard[task_id].sort(key=lambda x: x["score"], reverse=True)
             _leaderboard[task_id] = _leaderboard[task_id][:10]
-            snapshot = dict(_leaderboard)
+            snapshot = {k: list(v) for k, v in _leaderboard.items()}
     if snapshot is not None:
         _save_leaderboard(snapshot)
     return {"task_id": task_id, "score": score}
@@ -835,7 +848,12 @@ async def replay(req: ReplayRequest):
     replay_env = GuardrailEnvironment()
     obs = replay_env.reset(req.task_id)
     trajectory = []
-    action_map = {a.prompt_id: a for a in req.actions}
+    # Build action_map keyed by session-hashed prompt_ids so obs.prompt_id matches.
+    # The replay env has its own session salt; we compute the session-specific IDs
+    # for each canonical prompt_id in the request.
+    action_map = {
+        replay_env._make_session_prompt_id(a.prompt_id): a for a in req.actions
+    }
 
     while not replay_env.is_done():
         pid = obs.prompt_id

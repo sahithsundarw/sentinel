@@ -153,13 +153,13 @@ Internal red-team dataset covering foundational attack patterns across all tasks
 ### WildGuard (Han et al., 2024)
 - **Reference:** Han, S., et al. "WildGuard: Open One-Stop Moderation Tools for Safety Risks, Jailbreaks, and Refusals of LLMs." arXiv:2406.18495 (2024).
 - **Dataset:** https://huggingface.co/datasets/allenai/wildguard
-- **Patterns sourced:** Indirect prompt injection via documents/emails/code, social engineering with false authority, low-to-medium severity harassment, PII stalking framing, context-switching attacks, document injection multi-turn escalation.
+- **Dataset construction methodology informed by WildGuard attack taxonomies (allenai/wildguard):** Indirect prompt injection via documents/emails/code, social engineering with false authority, low-to-medium severity harassment, PII stalking framing, context-switching attacks, document injection multi-turn escalation.
 - **Prompts contributed:** ~25 prompts across Task 1, Task 2, and Task 3 (CONV_EE).
 
 ### HarmBench (Mazeika et al., 2024)
 - **Reference:** Mazeika, M., et al. "HarmBench: A Standardized Evaluation Framework for Automated Red Teaming and Robust Refusal." arXiv:2402.04249 (2024).
 - **Dataset:** https://huggingface.co/datasets/harmbench/harmbench
-- **Attack methods sourced:** Direct CBRN requests, few-shot in-context learning attacks, distractor sandwich (benign+harmful bundled), roleplay as evil character, crescendo escalation, financial fraud phishing, doxxing as legitimate OSINT, malware generation, obfuscated code injection, discriminatory content with pseudoscientific framing, covert manipulation techniques, disinformation generation.
+- **Attack categorization informed by HarmBench methodology (centerforaisafety/HarmBench):** Direct CBRN requests, few-shot in-context learning attacks, distractor sandwich (benign+harmful bundled), roleplay as evil character, crescendo escalation, financial fraud phishing, doxxing as legitimate OSINT, malware generation, obfuscated code injection, discriminatory content with pseudoscientific framing, covert manipulation techniques, disinformation generation.
 - **Prompts contributed:** ~45 prompts across Task 1, Task 2, and Task 3 (CONV_CC, DD, FF, GG).
 
 ### Selection Criteria
@@ -259,15 +259,12 @@ both splits.
 |------|----------|-------|------|
 | basic_threat_detection | all | 121 | 62 |
 | context_aware_policy | all | 107 | 55 |
-| multiturn_adversarial | — | 0 (no split) | all turns |
+| multiturn_adversarial | — | 160 turns (26 convos) | 78 turns (13 convos) |
 | adversarial_adaptation | — | 0 (no split) | dynamic |
 
-**Why no split for Tasks 3 and 4:**
-- Task 3 uses branching conversations. Splitting individual turns would break conversation
-  coherence — conversations must be served in full. A future version may implement
-  conversation-level splitting.
-- Task 4 uses a deterministic adversary with dynamic prompt generation. There is no fixed
-  prompt list to split.
+**Task 3 split:** Conversations are split at the conversation level (every 3rd conversation by sorted ID goes to eval; remaining ~67% to train). This preserves conversation coherence — turns within a conversation are never split across eval/train sets.
+
+**Task 4:** Uses a deterministic adversary with dynamic prompt generation. There is no fixed prompt list to split.
 
 **Access:** Training prompts are returned by `GET /training_data?task_id=<id>`. Each entry
 includes `prompt_id`, `prompt_text`, `correct_action`, `attack_features`, `category`,

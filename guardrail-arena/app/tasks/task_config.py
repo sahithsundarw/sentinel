@@ -296,6 +296,39 @@ def _build_task3() -> TaskConfig:
                 "missed_count": missed_2nd_count,
             }
 
+    # Split conversations into eval and train at the conversation level.
+    # Every 3rd conversation (by sorted conversation_id) goes to eval (~33%);
+    # the remaining conversations go to train (~67%).
+    conv_entries: dict[str, list[PromptEntry]] = {}
+    for entry in prompts:
+        cid = entry.conversation_id or "__no_conv__"
+        conv_entries.setdefault(cid, []).append(entry)
+
+    sorted_conv_ids = sorted(conv_entries.keys())
+    eval_prompts: list[PromptEntry] = []
+    train_prompts: list[PromptEntry] = []
+    eval_branch_specs: dict = {}
+
+    for idx, cid in enumerate(sorted_conv_ids):
+        entries = conv_entries[cid]
+        if idx % 3 == 0:
+            # Eval split: these prompts are served in episodes
+            for e in entries:
+                e.label.split = "eval"
+            eval_prompts.extend(entries)
+            # Keep branch_specs for eval conversations
+            if cid in branch_specs:
+                eval_branch_specs[cid] = branch_specs[cid]
+            # Also keep second-crossing branch specs
+            nested_key = f"{cid}:2"
+            if nested_key in branch_specs:
+                eval_branch_specs[nested_key] = branch_specs[nested_key]
+        else:
+            # Train split: available via /training_data
+            for e in entries:
+                e.label.split = "train"
+            train_prompts.extend(entries)
+
     return TaskConfig(
         task_id="multiturn_adversarial",
         name="Multi-Turn Adversarial Defense",
@@ -304,11 +337,13 @@ def _build_task3() -> TaskConfig:
             "30 branching conversations fork at their crossing point. 2 multi-crossing conversations "
             "add a second decision point inside the caught branch. Includes Gradual Escalation, "
             "Persona Hijack, False Authority, Emotional Manipulation, Slow Burn, Crescendo, "
-            "Distractor Sandwich, Document Injection, Few-Shot Poisoning, and Grey Zone patterns."
+            "Distractor Sandwich, Document Injection, Few-Shot Poisoning, and Grey Zone patterns. "
+            "~67% of conversations are available as training data via /training_data; ~33% are held-out eval."
         ),
         difficulty="hard",
-        prompts=prompts,
-        branch_specs=branch_specs,
+        prompts=eval_prompts,
+        train_prompts=train_prompts,
+        branch_specs=eval_branch_specs,
     )
 
 

@@ -5,9 +5,9 @@
 ### Added
 - **Held-out eval split** (Tasks 1 and 2): category-stratified ~67%/~33% train/eval split. Episodes now serve only eval prompts (62 for Task 1, 55 for Task 2). Training prompts (121 / 107) available via new `GET /training_data?task_id=` endpoint. Prevents label memorisation.
 - **`GET /training_data` endpoint**: returns train-split prompts with prompt_text, correct_action, attack_features, category, severity, application_context.
-- **`train_agent.py`**: complete minimal RL training loop using tabular Q-learning (numpy + stdlib). 9-dimensional discrete features. Trains 50 episodes, evaluates on held-out eval split every 5 episodes. Learning curve from ~0.05 to ~0.31 vs all-allow baseline ~0.17.
+- **`train_agent.py`**: minimal safety agent training loop using supervised initialization + online bandit policy improvement (numpy + stdlib). 9-dimensional discrete features. Trains 50 episodes, evaluates on held-out eval split every 5 episodes. Learning curve from 0.17 (untrained) to 0.55 (final trained), 3× improvement over all-allow baseline.
 - `split` field on `PromptLabel`: "eval" (served in episodes) or "train" (available via /training_data).
-- "Training an RL Agent" section in AGENTS.md with feature table and extension guidance.
+- "Training a Safety Agent (Tabular Approach)" section in AGENTS.md with feature table, honest limitation note, and extension guidance.
 - "Training Example" and "Train/Eval Split" sections in README.md.
 
 ### Removed

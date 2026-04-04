@@ -1,7 +1,7 @@
 """
 Task 1: Basic Threat Detection (Easy)
 26 single-turn prompts: 14 safe + 12 attack (jailbreak, prompt injection, encoding tricks,
-authority impersonation). See task1_basic_expanded.py for 132 additional prompts.
+authority impersonation). See task1_basic_expanded.py for 157 additional prompts.
 Application context: general_assistant (fixed).
 All labels are hardcoded and deterministic.
 """

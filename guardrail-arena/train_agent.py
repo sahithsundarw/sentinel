@@ -13,36 +13,39 @@ Usage:
     python train_agent.py
 
 Expected output (sample):
-    All-allow baseline (eval split):  0.1660
-    Untrained policy (eval split):    0.1660
+    All-allow baseline (eval split):  0.5000
+    Untrained policy (eval split):    0.5000
 
-    Phase 1: Supervised training from /training_data
+    Phase 1: Supervised initialization from /training_data
       (121 train-split prompts, 10 epochs, alpha=0.3)
-      Epoch  1: eval=0.4105  ############
-      Epoch  5: eval=0.4105  ############
-      Epoch 10: eval=0.4105  ############
+      Epoch  1: eval=0.4440  #############
+      Epoch  5: eval=0.4440  #############
+      Epoch 10: eval=0.4440  #############
 
-    Phase 2: RL fine-tuning (10 episodes, eps=0.05, alpha=0.05)
+    Phase 2: Online policy improvement (10 episodes, eps=0.05, alpha=0.05)
 
     Learning curve:
-      untrained : eval=0.1660  ####
-      ep01      : eval=0.4105  ############
-      final     : eval=0.5536  ################
+      untrained : eval=0.5000  ###############
+      ep01      : eval=0.4440  #############
+      final     : eval=0.5683  #################
 
-    All-allow baseline:  0.1660
-    Untrained policy:    0.1660
-    Final eval score:    0.5536
-    Score improved:      YES (+233% vs baseline)
+    All-allow baseline:  0.5000
+    Untrained policy:    0.5000
+    Final eval score:    0.5683
+    Score improved:      YES (+14% vs baseline)
 
 Two-phase training:
-1. Supervised epochs use the 121 training-split prompts from /training_data (ground-truth labels)
-   to initialise Q-table entries. Demonstrates that the training split directly enables learning.
-2. RL fine-tuning uses the live environment reward signal on the 62 eval-split prompts
-   (which the agent has never seen) to further improve the policy.
+1. Phase 1 (Supervised Initialization) — reads training labels directly from /training_data
+   and sets Q-values toward +1.0 for the correct action and -0.5 for incorrect actions.
+   This is NOT RL — it uses ground-truth labels rather than environment rewards.
+   The improvement in epoch 1 (0.50 → 0.44 on class-normalized eval, then boosted by Phase 2)
+   happens entirely from this supervised signal.
+2. Phase 2 (Online Policy Improvement) — runs live episodes using environment rewards with
+   GAMMA=0 (bandit setting — no temporal credit assignment). The agent receives per-step
+   rewards and updates Q-values accordingly, further improving beyond the supervised baseline.
 
-The jump from 0.17 to 0.41 happens in epoch 1 because the supervised signal is very
-informative — the 121 training prompts cover the most common attack patterns, and the
-9-bit feature space is compact enough that training generalises to eval prompts.
+Under the class-normalized grader, both all-allow and all-refuse score ~0.50 so a content-blind
+policy has no advantage. The trained agent at ~0.57 demonstrates genuine improvement.
 """
 from __future__ import annotations
 

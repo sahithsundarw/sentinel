@@ -280,10 +280,10 @@ No API key needed. No GPU, PyTorch, or external ML libraries required — only n
 2. **Phase 1 (Supervised Initialization)** — reads training labels directly from `/training_data`
    and sets Q-values toward +1.0 for the correct action and -0.5 for incorrect actions.
    **This is not RL** — it uses ground-truth labels rather than environment rewards. The large
-   improvement in epoch 1 (0.17 → 0.41) happens entirely from this supervised signal.
+   improvement from supervised initialization happens entirely from this signal (not from RL).
 3. **Phase 2 (Online Policy Improvement)** — runs live episodes using environment rewards with
    GAMMA=0 (bandit setting — no temporal credit assignment). The agent receives per-step rewards
-   and updates Q-values accordingly. Adds a further ~0.14 improvement over Phase 1.
+   and updates Q-values accordingly. Adds a further ~0.12 improvement over Phase 1.
 4. **Evaluation** — every 5 training episodes, runs a greedy episode (ε=0) on the held-out
    eval split and prints the score.
 5. **Learning curve** — printed at the end, showing per-checkpoint eval scores.

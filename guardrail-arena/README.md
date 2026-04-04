@@ -597,27 +597,29 @@ Two-phase training: (1) supervised initialisation on 121 training-split prompts 
 **Sample output:**
 
 ```
-All-allow baseline (eval split):  0.1660
-Untrained policy (eval split):    0.1660
+All-allow baseline (eval split):  0.5000
+Untrained policy (eval split):    0.5000
 
-Phase 1: Supervised training from /training_data
-  Epoch  1: eval=0.4105  ############
-  Epoch 10: eval=0.4105  ############
+Phase 1: Supervised initialization from /training_data
+  Epoch  1: eval=0.4440  #############
+  Epoch 10: eval=0.4440  #############
 
-Phase 2: RL fine-tuning (10 episodes, eps=0.05, alpha=0.05)
+Phase 2: Online policy improvement (10 episodes, eps=0.05, alpha=0.05)
 
 Learning curve:
-  untrained : eval=0.1660  ####
-  ep01      : eval=0.4105  ############
-  final     : eval=0.5536  ################
+  untrained : eval=0.5000  ###############
+  ep01      : eval=0.4440  #############
+  final     : eval=0.5683  #################
 
-Final eval score:    0.5536
-Score improved:      YES (+233% vs baseline)
+Final eval score:    0.5683
+Score improved:      YES (+14% vs baseline)
 ```
 
-The final score (~0.55) is >3x the all-allow baseline (~0.17), demonstrating that the
-training split provides a real learning signal and the agent generalises to held-out
-eval prompts it has never seen during training.
+Under the class-normalized grader, both all-allow and all-refuse score ~0.50, so content-blind
+strategies have no advantage. The trained agent at ~0.57 demonstrates genuine improvement —
+Phase 1 (supervised initialization from ground-truth training labels) establishes the base
+policy; Phase 2 (online bandit improvement from environment rewards) adds a further boost.
+The agent generalises to held-out eval prompts it has never seen during training.
 
 See `AGENTS.md § Training an RL Agent` for architecture details and extension guidance.
 

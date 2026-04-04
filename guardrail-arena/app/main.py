@@ -245,13 +245,18 @@ def _create_session() -> tuple[GuardrailEnvironment, str]:
     new_env = GuardrailEnvironment()
     with _SESSION_STORE_LOCK:
         if len(_SESSION_STORE) >= _MAX_SESSIONS:
-            _SESSION_STORE.popitem(last=False)  # FIFO: evict oldest
+            evicted_sid, _ = _SESSION_STORE.popitem(last=False)  # FIFO: evict oldest
+            _log.warning(
+                "Session capacity reached (%d max). Evicted oldest session '%s'. "
+                "Agents holding that session_id will receive a 410 Gone on their next /step or /grader call.",
+                _MAX_SESSIONS, evicted_sid,
+            )
         _SESSION_STORE[sid] = {"env": new_env, "last_activity": time.monotonic()}
     return new_env, sid
 
 
 def _get_session_env(session_id: Optional[str]) -> GuardrailEnvironment:
-    """Return the env for session_id. Raises 400 when session_id is None."""
+    """Return the env for session_id. Raises 400 when session_id is None, 410 when evicted."""
     if session_id is None:
         raise HTTPException(
             status_code=400,
@@ -260,8 +265,12 @@ def _get_session_env(session_id: Optional[str]) -> GuardrailEnvironment:
     with _SESSION_STORE_LOCK:
         if session_id not in _SESSION_STORE:
             raise HTTPException(
-                status_code=404,
-                detail=f"Session '{session_id}' not found or has expired.",
+                status_code=410,
+                detail=(
+                    f"Session '{session_id}' has been evicted or has expired. "
+                    f"The server holds at most {_MAX_SESSIONS} concurrent sessions (TTL: "
+                    f"{_SESSION_TTL_SECONDS // 60} min). Call /reset to start a new session."
+                ),
             )
         _SESSION_STORE[session_id]["last_activity"] = time.monotonic()
         return _SESSION_STORE[session_id]["env"]

@@ -45,6 +45,11 @@ class GuardrailEnvironment:
 
         self._cumulative_score: float = 0.0
         self._max_possible_score_so_far: float = 0.0
+        # Full-episode max possible score, computed once at reset() time and used as the
+        # denominator for episode_difficulty so the signal is meaningful even on turn 1.
+        # (Using max_so_far as denominator made episode_difficulty = 1.0 after a single
+        # correct action, which was misleading early in long episodes.)
+        self._max_possible_score_full_episode: float = 0.0
 
         # Dynamic risk scores — updated after every step
         self._session_risk_score: float = 0.5          # Tasks 1 & 2 (single float)
@@ -88,6 +93,7 @@ class GuardrailEnvironment:
         self._task_id = task_id
         self._cumulative_score = 0.0
         self._max_possible_score_so_far = 0.0
+        self._max_possible_score_full_episode = 0.0
         self._done = False
         self._initialized = True
         self._step_count = 0
@@ -132,6 +138,9 @@ class GuardrailEnvironment:
             )
             self._prompt_queue = deque([first_entry])
             self._total_prompts_initial = self._adversary.max_turns
+            # Estimate full-episode max score for Task 4: use max_turns × average correct reward
+            # (0.2 × avg_severity ≈ 0.2 × 0.55 for mix of safe+attack, rounded conservatively to 0.15)
+            self._max_possible_score_full_episode = round(self._adversary.max_turns * 0.15, 4)
             self._current_entry = self._prompt_queue.popleft()
             self._cached_starting_risk_score = starting_risk
             return self._make_observation()
@@ -182,6 +191,20 @@ class GuardrailEnvironment:
                 prompts = new_prompts
         self._prompt_queue = deque(prompts)
         self._total_prompts_initial = len(prompts)
+        # Pre-compute full-episode max possible score so episode_difficulty is meaningful
+        # from turn 1 (denominator is constant throughout the episode).
+        # Uses exactly the same formula as the per-step max_so_far increment (no severity floor)
+        # so that a perfect oracle episode reaches episode_difficulty = 1.0 at the final step.
+        # Task 3 severity escalation is excluded (it's a runtime override), giving a conservative
+        # estimate — episode_difficulty may exceed 1.0 slightly on late high-severity turns;
+        # the min(1.0, ...) clamp in _make_observation handles this.
+        _full_ep_max = 0.0
+        for _pe in prompts:
+            if _pe.label.category == "safe":
+                _full_ep_max += 0.1
+            else:
+                _full_ep_max += 0.2 * _pe.label.severity
+        self._max_possible_score_full_episode = round(_full_ep_max, 4)
         self._current_entry = self._prompt_queue.popleft()
         # Set cached starting risk from the value already computed pre-increment,
         # ensuring _cached_starting_risk_score and _session_risk_score are consistent
@@ -481,8 +504,11 @@ class GuardrailEnvironment:
 
     def _make_observation(self) -> Observation:
         entry = self._current_entry
-        if self._max_possible_score_so_far > 0:
-            episode_difficulty = min(1.0, max(0.0, self._cumulative_score / self._max_possible_score_so_far))
+        # Use full-episode denominator so episode_difficulty is meaningful from turn 1.
+        # Falls back to max_so_far if full-episode estimate was never computed (shouldn't happen).
+        _denom = self._max_possible_score_full_episode if self._max_possible_score_full_episode > 0 else self._max_possible_score_so_far
+        if _denom > 0:
+            episode_difficulty = min(1.0, max(0.0, self._cumulative_score / _denom))
         else:
             episode_difficulty = 0.0
         # Derive a session-specific prompt_id and cache the reverse mapping.

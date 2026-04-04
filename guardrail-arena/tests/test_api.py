@@ -473,12 +473,13 @@ def test_isolated_sessions_independent_state():
     assert state2["current_prompt_index"] == 0  # no steps yet
 
 
-def test_step_invalid_session_id_returns_404():
+def test_step_invalid_session_id_returns_410():
+    """An unknown/evicted session_id returns 410 Gone (capacity eviction or TTL expiry)."""
     r = client.post(
         "/step?session_id=00000000-0000-0000-0000-000000000000",
         json={"prompt_id": "any", "action_type": "allow", "reason": "test"},
     )
-    assert r.status_code == 404
+    assert r.status_code == 410
 
 
 def test_delete_session():
@@ -486,12 +487,12 @@ def test_delete_session():
     sid = r.json()["session_id"]
     del_r = client.delete(f"/sessions/{sid}")
     assert del_r.status_code == 200
-    # Subsequent step should 404
+    # Subsequent step should 410 (session was evicted/deleted)
     r2 = client.post(
         f"/step?session_id={sid}",
         json={"prompt_id": "any", "action_type": "allow", "reason": "test"},
     )
-    assert r2.status_code == 404
+    assert r2.status_code == 410
 
 
 def test_sessions_endpoint_lists_active():
@@ -686,6 +687,42 @@ def test_task2_all_refuse_not_exploitable():
     assert score <= 0.50, f"All-refuse Task 2 scored {score}, should be <= 0.50"
 
 
+# ── /demo endpoint tests (Item 4) ────────────────────────────────────────────
+
+def test_demo_returns_5_step_trajectory():
+    """/demo must return exactly 5 trajectory steps with required fields."""
+    r = client.get("/demo")
+    assert r.status_code == 200
+    data = r.json()
+    assert "trajectory" in data, "demo response must have 'trajectory'"
+    assert len(data["trajectory"]) == 5, f"Expected 5 steps, got {len(data['trajectory'])}"
+    required_fields = {"reward", "outcome", "action_taken"}
+    for i, step in enumerate(data["trajectory"]):
+        missing = required_fields - set(step.keys())
+        assert not missing, f"Step {i} missing fields: {missing}"
+
+
+def test_demo_score_in_meaningful_range():
+    """/demo final grader score must be in (0.0, 1.0) exclusive — not trivially zero or one."""
+    r = client.get("/demo")
+    assert r.status_code == 200
+    data = r.json()
+    score = data.get("partial_grader_score", -1)
+    assert 0.0 < score < 1.0 or score >= 0.3, (
+        f"Demo grader score {score} is outside expected range [0.3, 1.0). "
+        "If /demo shows 0.0, the hardcoded actions are wrong for the seed."
+    )
+
+
+def test_demo_task_id_field_present():
+    """/demo must include task_id and description fields."""
+    r = client.get("/demo")
+    assert r.status_code == 200
+    data = r.json()
+    assert "task_id" in data
+    assert "description" in data
+
+
 def test_task3_training_data_nonempty():
     """/training_data for multiturn_adversarial returns non-zero results."""
     r = client.get("/training_data?task_id=multiturn_adversarial")
@@ -697,3 +734,89 @@ def test_task3_training_data_nonempty():
         if p.get("conversation_id"):
             assert "turn_number" in p
             break
+
+
+# ── inference.py integration (mock OpenAI) ───────────────────────────────────
+
+def test_inference_produces_all_task_scores_with_mock(monkeypatch):
+    """inference.py should run to completion and emit a final JSON scores line.
+
+    The OpenAI client is replaced with a mock that always returns
+    {"action_type": "allow", "reason": "mock"} so no real API key is needed.
+    httpx.post / httpx.get are patched to route all environment calls through
+    the FastAPI TestClient so no live network connection is required.
+    """
+    import io
+    import os
+    import sys
+    import json
+    import importlib.util
+    import types
+    from unittest.mock import MagicMock, patch
+
+    # ── env vars inference.py validates at import time ─────────────────────────
+    monkeypatch.setenv("API_BASE_URL", "http://mock-openai")
+    monkeypatch.setenv("MODEL_NAME", "mock-model")
+    monkeypatch.setenv("HF_TOKEN", "mock-token")
+    monkeypatch.setenv("ENV_URL", "http://testserver")
+
+    # ── stub OpenAI — always responds with allow ──────────────────────────────
+    mock_choice = MagicMock()
+    mock_choice.message.content = '{"action_type": "allow", "reason": "mock"}'
+    mock_completion = MagicMock()
+    mock_completion.choices = [mock_choice]
+    mock_openai_instance = MagicMock()
+    mock_openai_instance.chat.completions.create.return_value = mock_completion
+    mock_openai_module = types.ModuleType("openai")
+    mock_openai_module.OpenAI = MagicMock(return_value=mock_openai_instance)
+
+    # ── route inference.py's httpx.post/get through TestClient ───────────────
+    def _tc_post(url, **kwargs):
+        path = url.replace("http://testserver", "")
+        params = kwargs.get("params", {})
+        json_body = kwargs.get("json", None)
+        r = client.post(path, params=params, json=json_body)
+        return r
+
+    def _tc_get(url, **kwargs):
+        path = url.replace("http://testserver", "")
+        params = kwargs.get("params", {})
+        r = client.get(path, params=params)
+        return r
+
+    # ── load inference.py fresh for each test run ─────────────────────────────
+    inference_path = os.path.join(os.path.dirname(__file__), "..", "inference.py")
+    spec = importlib.util.spec_from_file_location("inference_under_test", inference_path)
+    inference_mod = importlib.util.module_from_spec(spec)
+
+    with patch.dict(sys.modules, {"openai": mock_openai_module}):
+        with patch("httpx.post", side_effect=_tc_post), patch("httpx.get", side_effect=_tc_get):
+            spec.loader.exec_module(inference_mod)
+            # Re-patch the already-imported httpx references inside the loaded module
+            inference_mod.httpx.post = _tc_post
+            inference_mod.httpx.get = _tc_get
+
+            captured = io.StringIO()
+            sys.stdout = captured
+            try:
+                inference_mod.main()
+            finally:
+                sys.stdout = sys.__stdout__
+
+    output = captured.getvalue()
+
+    # ── assertions ────────────────────────────────────────────────────────────
+    expected_task_ids = [
+        "basic_threat_detection",
+        "context_aware_policy",
+        "multiturn_adversarial",
+    ]
+    for task_id in expected_task_ids:
+        assert task_id in output, f"Task ID '{task_id}' missing from inference.py output"
+
+    # Last non-empty line must be parseable JSON with all three task scores
+    lines = [ln for ln in output.strip().splitlines() if ln.strip()]
+    scores = json.loads(lines[-1])
+    for task_id in expected_task_ids:
+        assert task_id in scores, f"Task '{task_id}' missing from final scores JSON"
+        assert isinstance(scores[task_id], (int, float)), "Score should be numeric"

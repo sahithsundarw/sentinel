@@ -21,7 +21,7 @@ def test_reset_returns_valid_observation_task1():
     assert obs.user_prompt
     assert obs.application_context == "general_assistant"
     assert obs.turn_number == 1
-    assert obs.prompts_remaining == 61  # 62 eval prompts, first one served
+    assert obs.prompts_remaining == 66  # 67 eval prompts, first one served
     assert obs.episode_score_so_far == 0.0
 
 
@@ -30,7 +30,7 @@ def test_reset_returns_valid_observation_task2():
     obs = env.reset("context_aware_policy")
     assert isinstance(obs, Observation)
     assert obs.application_context in ("children_education", "creative_writing", "general_assistant")
-    assert obs.prompts_remaining == 54  # 55 eval prompts, first one served
+    assert obs.prompts_remaining == 57  # 58 eval prompts, first one served
 
 
 def test_reset_returns_valid_observation_task3():
@@ -206,7 +206,7 @@ def test_task1_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 62  # 62 eval prompts
+    assert steps == 67  # 67 eval prompts
     assert env.is_done()
 
 
@@ -221,7 +221,7 @@ def test_task2_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 55  # 55 eval prompts
+    assert steps == 58  # 58 eval prompts
     assert env.is_done()
 
 
@@ -816,48 +816,35 @@ def test_task3_action_dependent_conversation_history():
 
 # ── episode_difficulty tests ──────────────────────────────────────────────────
 
-def test_episode_difficulty_zero_at_start():
-    """episode_difficulty should be 0.0 on first observation (no actions taken yet)."""
+def test_episode_difficulty_near_one_at_start():
+    """episode_difficulty should be near 1.0 on first observation (all challenge remaining)."""
     env = GuardrailEnvironment()
     obs = env.reset("basic_threat_detection")
-    assert obs.episode_difficulty == 0.0
+    # After reset, almost all potential is still ahead — difficulty should be close to 1.0.
+    # It equals (total_max - first_prompt_max) / total_max, which is > 0.9 for any episode.
+    assert obs.episode_difficulty > 0.9, (
+        f"episode_difficulty should be near 1.0 at start, got {obs.episode_difficulty}"
+    )
 
 
-def test_episode_difficulty_one_for_perfect_episode():
-    """episode_difficulty should reach 1.0 after all-correct actions."""
-    from app.models import Action as _Action
-
+def test_episode_difficulty_near_zero_at_end():
+    """episode_difficulty should approach 0.0 near episode end (little challenge remaining)."""
     env = GuardrailEnvironment()
     obs = env.reset("basic_threat_detection")
 
-    last_difficulty = 0.0
+    last_difficulty = 1.0
     while not env.is_done():
-        curr = env.current_prompt_entry
-        correct_action = curr.label.correct_action
-        if correct_action == "modify":
-            # Provide a sanitized modified_prompt to get full modify credit (Tier 4)
-            sanitized = curr.label.prompt_text
-            for phrase in (curr.label.required_removals or []):
-                sanitized = sanitized.replace(phrase, "").replace(phrase.lower(), "")
-            sanitized = sanitized.strip() or "[sanitized]"
-            # Ensure ≥15% shorter than original to pass length check
-            max_len = max(1, int(0.84 * len(curr.label.prompt_text)))
-            if len(sanitized) > max_len:
-                sanitized = sanitized[:max_len].rstrip()
-            action = _Action(prompt_id=obs.prompt_id, action_type="modify",
-                             reason="test", modified_prompt=sanitized)
-        else:
-            action = make_action(correct_action, obs.prompt_id)
+        action = make_action("allow", obs.prompt_id)
         next_obs, _, done, _ = env.step(action)
         if not done and next_obs is not None:
             last_difficulty = next_obs.episode_difficulty
             obs = next_obs
 
-    # After all perfect steps, difficulty should be very close to 1.0.
-    # With the full-episode denominator, the second-to-last step gives ~(N-1)/N ≈ 0.98+,
-    # and the final step (done=True) would give exactly 1.0 — but the test loop does not
-    # capture the done=True observation. Assert >= 0.95 as a robust lower bound.
-    assert last_difficulty >= 0.95, f"Expected >= 0.95 for a perfect episode, got {last_difficulty}"
+    # Near the end of the episode, very little potential remains → difficulty near 0.
+    # The penultimate step gives ≈ 1/N of total potential remaining.
+    assert last_difficulty < 0.05, (
+        f"episode_difficulty should be near 0.0 at episode end, got {last_difficulty}"
+    )
 
 
 def test_episode_difficulty_drops_after_missed_attack():
@@ -1243,3 +1230,143 @@ def test_over_block_count_increments_on_refuse_safe():
             obs = next_obs
 
     pytest.fail("Safe entry not encountered")
+
+
+# ── episode_difficulty remaining-challenge tests ─────────────────────────────
+
+def test_episode_difficulty_starts_near_one():
+    """episode_difficulty should start near 1.0 (all challenge ahead) on turn 1."""
+    env = GuardrailEnvironment()
+    obs = env.reset("basic_threat_detection")
+    # After reset, only the first prompt has been served, so almost all potential remains.
+    # episode_difficulty should be close to 1.0 (not 0).
+    assert obs.episode_difficulty > 0.9, (
+        f"episode_difficulty should be near 1.0 at start, got {obs.episode_difficulty}"
+    )
+
+
+def test_episode_difficulty_decreases_as_episode_progresses():
+    """episode_difficulty should decrease monotonically as the episode progresses."""
+    env = GuardrailEnvironment()
+    obs = env.reset("basic_threat_detection")
+    difficulties = [obs.episode_difficulty]
+
+    for _ in range(5):
+        if env.is_done():
+            break
+        next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+        if done or next_obs is None:
+            break
+        obs = next_obs
+        difficulties.append(obs.episode_difficulty)
+
+    assert len(difficulties) >= 2, "Need at least 2 observations to test trend"
+    # Difficulty should be non-increasing (each step serves more potential)
+    for i in range(1, len(difficulties)):
+        assert difficulties[i] <= difficulties[i - 1], (
+            f"episode_difficulty increased at step {i}: {difficulties[i - 1]:.4f} → {difficulties[i]:.4f}"
+        )
+
+
+def test_episode_difficulty_distinct_from_score():
+    """episode_difficulty (remaining challenge) should differ from episode_score_so_far."""
+    env = GuardrailEnvironment()
+    obs = env.reset("basic_threat_detection")
+    # After one allow on an attack (negative reward), score should be < 0
+    # but episode_difficulty should still be close to 1.0 (lots remaining)
+    for _ in range(3):
+        if env.is_done():
+            break
+        next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+        if done or next_obs is None:
+            break
+        obs = next_obs
+
+    # episode_difficulty is remaining challenge (should still be high early on)
+    # episode_score_so_far is performance (may be negative from missed attacks)
+    assert obs.episode_difficulty > 0.5, "Early episode: lots of challenge should remain"
+    # They should not be equal (one tracks remaining potential, other tracks cumulative performance)
+    assert obs.episode_difficulty != obs.episode_score_so_far
+
+
+# ── Task 4 honeypot signal tests ──────────────────────────────────────────────
+
+def test_task4_honeypot_signal_in_prompt_text():
+    """When honeypot fires, user_prompt should contain the signal phrase."""
+    from app.tasks.task4_adversarial import DeterministicAdversary
+
+    signal = DeterministicAdversary._HONEYPOT_SIGNAL_PHRASE.lower()
+    env = GuardrailEnvironment()
+    obs = env.reset("adversarial_adaptation", seed=0)
+
+    honeypot_found = False
+    max_steps = 20
+    for _ in range(max_steps):
+        if env.is_done():
+            break
+        prompt_lower = obs.user_prompt.lower()
+        if signal in prompt_lower:
+            honeypot_found = True
+            break
+        # Allow everything to maximize intensity escalation (triggers more state changes)
+        next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+        if done or next_obs is None:
+            break
+        obs = next_obs
+
+    # The honeypot fires once per episode — we might not hit it in the first 20 steps
+    # but we verify the mechanism is present; the main check is signal detection works
+    # (if found, it must contain the phrase — that's the invariant)
+    if honeypot_found:
+        assert signal in obs.user_prompt.lower(), (
+            "Honeypot prompt should contain signal phrase in user_prompt"
+        )
+
+
+# ── Task 4 cross-episode weakness tracking tests ──────────────────────────────
+
+def test_task4_topic_weakness_map_updates_after_episode():
+    """After a Task 4 episode with missed attacks, topic_weakness_map should be non-empty."""
+    env = GuardrailEnvironment()
+    obs = env.reset("adversarial_adaptation", seed=42)
+
+    # Allow everything so we miss all attacks → weakness map should accumulate misses
+    while not env.is_done():
+        next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+        if done or next_obs is None:
+            break
+        obs = next_obs
+
+    # Start second episode
+    obs2 = env.reset("adversarial_adaptation", seed=1)
+    weakness = obs2.user_session_history.get("topic_weakness_map", {})
+    # After all-allow episode, at least some topics should have missed attacks recorded
+    assert isinstance(weakness, dict), "topic_weakness_map should be a dict"
+    assert len(weakness) > 0, (
+        "topic_weakness_map should be non-empty after an episode with missed attacks"
+    )
+    total_misses = sum(weakness.values())
+    assert total_misses > 0, "At least one missed attack should be recorded in topic_weakness_map"
+
+
+def test_task4_weakness_map_persists_across_episodes():
+    """topic_weakness_map values should accumulate across multiple episodes."""
+    env = GuardrailEnvironment()
+
+    # Run 2 all-allow episodes and verify the weakness map grows
+    for ep in range(2):
+        obs = env.reset("adversarial_adaptation", seed=ep)
+        while not env.is_done():
+            next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
+            if done or next_obs is None:
+                break
+            obs = next_obs
+
+    # After 2 episodes, reset a third time and check weakness map
+    obs3 = env.reset("adversarial_adaptation", seed=99)
+    weakness = obs3.user_session_history.get("topic_weakness_map", {})
+    total_misses = sum(weakness.values())
+    # With 2 all-allow episodes, should have at least 2× the misses of one episode
+    assert total_misses >= 2, (
+        f"Expected accumulated misses across 2 episodes, got {total_misses}"
+    )

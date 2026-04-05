@@ -13,6 +13,11 @@ sys.path.insert(0, os.path.dirname(__file__))
 from app.environment import GuardrailEnvironment
 from app.models import Action
 from app.tasks.task_config import get_task
+from app.tasks.task4_adversarial import DeterministicAdversary
+
+# Honeypot detection signal: matches the phrase injected into honeypot prompt text.
+# Oracle detects this via obs.user_prompt (observable), not via privileged label metadata.
+_HONEYPOT_SIGNAL = DeterministicAdversary._HONEYPOT_SIGNAL_PHRASE.lower()
 
 
 def _resolve_correct_action(label, ctx: str, risk_score: float = 0.5) -> str:
@@ -55,13 +60,11 @@ def run_oracle(task_id: str) -> float:
             label = entry.label
             risk_score = obs.user_risk_score
             correct = _resolve_correct_action(label, obs.application_context, risk_score)
-            # NOTE: Oracle honeypot detection uses privileged label access.
-            # The oracle reads `label.attack_features` directly to detect the honeypot marker
-            # ("probe_vector"). A real RL agent cannot do this — attack_features is internal
-            # label metadata not exposed in the Observation. Real agents must infer honeypot
-            # turns from transition pattern anomalies across multiple episodes.
-            # This is a known oracle inconsistency: oracle=1.0 on Task 4 requires privileged access.
-            if "probe_vector" in (label.attack_features or []):
+            # Honeypot detection via observable text signal (no privileged label access).
+            # When the honeypot fires, DeterministicAdversary.get_current_label() prepends
+            # _HONEYPOT_SIGNAL_PHRASE to the prompt text, making it detectable in obs.user_prompt.
+            # Real agents can use the same text-based heuristic — no internal metadata needed.
+            if _HONEYPOT_SIGNAL in obs.user_prompt.lower():
                 correct = "refuse"
             modified_prompt = _sanitize(label) if correct == "modify" else None
             action = Action(

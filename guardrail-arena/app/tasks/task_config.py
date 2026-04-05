@@ -442,6 +442,10 @@ VALID_ATTACK_FEATURES: frozenset[str] = frozenset({
     "urgency_injection",
     "verification_bypass",
     "probe_vector",
+    "dangerous_information",
+    "discriminatory_language",
+    "graphic_content",
+    "grooming_language",
 })
 
 

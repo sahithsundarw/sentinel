@@ -57,9 +57,9 @@ def test_reset_query_param_invalid_task_returns_422():
 def test_reset_no_body_defaults_to_task1():
     r = client.post("/reset")
     assert r.status_code == 200
-    # Default task is basic_threat_detection — prompts_remaining should be 61 (62 eval, first served)
+    # Default task is basic_threat_detection — prompts_remaining should be 66 (67 eval, first served)
     obs = r.json()
-    assert obs["prompts_remaining"] == 61
+    assert obs["prompts_remaining"] == 66
 
 
 def test_reset_empty_task_id_returns_422():
@@ -204,7 +204,7 @@ def test_step_done_true_on_last_step_task1():
         steps += 1
         if not done:
             pid = data["observation"]["prompt_id"]
-    assert steps == 62  # 62 eval prompts (183 total, ~33% held-out)
+    assert steps == 67  # 67 eval prompts (198 total, ~33% held-out)
     assert data["observation"] is None
 
 
@@ -378,13 +378,13 @@ def test_leaderboard_persistence_save_load():
 
 def test_rollout_returns_trajectory_and_score():
     """POST /rollout with task_id and actions should return a trajectory and grader_score."""
-    actions = [{"action_type": "allow", "reason": "test"}] * 62
+    actions = [{"action_type": "allow", "reason": "test"}] * 67
     r = client.post("/rollout", json={"task_id": "basic_threat_detection", "actions": actions})
     assert r.status_code == 200
     data = r.json()
     assert "grader_score" in data
     assert "trajectory" in data
-    assert len(data["trajectory"]) == 62  # 62 eval prompts
+    assert len(data["trajectory"]) == 67  # 67 eval prompts
     assert 0.0 <= data["grader_score"] <= 1.0
 
 
@@ -567,7 +567,7 @@ def test_training_data_endpoint_returns_train_prompts():
     assert r.status_code == 200
     data = r.json()
     assert data["task_id"] == "basic_threat_detection"
-    assert data["count"] == 121  # 121 train prompts
+    assert data["count"] == 131  # 131 train prompts
     for p in data["prompts"]:
         assert p["split"] == "train"
         assert "prompt_id" in p
@@ -579,7 +579,7 @@ def test_training_data_task2():
     r = client.get("/training_data?task_id=context_aware_policy")
     assert r.status_code == 200
     data = r.json()
-    assert data["count"] == 107
+    assert data["count"] == 112
 
 
 def test_eval_and_train_prompt_ids_are_disjoint():
@@ -605,7 +605,7 @@ def test_eval_and_train_prompt_ids_are_disjoint():
     # Eval prompt IDs (raw, may have session salt) — they should NOT match train IDs
     # The environment applies a session salt to prompt_ids, so direct set intersection
     # should be empty even without the split — but we verify the split counts are correct.
-    assert len(train_ids) == 121
+    assert len(train_ids) == 131
     assert len(eval_ids) > 0
 
 

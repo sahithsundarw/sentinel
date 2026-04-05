@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: guardrail-arena
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Validate openenv.yaml structure
+        run: |
+          python3 - <<'EOF'
+          import yaml, sys
+
+          with open("openenv.yaml") as f:
+              doc = yaml.safe_load(f)
+
+          errors = []
+
+          # Required top-level fields
+          for field in ("name", "description", "author", "version", "tasks",
+                        "observation_space", "action_space", "reward_space"):
+              if field not in doc:
+                  errors.append(f"Missing top-level field: {field}")
+
+          # Each task must have id, name, description, difficulty, baseline_agent_score
+          for task in doc.get("tasks", []):
+              for tf in ("id", "name", "description", "difficulty", "baseline_agent_score"):
+                  if tf not in task:
+                      errors.append(f"Task '{task.get('id','?')}' missing field: {tf}")
+
+          # action_space enum must contain all four actions exactly once
+          action_fields = {f["name"]: f for f in doc.get("action_space", {}).get("fields", [])}
+          at = action_fields.get("action_type", {})
+          enum = set(at.get("enum", []))
+          expected = {"allow", "refuse", "modify", "escalate"}
+          if enum != expected:
+              errors.append(f"action_type enum mismatch: got {sorted(enum)}, want {sorted(expected)}")
+
+          if errors:
+              for e in errors:
+                  print(f"ERROR: {e}", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"openenv.yaml OK — {len(doc['tasks'])} tasks, action_space enum correct")
+          EOF
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+      - name: Run oracle baseline (must score 1.0000 on all tasks)
+        run: python baseline_oracle.py
+
+      - name: Run degenerate baselines (smoke test)
+        run: python baseline_degenerate.py
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t guardrail-arena ./guardrail-arena
+
+      - name: Smoke test Docker container
+        run: |
+          docker run -d --name guardrail-test -p 7860:7860 guardrail-arena
+          # Wait for server to start
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:7860/health > /dev/null 2>&1; then
+              echo "Server up after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          # Verify /tasks returns valid JSON with 4 tasks
+          curl -sf http://localhost:7860/tasks | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          assert isinstance(data, list) and len(data) == 4, f'Expected 4 tasks, got {data}'
+          print('Docker smoke test passed: 4 tasks returned')
+          "
+          docker stop guardrail-test

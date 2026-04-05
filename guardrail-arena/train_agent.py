@@ -308,6 +308,87 @@ def _run_eval_episode() -> float:
     return env.get_grader_score()
 
 
+# ── Confusion matrix ──────────────────────────────────────────────────────────
+def _print_confusion_matrix() -> None:
+    """Run a greedy eval episode and print per-category accuracy breakdown.
+
+    Shows which attack categories the trained agent handles well vs. poorly,
+    using the same 9-bit feature extraction as the Q-table.
+    """
+    from app.tasks.task_config import get_task
+    from app.utils import resolve_correct_action
+
+    task = get_task(TASK_ID)
+    # Use eval prompts (not train prompts) for an unbiased breakdown
+    env = GuardrailEnvironment()
+    obs = env.reset(TASK_ID)
+
+    # Collect (predicted, correct, category, attack_type) for each eval turn
+    records: list[dict] = []
+    while not env.is_done():
+        state_key = _extract_features(
+            obs.user_prompt, obs.application_context,
+            obs.user_risk_score, obs.turn_number, obs.conversation_history,
+        )
+        action_type = _choose_action(state_key, epsilon=0.0)
+        action = Action(
+            prompt_id=obs.prompt_id,
+            action_type=action_type,
+            reason="confusion-matrix",
+            modified_prompt=obs.user_prompt if action_type == "modify" else None,
+        )
+        next_obs, _, done, info = env.step(action)
+        correct = info.get("ground_truth_action", action_type)
+        category = info.get("category", "unknown")
+        # Summarize attack features as the first tag (e.g. "role_play_trigger")
+        features = info.get("attack_features") or []
+        attack_type = features[0] if features else category
+        records.append({
+            "predicted": action_type,
+            "correct": correct,
+            "category": category,
+            "attack_type": attack_type,
+            "is_correct": action_type == correct,
+        })
+        if not done:
+            obs = next_obs
+
+    if not records:
+        return
+
+    # Per-category breakdown
+    from collections import defaultdict
+    by_cat: dict[str, list[bool]] = defaultdict(list)
+    by_attack: dict[str, list[bool]] = defaultdict(list)
+    for r in records:
+        by_cat[r["category"]].append(r["is_correct"])
+        by_attack[r["attack_type"]].append(r["is_correct"])
+
+    print()
+    print("Confusion matrix by category:")
+    print(f"  {'Category':<20} {'Correct':>7} {'Total':>6} {'Accuracy':>9}")
+    print(f"  {'-'*20} {'-'*7} {'-'*6} {'-'*9}")
+    for cat in sorted(by_cat):
+        hits = sum(by_cat[cat])
+        total = len(by_cat[cat])
+        acc = hits / total if total else 0.0
+        bar = "#" * int(acc * 15)
+        print(f"  {cat:<20} {hits:>7} {total:>6} {acc:>8.1%}  {bar}")
+
+    print()
+    print("Per attack_type (top categories):")
+    print(f"  {'Attack type':<30} {'Correct':>7} {'Total':>6} {'Accuracy':>9}")
+    print(f"  {'-'*30} {'-'*7} {'-'*6} {'-'*9}")
+    # Sort by accuracy ascending so worst categories appear first
+    sorted_attacks = sorted(by_attack.items(), key=lambda kv: sum(kv[1]) / len(kv[1]) if kv[1] else 0)
+    for atype, hits_list in sorted_attacks:
+        hits = sum(hits_list)
+        total = len(hits_list)
+        acc = hits / total if total else 0.0
+        bar = "#" * int(acc * 15)
+        print(f"  {atype:<30} {hits:>7} {total:>6} {acc:>8.1%}  {bar}")
+
+
 # ── All-allow baseline ─────────────────────────────────────────────────────────
 def _all_allow_baseline() -> float:
     env = GuardrailEnvironment()
@@ -443,6 +524,9 @@ def main() -> None:
         print("  The tabular agent relies on keyword signals — prompts without recognizable")
         print("  keywords are classified by the feature-space prior, not content semantics.")
         print("  This is a known limitation. See AGENTS.md for neural policy alternatives.")
+
+    # Per-category confusion matrix showing which attack types the agent handles well
+    _print_confusion_matrix()
 
 
 # ── Task 4 Training (adversarial_adaptation) ─────────────────────────────────

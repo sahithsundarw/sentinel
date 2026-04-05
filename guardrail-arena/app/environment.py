@@ -14,6 +14,16 @@ RL mechanics:
     conversation, the environment injects branch_caught or branch_missed turns
     depending on whether the agent blocked or allowed the attack. Future
     observations are a direct consequence of past decisions.
+
+Cross-task session behavior:
+  user_session_history counters (episode_count, cumulative_missed_attacks,
+  cumulative_correct_blocks, cumulative_over_blocks) persist across reset()
+  calls regardless of task_id. If you run Task 1 then Task 4 on the same
+  GuardrailEnvironment instance, Task 4 sees cumulative history from Task 1
+  in user_session_history and the starting_risk_score is adjusted accordingly.
+  This is intentional — the session represents a single agent's history —
+  but agents should check user_session_history.episode_count to understand
+  how many prior episodes have accumulated.
 """
 import hashlib
 import random
@@ -80,6 +90,20 @@ class GuardrailEnvironment:
         # Task 4: adversary instance (None for Tasks 1–3)
         self._adversary: Optional[DeterministicAdversary] = None
 
+        # Observation noise level (set per-episode via reset()).
+        # 0.0 = fully deterministic (default). >0 adds Gaussian noise to user_risk_score
+        # in observations, providing exploration variance without altering labels or rewards.
+        self._noise_level: float = 0.0
+
+        # Task 4 cross-episode weakness tracking.
+        # Maps adversary topic index → total missed attacks across all prior episodes.
+        # Persists across reset() so the adversary can bias starting topic toward weaknesses.
+        self._topic_weakness_map: dict[int, int] = {}
+
+        # Per-episode (topic_idx, category, action_type) records for Task 4 weakness tracking.
+        # Reset each episode; tallied into _topic_weakness_map when the episode ends.
+        self._adversary_step_topics: list[tuple[int, str, str]] = []
+
         # Number of attacks missed in the CURRENT episode (tracked for reward diagnostics).
         self._episode_missed_attacks: int = 0
 
@@ -88,9 +112,10 @@ class GuardrailEnvironment:
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def reset(self, task_id: str = "basic_threat_detection", seed: Optional[int] = None) -> Observation:
+    def reset(self, task_id: str = "basic_threat_detection", seed: Optional[int] = None, noise_level: float = 0.0) -> Observation:
         self._task = get_task(task_id)
         self._task_id = task_id
+        self._noise_level = max(0.0, min(1.0, noise_level))  # clamp to [0, 1]
         self._cumulative_score = 0.0
         self._max_possible_score_so_far = 0.0
         self._max_possible_score_full_episode = 0.0
@@ -123,7 +148,11 @@ class GuardrailEnvironment:
 
         # Task 4: initialize adversary instead of loading a fixed prompt list.
         if task_id == "adversarial_adaptation":
-            self._adversary = DeterministicAdversary(seed=seed or 0)
+            self._adversary_step_topics = []  # Reset per-episode topic-action log
+            self._adversary = DeterministicAdversary(
+                seed=seed or 0,
+                topic_weakness_map=self._topic_weakness_map,  # Cross-episode learning
+            )
             self._adversary.start()
             # Use session salt for partial observability: same state → different text per episode
             first_label = self._adversary.get_current_label(self._session_salt)
@@ -396,6 +425,10 @@ class GuardrailEnvironment:
         # the agent sees one of 3 surface variants for each (topic, intensity) state node,
         # selected deterministically by the session salt. Same state → different text each episode.
         if self._adversary is not None and not self._adversary.done:
+            # Capture topic and category BEFORE advancing so we can track per-topic misses.
+            _adv_topic_before = self._adversary.topic
+            _adv_category_before = current_entry.label.category
+            self._adversary_step_topics.append((_adv_topic_before, _adv_category_before, action.action_type))
             self._adversary.advance(action.action_type)
             if not self._adversary.done:
                 next_label = self._adversary.get_current_label(self._session_salt)
@@ -438,15 +471,30 @@ class GuardrailEnvironment:
             self._current_entry = None
             is_last_prompt = True
 
+        # Soft validation: warn if reason is empty or too short (< 3 chars).
+        # Does not affect reward or episode state — purely informational.
+        _reason_warning = ""
+        if not action.reason or len(action.reason.strip()) < 3:
+            _reason_warning = " [Warning: action.reason is empty or too short — provide a brief explanation for interpretability]"
+
         reward = Reward(
             score=step_score,
             cumulative_score=self._cumulative_score,
-            feedback=reward_breakdown["reason"],
+            feedback=reward_breakdown["reason"] + _reason_warning,
             breakdown=reward_breakdown,
         )
 
         if is_last_prompt:
             self._done = True
+            # Task 4: tally per-topic missed attacks into the cross-episode weakness map.
+            # This is used by DeterministicAdversary on the next episode to bias the
+            # starting topic toward the agent's historically weakest attack categories.
+            if self._task_id == "adversarial_adaptation":
+                for topic_idx, category, act_type in self._adversary_step_topics:
+                    if category != "safe" and act_type == "allow":
+                        self._topic_weakness_map[topic_idx] = (
+                            self._topic_weakness_map.get(topic_idx, 0) + 1
+                        )
             return None, reward, True, info
 
         next_observation = self._make_observation()
@@ -504,11 +552,16 @@ class GuardrailEnvironment:
 
     def _make_observation(self) -> Observation:
         entry = self._current_entry
-        # Use full-episode denominator so episode_difficulty is meaningful from turn 1.
-        # Falls back to max_so_far if full-episode estimate was never computed (shouldn't happen).
-        _denom = self._max_possible_score_full_episode if self._max_possible_score_full_episode > 0 else self._max_possible_score_so_far
-        if _denom > 0:
-            episode_difficulty = min(1.0, max(0.0, self._cumulative_score / _denom))
+        # episode_difficulty: fraction of total potential episode reward still ahead of the agent.
+        # Starts near 1.0 (all challenge ahead), approaches 0.0 as the episode nears completion.
+        # This is intentionally different from episode_score_so_far (which tracks performance);
+        # episode_difficulty tracks how much of the episode is remaining, not how well it's going.
+        # Use as a curriculum/early-stopping signal: high → lots of challenge ahead, low → nearly done.
+        _total = self._max_possible_score_full_episode
+        _served = self._max_possible_score_so_far
+        if _total > 0:
+            _remaining = max(0.0, _total - _served)
+            episode_difficulty = round(_remaining / _total, 4)
         else:
             episode_difficulty = 0.0
         # Derive a session-specific prompt_id and cache the reverse mapping.
@@ -530,12 +583,23 @@ class GuardrailEnvironment:
         else:
             prompts_remaining = len(self._prompt_queue)
 
+        # Apply observation noise to user_risk_score if noise_level > 0.
+        # Rewards and grader always use the true internal risk score — only the
+        # observation is noised, so this cannot be used to game the reward function.
+        _true_risk = self._get_risk_score(entry)
+        if self._noise_level > 0.0:
+            import random as _noise_rng
+            _noised_risk = _true_risk + _noise_rng.gauss(0.0, self._noise_level * 0.1)
+            _noised_risk = round(max(0.0, min(1.0, _noised_risk)), 4)
+        else:
+            _noised_risk = _true_risk
+
         return Observation(
             prompt_id=session_pid,
             user_prompt=entry.label.prompt_text,
             conversation_history=conv_hist,
             application_context=entry.application_context,
-            user_risk_score=self._get_risk_score(entry),
+            user_risk_score=_noised_risk,
             conversation_id=entry.conversation_id,
             turn_number=entry.turn_number,
             prompts_remaining=prompts_remaining,
@@ -547,6 +611,9 @@ class GuardrailEnvironment:
                 "cumulative_correct_blocks": self._cumulative_correct_blocks,
                 "cumulative_over_blocks": self._cumulative_over_blocks,
                 "starting_risk_score": self._cached_starting_risk_score,
+                # Task 4 only: per-topic miss counts across all prior episodes.
+                # Agents can use this to anticipate which topics the adversary will prioritize.
+                "topic_weakness_map": dict(self._topic_weakness_map) if self._topic_weakness_map else {},
             },
         )
 

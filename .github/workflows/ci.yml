@@ -94,7 +94,8 @@ jobs:
           curl -sf http://localhost:7860/tasks | python3 -c "
           import sys, json
           data = json.load(sys.stdin)
-          assert isinstance(data, list) and len(data) == 4, f'Expected 4 tasks, got {data}'
+          tasks = data['tasks'] if isinstance(data, dict) else data
+          assert isinstance(tasks, list) and len(tasks) == 4, f'Expected 4 tasks, got {data}'
           print('Docker smoke test passed: 4 tasks returned')
           "
           docker stop guardrail-test

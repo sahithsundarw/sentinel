@@ -3,6 +3,7 @@ uvicorn==0.30.0
 pydantic==2.9.0
 httpx==0.27.0
 pytest==8.3.0
+pyyaml==6.0.2
 # openai is required to run inference.py / baseline.py against a live model.
 # It is NOT needed to run the environment server itself (uvicorn app.main:app).
 openai==1.50.0

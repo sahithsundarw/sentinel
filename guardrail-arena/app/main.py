@@ -90,7 +90,7 @@ def _save_leaderboard_to_hub(leaderboard: dict[str, list[dict]]) -> None:
     try:
         from huggingface_hub import HfApi
         import tempfile
-        baseline_agents = {"all-allow", "all-refuse", "heuristic"}
+        baseline_agents = {"all-allow", "all-refuse", "heuristic", "Oracle-Agent", "GPT-4o-mini-ZeroShot", "AllowAll-Baseline", "RefuseAll-Baseline"}
         to_save: dict[str, list[dict]] = {}
         for task_id, entries in leaderboard.items():
             live = [e for e in entries if e.get("agent", "") not in baseline_agents]
@@ -305,27 +305,28 @@ def _start_session_cleanup_thread() -> None:
 # Pre-seeded with named baselines so judges immediately see a score distribution.
 _BASELINE_ENTRIES: dict[str, list[dict]] = {
     "basic_threat_detection": [
-        {"agent": "all-allow",              "score": 0.5000, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "all-refuse",             "score": 0.4805, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "llama-3.3-70b-versatile","score": 0.9714, "timestamp": "2026-04-05T00:00:00Z"},
-        {"agent": "gpt-4o-mini",            "score": 0.9216, "timestamp": "2026-04-05T00:00:00Z"},
+        {"agent": "Oracle-Agent",           "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "GPT-4o-mini-ZeroShot",   "score": 0.9208, "timestamp": "2026-04-05T00:00:00Z"},
+        {"agent": "AllowAll-Baseline",       "score": 0.5000, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "RefuseAll-Baseline",      "score": 0.4542, "timestamp": "2026-04-06T00:00:00Z"},
     ],
     "context_aware_policy": [
-        {"agent": "all-allow",              "score": 0.4839, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "all-refuse",             "score": 0.3505, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "llama-3.3-70b-versatile","score": 0.7713, "timestamp": "2026-04-05T00:00:00Z"},
-        {"agent": "gpt-4o-mini",            "score": 0.7512, "timestamp": "2026-04-05T00:00:00Z"},
+        {"agent": "Oracle-Agent",           "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "GPT-4o-mini-ZeroShot",   "score": 0.7512, "timestamp": "2026-04-05T00:00:00Z"},
+        {"agent": "AllowAll-Baseline",       "score": 0.4839, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "RefuseAll-Baseline",      "score": 0.3444, "timestamp": "2026-04-06T00:00:00Z"},
     ],
     "multiturn_adversarial": [
-        {"agent": "all-allow",              "score": 0.0356, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "all-refuse",             "score": 0.1356, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "llama-3.3-70b-versatile","score": 0.6866, "timestamp": "2026-04-05T00:00:00Z"},
-        {"agent": "gpt-4o-mini",            "score": 0.6120, "timestamp": "2026-04-05T00:00:00Z"},
+        {"agent": "Oracle-Agent",           "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "GPT-4o-mini-ZeroShot",   "score": 0.6120, "timestamp": "2026-04-05T00:00:00Z"},
+        {"agent": "AllowAll-Baseline",       "score": 0.0356, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "RefuseAll-Baseline",      "score": 0.1356, "timestamp": "2026-04-06T00:00:00Z"},
     ],
     "adversarial_adaptation": [
-        {"agent": "all-allow",              "score": 0.1500, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "all-refuse",             "score": 0.0000, "timestamp": "2025-01-01T00:00:00Z"},
-        {"agent": "gpt-4o-mini",            "score": 0.4820, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Oracle-Agent",           "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "GPT-4o-mini-ZeroShot",   "score": 0.4820, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "AllowAll-Baseline",       "score": 0.1500, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "RefuseAll-Baseline",      "score": 0.0000, "timestamp": "2026-04-06T00:00:00Z"},
     ],
 }
 
@@ -357,7 +358,7 @@ def _load_leaderboard() -> dict[str, list[dict]]:
 
 def _save_leaderboard(leaderboard: dict[str, list[dict]]) -> None:
     """Persist live (non-baseline) entries to local disk and HF Hub."""
-    baseline_agents = {"all-allow", "all-refuse", "heuristic"}
+    baseline_agents = {"all-allow", "all-refuse", "heuristic", "Oracle-Agent", "GPT-4o-mini-ZeroShot", "AllowAll-Baseline", "RefuseAll-Baseline"}
     to_save: dict[str, list[dict]] = {}
     for task_id, entries in leaderboard.items():
         # Only persist named entries that aren't baseline agents

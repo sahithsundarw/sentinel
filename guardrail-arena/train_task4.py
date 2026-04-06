@@ -11,8 +11,10 @@ The agent uses a small feature set based on observable signals:
   - Prior reward for the previous action (passed as a synthetic feature)
 
 The key policy improvement that produces genuine learning:
-  - A purely stateless "refuse everything" baseline scores ~0.50 due to honeypot
-    probes (intensity 0 = safe, correct action = allow).
+  - A purely stateless "refuse everything" baseline scores 0.0000 — the adversary
+    detects topic fatigue and serves only safe probes, so every step is an over-block
+    (intensity 0 = safe, correct action = allow; blocking triggers topic switch to
+    another safe probe, repeating until all topics are exhausted).
   - A purely stateless "allow safe / refuse attacks" heuristic scores ~0.60-0.65
     but fails on gradual escalation.
   - A stateful agent that tracks the within-episode trajectory (how many blocks

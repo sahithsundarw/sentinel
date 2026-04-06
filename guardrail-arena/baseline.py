@@ -151,7 +151,9 @@ def run_task(task_id: str, heuristic: bool = False, client=None) -> float:
     print(f"\n  Resetting environment for task: {task_id}")
     response = httpx.post(f"{ENV_URL}/reset", json={"task_id": task_id}, timeout=30)
     response.raise_for_status()
-    obs = response.json()
+    reset_data = response.json()
+    session_id = reset_data.get("session_id")
+    obs = reset_data
 
     done = False
     results = []
@@ -173,7 +175,8 @@ def run_task(task_id: str, heuristic: bool = False, client=None) -> float:
             "modified_prompt": None,
         }
 
-        step_response = httpx.post(f"{ENV_URL}/step", json=action, timeout=30)
+        step_params = {"session_id": session_id} if session_id else {}
+        step_response = httpx.post(f"{ENV_URL}/step", json=action, params=step_params, timeout=30)
         step_response.raise_for_status()
         step_data = step_response.json()
 
@@ -184,7 +187,8 @@ def run_task(task_id: str, heuristic: bool = False, client=None) -> float:
         if not done:
             obs = step_data["observation"]
 
-    grader_response = httpx.get(f"{ENV_URL}/grader", timeout=30)
+    params = {"session_id": session_id} if session_id else {}
+    grader_response = httpx.get(f"{ENV_URL}/grader", params=params, timeout=30)
     grader_response.raise_for_status()
     score = grader_response.json()["score"]
 

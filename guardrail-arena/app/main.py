@@ -145,8 +145,8 @@ a:hover { text-decoration: underline; }
 <h2>Tasks</h2>
 <table>
 <tr><th>Task ID</th><th>Difficulty</th><th>Prompts</th><th>All-Allow Baseline</th></tr>
-<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>67 eval / 131 train</td><td>0.5000</td></tr>
-<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>63 eval / 119 train</td><td>0.4839</td></tr>
+<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>66 eval / 132 train</td><td>0.5000</td></tr>
+<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>58 eval / 124 train</td><td>0.4839</td></tr>
 <tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>varies / 39 convos</td><td>0.0356</td></tr>
 <tr><td>adversarial_adaptation</td><td><span class="badge hard">expert</span></td><td>12 (dynamic)</td><td>N/A</td></tr>
 </table>

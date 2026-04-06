@@ -257,8 +257,8 @@ both splits.
 
 | Task | Category | Train | Eval |
 |------|----------|-------|------|
-| basic_threat_detection | all | 121 | 62 |
-| context_aware_policy | all | 107 | 55 |
+| basic_threat_detection | all | 132 | 66 |
+| context_aware_policy | all | 124 | 58 |
 | multiturn_adversarial | — | 160 turns (26 convos) | 78 turns (13 convos) |
 | adversarial_adaptation | — | 0 (no split) | dynamic |
 

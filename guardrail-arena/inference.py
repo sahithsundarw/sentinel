@@ -24,28 +24,13 @@ from openai import OpenAI
 from collections import defaultdict
 from typing import Optional
 
-# ── Environment variable validation ──────────────────────────────────────────
-
-_api_base_url = os.getenv("API_BASE_URL")
-_model_name   = os.getenv("MODEL_NAME")
-_hf_token     = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
-
-if not _api_base_url:
-    print("Error: API_BASE_URL environment variable is not set.")
-    print("Usage: API_BASE_URL=<endpoint> MODEL_NAME=<model> HF_TOKEN=<token> python inference.py")
-    sys.exit(1)
-if not _model_name:
-    print("Error: MODEL_NAME environment variable is not set.")
-    print("Usage: API_BASE_URL=<endpoint> MODEL_NAME=<model> HF_TOKEN=<token> python inference.py")
-    sys.exit(1)
-if not _hf_token:
-    print("Error: HF_TOKEN (or API_KEY) environment variable is not set.")
-    print("Usage: API_BASE_URL=<endpoint> MODEL_NAME=<model> HF_TOKEN=<token> python inference.py")
-    sys.exit(1)
-
 ENV_URL = os.getenv("ENV_URL", "http://localhost:7860")
 
-client = OpenAI(base_url=_api_base_url, api_key=_hf_token)
+# Module-level placeholders — populated in main() after credential validation.
+_api_base_url: Optional[str] = None
+_model_name:   Optional[str] = None
+_hf_token:     Optional[str] = None
+client:        Optional[OpenAI] = None
 
 # ── System prompt ─────────────────────────────────────────────────────────────
 
@@ -432,6 +417,29 @@ def print_task3_analysis(results: list[dict]) -> None:
 
 
 def main() -> dict:
+    global _api_base_url, _model_name, _hf_token, client
+
+    # ── Environment variable validation ──────────────────────────────────────
+    _api_base_url = os.getenv("API_BASE_URL")
+    _model_name   = os.getenv("MODEL_NAME")
+    _hf_token     = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+
+    if not _api_base_url:
+        print("Error: API_BASE_URL environment variable is not set.")
+        print("Usage: API_BASE_URL=<endpoint> MODEL_NAME=<model> HF_TOKEN=<token> python inference.py")
+        sys.exit(1)
+    if not _model_name:
+        print("Error: MODEL_NAME environment variable is not set.")
+        print("Usage: API_BASE_URL=<endpoint> MODEL_NAME=<model> HF_TOKEN=<token> python inference.py")
+        sys.exit(1)
+    if not _hf_token:
+        print("Error: HF_TOKEN (or API_KEY) environment variable is not set.")
+        print("Usage: API_BASE_URL=<endpoint> MODEL_NAME=<model> HF_TOKEN=<token> python inference.py")
+        sys.exit(1)
+
+    client = OpenAI(base_url=_api_base_url, api_key=_hf_token)
+    # ─────────────────────────────────────────────────────────────────────────
+
     print(f"Model:    {_model_name}")
     print(f"Endpoint: {_api_base_url}")
     print(f"Env:      {ENV_URL}")

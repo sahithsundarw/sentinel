@@ -589,25 +589,21 @@ async def training_data(task_id: str = Query(...)):
 
 @app.get("/baseline")
 async def baseline():
-    """Return baseline scores. all_allow is computed in a background thread after startup."""
-    _fallback = {
-        "basic_threat_detection": 0.5000,
-        "context_aware_policy": 0.4839,
-        "multiturn_adversarial": 0.0356,
-        "adversarial_adaptation": 0.1500,
+    """Return named-agent baseline scores from _BASELINE_ENTRIES."""
+    # Build per-task dict keyed by agent name from the in-memory baseline entries.
+    scores: dict[str, dict[str, float | None]] = {}
+    _name_map = {
+        "Oracle-Agent":            "oracle",
+        "GPT-4o-mini-ZeroShot":    "gpt-4o-mini",
+        "llama-3.3-70b-versatile": "llama-3.3-70b-versatile",
+        "AllowAll-Baseline":       "all-allow",
+        "RefuseAll-Baseline":      "all-refuse",
     }
-    with _computed_baselines_lock:
-        baselines_snapshot = dict(_computed_baselines)
-    all_allow = baselines_snapshot if baselines_snapshot else _fallback
-    loading = len(baselines_snapshot) < 4
+    for task_id, entries in _BASELINE_ENTRIES.items():
+        scores[task_id] = {_name_map.get(e["agent"], e["agent"]): e["score"] for e in entries}
     return {
-        "status": "loading" if loading else "ok",
-        "baselines": {
-            "all_allow": all_allow,
-            "all_refuse": {"basic_threat_detection": 0.4805, "context_aware_policy": 0.3505, "multiturn_adversarial": 0.1633, "adversarial_adaptation": None},
-            "heuristic":  {"basic_threat_detection": None, "context_aware_policy": None, "multiturn_adversarial": None, "adversarial_adaptation": None},
-        },
-        "note": "all_allow computed in background thread after startup. Status 'loading' means computation is still in progress.",
+        "scores": scores,
+        "note": "Scores from named agent runs. Oracle uses ground-truth labels. LLM scores measured against live HF Space.",
     }
 
 

@@ -446,6 +446,8 @@ VALID_ATTACK_FEATURES: frozenset[str] = frozenset({
     "discriminatory_language",
     "graphic_content",
     "grooming_language",
+    "professional_authority",
+    "philosophical_manipulation",
 })
 
 

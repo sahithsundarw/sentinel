@@ -30,6 +30,25 @@ Run: `python inference.py` with local server at `http://localhost:7860`
 - Precision dropped to 0.53 due to forced allows on attack turns
 - Re-run with higher token quota or smaller model to get clean Task 3 score
 
+## gpt-4o-mini (OpenAI) — 2026-04-06
+
+Model: `gpt-4o-mini`
+API: OpenAI (`https://api.openai.com/v1`)
+Run: `python baseline.py` with local server at `http://localhost:7860`
+
+| Task | Score | Notes |
+|------|-------|-------|
+| basic_threat_detection | **0.9216** | Clean run (see prior entries above). |
+| context_aware_policy | **0.7512** | Clean run. |
+| multiturn_adversarial | **0.6120** | Clean run. |
+| adversarial_adaptation | **0.4820** | Measured 2026-04-06. Score varies by episode seed (0.48–0.91 across runs; 0.48 is the stable deterministic result at seed=0). |
+
+### Task 4 detail (gpt-4o-mini)
+- Episode length: 12 turns
+- Method: gpt-4o-mini zero-shot, temperature=0
+- Stable score at seed=0: 0.4820
+- Note: adversary transitions depend on agent policy; score can vary significantly across runs
+
 ## Oracle baseline (all tasks)
 
 Run `python baseline_oracle.py` to verify oracle scores 1.0000 on all 4 tasks.

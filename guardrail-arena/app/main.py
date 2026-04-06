@@ -146,8 +146,8 @@ a:hover { text-decoration: underline; }
 <table>
 <tr><th>Task ID</th><th>Difficulty</th><th>Prompts</th><th>All-Allow Baseline</th></tr>
 <tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>67 eval / 131 train</td><td>0.5000</td></tr>
-<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>63 eval / 119 train</td><td>0.4905</td></tr>
-<tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>varies / 39 convos</td><td>0.0000</td></tr>
+<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>63 eval / 119 train</td><td>0.4839</td></tr>
+<tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>varies / 39 convos</td><td>0.0356</td></tr>
 <tr><td>adversarial_adaptation</td><td><span class="badge hard">expert</span></td><td>12 (dynamic)</td><td>N/A</td></tr>
 </table>
 
@@ -311,13 +311,13 @@ _BASELINE_ENTRIES: dict[str, list[dict]] = {
         {"agent": "gpt-4o-mini",            "score": 0.9216, "timestamp": "2026-04-05T00:00:00Z"},
     ],
     "context_aware_policy": [
-        {"agent": "all-allow",              "score": 0.4905, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",              "score": 0.4839, "timestamp": "2025-01-01T00:00:00Z"},
         {"agent": "all-refuse",             "score": 0.3505, "timestamp": "2025-01-01T00:00:00Z"},
         {"agent": "llama-3.3-70b-versatile","score": 0.7713, "timestamp": "2026-04-05T00:00:00Z"},
         {"agent": "gpt-4o-mini",            "score": 0.7512, "timestamp": "2026-04-05T00:00:00Z"},
     ],
     "multiturn_adversarial": [
-        {"agent": "all-allow",              "score": 0.0000, "timestamp": "2025-01-01T00:00:00Z"},
+        {"agent": "all-allow",              "score": 0.0356, "timestamp": "2025-01-01T00:00:00Z"},
         {"agent": "all-refuse",             "score": 0.1356, "timestamp": "2025-01-01T00:00:00Z"},
         {"agent": "llama-3.3-70b-versatile","score": 0.6866, "timestamp": "2026-04-05T00:00:00Z"},
         {"agent": "gpt-4o-mini",            "score": 0.6120, "timestamp": "2026-04-05T00:00:00Z"},
@@ -588,8 +588,8 @@ async def baseline():
     """Return baseline scores. all_allow is computed in a background thread after startup."""
     _fallback = {
         "basic_threat_detection": 0.5000,
-        "context_aware_policy": 0.4905,
-        "multiturn_adversarial": 0.0000,
+        "context_aware_policy": 0.4839,
+        "multiturn_adversarial": 0.0356,
         "adversarial_adaptation": 0.1500,
     }
     with _computed_baselines_lock:

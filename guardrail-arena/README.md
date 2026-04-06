@@ -789,10 +789,10 @@ Tasks 1 and 2 use a proper held-out evaluation split to prevent label memorisati
 
 | Task | Train prompts | Eval prompts | Split ratio |
 |------|--------------|--------------|-------------|
-| basic_threat_detection | 121 | 62 | ~67% / ~33% |
-| context_aware_policy | 107 | 55 | ~66% / ~34% |
-| multiturn_adversarial | — | all | branching structure |
-| adversarial_adaptation | — | all | dynamic generation |
+| basic_threat_detection | 132 | 66 | ~67% / ~33% |
+| context_aware_policy | 124 | 58 | ~68% / ~32% |
+| multiturn_adversarial | 167 | 71 | ~70% / ~30% |
+| adversarial_adaptation | — | dynamic | dynamic generation |
 
 **Training prompts** are available via `GET /training_data?task_id=<task_id>`. Each entry
 includes the prompt text, correct action, attack features, and category — everything an
@@ -800,7 +800,7 @@ agent needs to learn the labelling function.
 
 **Eval prompts** are what the environment actually serves during episodes. The grader scores
 only eval prompts. An agent that memorises the training set gains no advantage on evaluation
-because the 67 eval prompts for Task 1 (and 63 for Task 2) are a disjoint held-out set.
+because the 66 eval prompts for Task 1 (58 for Task 2, 71 for Task 3) are a disjoint held-out set.
 
 The split is category-stratified: within each category (safe, attack_obvious, attack_subtle,
 etc.) every 3rd prompt is held out for evaluation, maintaining the same attack type

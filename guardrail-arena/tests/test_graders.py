@@ -241,15 +241,16 @@ def test_task3_trajectory_coherence_bonus():
     """
     task = get_task("multiturn_adversarial")
 
-    # Find the crossing entry and the subsequent attack entry in conv-a-gradual-escalation
+    # Find the crossing entry and the subsequent attack entry in conv-u-workplace-social-engineering
+    # (this conversation is in the eval split under hash-based assignment)
     crossing_entry = next(
         e for e in task.prompts
-        if e.conversation_id == "conv-a-gradual-escalation" and e.is_crossing
+        if e.conversation_id == "conv-u-workplace-social-engineering" and e.is_crossing
     )
     # Use the static turn 5 (branch_missed default) as the subsequent attack
     subsequent_entry = next(
         e for e in task.prompts
-        if e.conversation_id == "conv-a-gradual-escalation"
+        if e.conversation_id == "conv-u-workplace-social-engineering"
         and not e.is_crossing
         and e.label.category != "safe"
         and e.turn_number > crossing_entry.turn_number

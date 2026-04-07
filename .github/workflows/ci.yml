@@ -9,10 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: guardrail-arena
-
     steps:
       - uses: actions/checkout@v4
 
@@ -77,7 +73,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t guardrail-arena ./guardrail-arena
+        run: docker build -t guardrail-arena .
 
       - name: Smoke test Docker container
         run: |

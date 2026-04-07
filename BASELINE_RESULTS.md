@@ -90,8 +90,6 @@ The step reward (training signal) penalizes missed attacks much harder than the 
 ## How to reproduce
 
 ```cmd
-cd guardrail-arena
-
 # Degenerate baselines (no API key required)
 python baseline_degenerate.py
 

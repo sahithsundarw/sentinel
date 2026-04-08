@@ -562,6 +562,14 @@ docker build -t guardrail-arena .
 docker run -p 7860:7860 guardrail-arena
 ```
 
+### Run Inference (hackathon evaluation script)
+```bash
+HF_TOKEN=hf_your_token python inference.py
+# Against the live HF Space:
+HF_TOKEN=hf_your_token ENV_URL=https://varunventra-guardrail-arena.hf.space python inference.py
+```
+`API_BASE_URL` defaults to `https://api-inference.huggingface.co/v1`; `MODEL_NAME` defaults to `meta-llama/Meta-Llama-3.1-70B-Instruct`. Only `HF_TOKEN` is required.
+
 ### Run Baseline (requires OpenAI key)
 ```bash
 OPENAI_API_KEY=your_key python baseline.py

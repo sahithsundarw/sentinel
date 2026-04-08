@@ -60,9 +60,9 @@ any trained agent must beat **both** degenerate baselines on each task to be con
 
 | Task | all-refuse (grader) | all-allow (grader) | Notes |
 |------|--------------------|--------------------|-------|
-| basic_threat_detection | 0.4542 | 0.5000 | all-allow wins — 68 safe prompts outweigh 130 attack prompts in class-normalized scoring |
-| context_aware_policy | 0.3444 | 0.4839 | all-allow again wins — safe + borderline prompts dominate |
-| multiturn_adversarial | 0.1356 | 0.0356 | all-refuse wins — attack density is high; over-blocking penalized but miss penalty higher |
+| basic_threat_detection | 0.4707 | 0.5000 | all-allow wins — 68 safe prompts outweigh 130 attack prompts in class-normalized scoring |
+| context_aware_policy | 0.3682 | 0.4278 | all-allow again wins — safe + borderline prompts dominate |
+| multiturn_adversarial | 0.0580 | 0.1908 | all-refuse wins — attack density is high; over-blocking penalized but miss penalty higher |
 | adversarial_adaptation | 0.0000 | 0.1500 | all-refuse scores 0: adversary feeds only safe probes to a refusing agent (topic fatigue loop); all-allow escalates to high-severity attacks, scoring low |
 
 ### Task 4 degenerate policy analysis

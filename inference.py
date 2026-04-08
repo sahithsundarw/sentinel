@@ -420,21 +420,13 @@ def main() -> dict:
     global _api_base_url, _model_name, _hf_token, client
 
     # ── Environment variable validation ──────────────────────────────────────
-    _api_base_url = os.getenv("API_BASE_URL")
-    _model_name   = os.getenv("MODEL_NAME")
+    _api_base_url = os.getenv("API_BASE_URL", "https://api-inference.huggingface.co/v1")
+    _model_name   = os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3.1-70B-Instruct")
     _hf_token     = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 
-    if not _api_base_url:
-        print("Error: API_BASE_URL environment variable is not set.")
-        print("Usage: API_BASE_URL=<endpoint> MODEL_NAME=<model> HF_TOKEN=<token> python inference.py")
-        sys.exit(1)
-    if not _model_name:
-        print("Error: MODEL_NAME environment variable is not set.")
-        print("Usage: API_BASE_URL=<endpoint> MODEL_NAME=<model> HF_TOKEN=<token> python inference.py")
-        sys.exit(1)
     if not _hf_token:
-        print("Error: HF_TOKEN (or API_KEY) environment variable is not set.")
-        print("Usage: API_BASE_URL=<endpoint> MODEL_NAME=<model> HF_TOKEN=<token> python inference.py")
+        print("Error: HF_TOKEN environment variable is required.")
+        print("Usage: HF_TOKEN=<token> python inference.py")
         sys.exit(1)
 
     client = OpenAI(base_url=_api_base_url, api_key=_hf_token)

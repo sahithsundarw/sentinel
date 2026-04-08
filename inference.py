@@ -260,56 +260,76 @@ def run_task(task_id: str) -> tuple[float, list[dict]]:
     step_params = {"session_id": session_id} if session_id else {}
     grader_params = {"session_id": session_id} if session_id else {}
 
+    # Required hackathon output: [START] line at episode begin
+    print(f"[START] task={task_id} env=guardrail-arena model={_model_name}")
+
     done = False
     step_results = []
     step_num = 0
+    per_step_rewards: list[float] = []
+    success = True
 
-    while not done:
-        user_message = (
-            f"Application context: {obs['application_context']}\n"
-            f"User risk score: {obs.get('user_risk_score', 0.5):.2f} (lower = more suspicious history)\n"
-            f"User prompt: {obs['user_prompt']}\n"
-            f"Conversation history: {json.dumps(obs.get('conversation_history', []))}\n"
-            f"Turn number: {obs.get('turn_number', 1)}\n\n"
-            f"What action should be taken?"
-        )
+    try:
+        while not done:
+            user_message = (
+                f"Application context: {obs['application_context']}\n"
+                f"User risk score: {obs.get('user_risk_score', 0.5):.2f} (lower = more suspicious history)\n"
+                f"User prompt: {obs['user_prompt']}\n"
+                f"Conversation history: {json.dumps(obs.get('conversation_history', []))}\n"
+                f"Turn number: {obs.get('turn_number', 1)}\n\n"
+                f"What action should be taken?"
+            )
 
-        action_type, reason = _call_model([
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ])
+            action_type, reason = _call_model([
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_message},
+            ])
 
-        action = {
-            "prompt_id": obs["prompt_id"],
-            "action_type": action_type,
-            "reason": reason,
-            "modified_prompt": None,
-        }
+            action = {
+                "prompt_id": obs["prompt_id"],
+                "action_type": action_type,
+                "reason": reason,
+                "modified_prompt": None,
+            }
 
-        step_data = _http_post_with_retry(
-            f"{ENV_URL}/step",
-            json=action,
-            params=step_params,
-            task_label=f"{task_id} step {step_num}",
-        )
-        step_num += 1
+            step_data = _http_post_with_retry(
+                f"{ENV_URL}/step",
+                json=action,
+                params=step_params,
+                task_label=f"{task_id} step {step_num}",
+            )
+            step_num += 1
 
-        info = step_data.get("info", {})
-        step_results.append({
-            "predicted": action_type,
-            "actual": info.get("ground_truth_action", "unknown"),
-            "category": info.get("category", "unknown"),
-            "severity": info.get("severity", 0.0),
-            "outcome": info.get("reward_breakdown", {}).get("outcome", ""),
-            "context": obs.get("application_context", ""),
-            "conversation_id": info.get("conversation_id", ""),
-            "conversation_done": info.get("conversation_done", False),
-            "risk_score": obs.get("user_risk_score", 0.5),
-        })
+            info = step_data.get("info", {})
+            reward_obj = step_data.get("reward", {})
+            step_reward = reward_obj.get("score", 0.0) if isinstance(reward_obj, dict) else 0.0
+            per_step_rewards.append(step_reward)
 
-        done = step_data["done"]
-        if not done:
-            obs = step_data["observation"]
+            step_results.append({
+                "predicted": action_type,
+                "actual": info.get("ground_truth_action", "unknown"),
+                "category": info.get("category", "unknown"),
+                "severity": info.get("severity", 0.0),
+                "outcome": info.get("reward_breakdown", {}).get("outcome", ""),
+                "context": obs.get("application_context", ""),
+                "conversation_id": info.get("conversation_id", ""),
+                "conversation_done": info.get("conversation_done", False),
+                "risk_score": obs.get("user_risk_score", 0.5),
+            })
+
+            done = step_data["done"]
+
+            # Required hackathon output: [STEP] line after every env.step()
+            print(f"[STEP] step={step_num} action={action_type} reward={step_reward:.2f} done={'true' if done else 'false'} error=null")
+
+            if not done:
+                obs = step_data["observation"]
+
+    except Exception as exc:
+        success = False
+        rewards_str = ",".join(f"{r:.2f}" for r in per_step_rewards) or "0.00"
+        print(f"[END] success=false steps={step_num} rewards={rewards_str}")
+        raise exc
 
     grader_data = _http_get_with_retry(
         f"{ENV_URL}/grader",
@@ -317,6 +337,10 @@ def run_task(task_id: str) -> tuple[float, list[dict]]:
         task_label=f"{task_id} grader",
     )
     score = grader_data["score"]
+
+    # Required hackathon output: [END] line after episode completes
+    rewards_str = ",".join(f"{r:.2f}" for r in per_step_rewards) or "0.00"
+    print(f"[END] success=true steps={step_num} rewards={rewards_str}")
 
     return score, step_results
 

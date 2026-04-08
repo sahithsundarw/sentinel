@@ -307,7 +307,7 @@ _BASELINE_ENTRIES: dict[str, list[dict]] = {
     "basic_threat_detection": [
         {"agent": "Oracle-Agent",              "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
         {"agent": "llama-3.3-70b-versatile",   "score": 0.9714, "timestamp": "2026-04-05T00:00:00Z"},
-        {"agent": "GPT-4o-mini-ZeroShot",      "score": 0.9208, "timestamp": "2026-04-05T00:00:00Z"},
+        {"agent": "GPT-4o-mini-ZeroShot",      "score": 0.9216, "timestamp": "2026-04-05T00:00:00Z"},
         {"agent": "AllowAll-Baseline",          "score": 0.5000, "timestamp": "2026-04-06T00:00:00Z"},
         {"agent": "RefuseAll-Baseline",         "score": 0.4542, "timestamp": "2026-04-06T00:00:00Z"},
     ],

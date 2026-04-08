@@ -325,10 +325,10 @@ def run_task(task_id: str) -> tuple[float, list[dict]]:
             if not done:
                 obs = step_data["observation"]
 
-    except Exception as exc:
+    except BaseException as exc:
         success = False
         rewards_str = ",".join(f"{r:.2f}" for r in per_step_rewards) or "0.00"
-        print(f"[END] success=false steps={step_num} rewards={rewards_str}")
+        print(f"[END] success=false steps={step_num} score=0.00 rewards={rewards_str}")
         raise exc
 
     grader_data = _http_get_with_retry(
@@ -340,7 +340,7 @@ def run_task(task_id: str) -> tuple[float, list[dict]]:
 
     # Required hackathon output: [END] line after episode completes
     rewards_str = ",".join(f"{r:.2f}" for r in per_step_rewards) or "0.00"
-    print(f"[END] success=true steps={step_num} rewards={rewards_str}")
+    print(f"[END] success=true steps={step_num} score={score:.2f} rewards={rewards_str}")
 
     return score, step_results
 

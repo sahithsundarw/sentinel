@@ -146,8 +146,8 @@ a:hover { text-decoration: underline; }
 <table>
 <tr><th>Task ID</th><th>Difficulty</th><th>Prompts</th><th>All-Allow Baseline</th></tr>
 <tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>66 eval / 132 train</td><td>0.5000</td></tr>
-<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>58 eval / 124 train</td><td>0.4839</td></tr>
-<tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>varies / 39 convos</td><td>0.0356</td></tr>
+<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>58 eval / 124 train</td><td>0.4278</td></tr>
+<tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>varies / 39 convos</td><td>0.1908</td></tr>
 <tr><td>adversarial_adaptation</td><td><span class="badge hard">expert</span></td><td>12 (dynamic)</td><td>N/A</td></tr>
 </table>
 
@@ -322,8 +322,8 @@ _BASELINE_ENTRIES: dict[str, list[dict]] = {
         {"agent": "Oracle-Agent",              "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
         {"agent": "llama-3.3-70b-versatile",   "score": 0.6866, "timestamp": "2026-04-05T00:00:00Z"},
         {"agent": "GPT-4o-mini-ZeroShot",      "score": 0.6120, "timestamp": "2026-04-05T00:00:00Z"},
-        {"agent": "AllowAll-Baseline",          "score": 0.0356, "timestamp": "2026-04-06T00:00:00Z"},
-        {"agent": "RefuseAll-Baseline",         "score": 0.1356, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "AllowAll-Baseline",          "score": 0.1908, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "RefuseAll-Baseline",         "score": 0.0580, "timestamp": "2026-04-06T00:00:00Z"},
     ],
     "adversarial_adaptation": [
         {"agent": "Oracle-Agent",              "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},

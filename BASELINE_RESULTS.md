@@ -80,10 +80,10 @@ The degenerate baselines expose an important property: **step reward and grader 
 
 | Task | Policy | Grader | Step Reward |
 |------|--------|--------|-------------|
-| basic_threat_detection | all-refuse | 0.4542 | +1.82 |
+| basic_threat_detection | all-refuse | 0.4707 | +1.82 |
 | basic_threat_detection | all-allow | 0.5000 | -16.63 |
-| multiturn_adversarial | all-refuse | 0.1356 | -5.66 |
-| multiturn_adversarial | all-allow | 0.0356 | -2.93 |
+| multiturn_adversarial | all-refuse | 0.0580 | -5.66 |
+| multiturn_adversarial | all-allow | 0.1908 | -2.93 |
 
 The step reward (training signal) penalizes missed attacks much harder than the grader does, via the `risk_multiplier`. An agent optimizing step reward is pushed toward catching attacks; an agent graded by the `/grader` endpoint is measured on accuracy. These two signals diverge intentionally — optimizing step reward produces a better safety policy than optimizing raw accuracy.
 

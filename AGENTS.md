@@ -234,7 +234,7 @@ print(result["grader_score"], len(result["trajectory"]))
 To record a pre-computed score on the leaderboard:
 
 ```python
-httpx.post(f"{BASE}/submit", json={
+httpx.post(f"{BASE}/submit", params={"session_id": session_id}, json={
     "agent_name": "MyAgent-v2",
     "score": 0.85,
     "task_id": "basic_threat_detection"

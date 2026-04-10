@@ -369,9 +369,9 @@ def test_leaderboard_persistence_save_load():
     loaded = _load_leaderboard()
     agents = [e.get("agent", "") for e in loaded["basic_threat_detection"]]
     assert "RoundTripAgent" in agents
-    # Cleanup
-    if os.path.exists(_LEADERBOARD_PATH):
-        os.remove(_LEADERBOARD_PATH)
+    # Cleanup: restore empty file instead of deleting so server stays in a valid state
+    with open(_LEADERBOARD_PATH, "w") as _f:
+        _f.write("{}")
 
 
 # ── Item 28: /rollout endpoint ───────────────────────────────────────────────

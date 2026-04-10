@@ -214,6 +214,29 @@ With a seed, attack prompts are sometimes replaced with their variation surface 
 
 ---
 
+## Curriculum Endpoint
+
+`GET /curriculum` returns a recommended training order across all four tasks:
+
+```python
+curriculum = httpx.get(f"{BASE}/curriculum").json()
+for phase in curriculum["phases"]:
+    for ep in range(phase["recommended_episodes"]):
+        obs = httpx.post(f"{BASE}/reset", json={"task_id": phase["task_id"]}).json()
+        session_id = obs["session_id"]
+        while not obs.get("done", False):
+            action = your_policy(obs)  # returns action_type + reason
+            result = httpx.post(f"{BASE}/step", params={"session_id": session_id}, json=action).json()
+            if result["done"]: break
+            obs = result["observation"]
+        score = httpx.get(f"{BASE}/grader", params={"session_id": session_id}).json()["score"]
+        if score >= phase["target_score"]: break  # phase saturated — move to next
+```
+
+Phases: Basic Classification (Task 1, ep≤20) → Context Policy (Task 2, ep≤20) → Multi-Turn Defense (Task 3, ep≤30) → Adversarial Adaptation (Task 4, ep≤25).
+
+---
+
 ## Rollout Endpoint
 
 For offline evaluation without managing the step loop:

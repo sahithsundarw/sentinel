@@ -474,24 +474,25 @@ over 3 greedy rollouts per checkpoint to reduce variance from the session-salt p
 - All-refuse: 0.0000 (topic fatigue loop — see "Task 4: All-Refuse Collapses to 0.0000" above)
 - Naive refuse-biased init (ep 0): 0.0000
 
-**Learning curve (eval grader scores, 3-episode average):**
+**Learning curve (eval grader scores, 3-episode average, measured run 2026-04-11):**
 
-| Episode | Score  | Bar                    | Delta    |
-|---------|--------|------------------------|----------|
-| ep01    | 0.0000 |                        | +0.0000  |
-| ep05    | 0.0000 |                        | +0.0000  |
-| ep10    | 0.5301 | ##########             | +0.5301  |
-| ep15    | 0.9540 | ###################    | +0.4239  |
-| ep20    | 0.9540 | ###################    | +0.0000  |
+| Episode | Score  | Bar                    | Delta    | vs All-Allow |
+|---------|--------|------------------------|----------|-------------|
+| ep00    | 0.0000 | (naive refuse init)    | —        | −0.1500     |
+| ep01    | 0.0000 |                        | +0.0000  | −0.1500     |
+| ep05    | 0.1814 | ###                    | +0.1814  | +0.0314     |
+| ep10    | 0.2208 | ####                   | +0.0394  | +0.0708     |
+| ep15    | 0.1987 | ###                    | −0.0221  | +0.0487     |
+| ep20    | 0.3320 | ######                 | +0.1333  | +0.1820     |
 
 **Key takeaways:**
-1. The agent starts at 0.00 and converges to 0.95 by episode 15 — a genuine 0.95 improvement.
-2. Episodes 1–9 explore widely (ε=0.60 → 0.14); score stays low as the policy is noisy.
-3. By episode 10 exploration is reduced (ε≈0.12) and the agent has learned to allow intensity-0
-   safe probes while refusing/escalating higher intensities.
-4. After episode 15 the policy is near-optimal and remains stable.
-5. The all-refuse baseline scores 0.00 while a trained agent reaches 0.95 — confirming Task 4
-   **cannot** be solved by a stateless keyword-matching policy.
+1. The naive refuse-biased agent starts at 0.00 (refuses safe probes → topic fatigue loop).
+2. By episode 5 the agent has learned to allow some safe probes, reaching 0.18 (beats all-allow).
+3. By episode 20 the score reaches 0.33 — a +0.33 improvement over the starting policy.
+4. The all-refuse baseline scores 0.00 while a trained agent reaches 0.33 — confirming Task 4
+   **cannot** be solved by a stateless refuse-everything policy.
+5. High variance across episodes is expected: Task 4 episode trajectories are policy-dependent,
+   so each eval episode tests the policy on a different prompt distribution.
 
 **To reproduce:**
 ```bash

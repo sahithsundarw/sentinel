@@ -110,82 +110,147 @@ def _save_leaderboard_to_hub(leaderboard: dict[str, list[dict]]) -> None:
     except Exception as exc:
         _log.warning("HF Hub leaderboard save failed: %s", exc)
 
-_HTML_LANDING_PAGE = """<!DOCTYPE html>
+def _build_html_landing_page(episode_count: int = 0, leaderboard: dict = None) -> str:
+    """Build the HTML landing page dynamically with current session/leaderboard data."""
+    lb = leaderboard or {}
+
+    def _lb_rows(task_id: str) -> str:
+        entries = lb.get(task_id, [])[:5]
+        if not entries:
+            return "<tr><td colspan='3'>No entries yet</td></tr>"
+        rows = []
+        for i, e in enumerate(entries):
+            rows.append(f"<tr><td>#{i+1}</td><td>{e.get('agent','?')}</td><td>{e.get('score',0):.4f}</td></tr>")
+        return "".join(rows)
+
+    return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Guardrail Arena</title>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #0d1117; color: #e6edf3; font-family: 'Courier New', monospace; max-width: 960px; margin: 0 auto; padding: 2rem; line-height: 1.6; }
-h1 { color: #58a6ff; font-size: 2rem; margin-bottom: 0.25rem; }
-h2 { color: #79c0ff; font-size: 1.2rem; margin: 1.5rem 0 0.75rem; border-bottom: 1px solid #30363d; padding-bottom: 0.25rem; }
-p { color: #8b949e; margin-bottom: 1rem; }
-table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
-th { background: #161b22; color: #79c0ff; padding: 0.5rem 1rem; text-align: left; border: 1px solid #30363d; }
-td { padding: 0.5rem 1rem; border: 1px solid #30363d; color: #e6edf3; }
-tr:nth-child(even) { background: #161b22; }
-.badge { padding: 0.15rem 0.5rem; border-radius: 3px; font-size: 0.8rem; font-weight: bold; }
-.easy { background: #1a4731; color: #3fb950; }
-.medium { background: #3d2b0a; color: #d29922; }
-.hard { background: #3d1212; color: #f85149; }
-pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; overflow-x: auto; color: #79c0ff; font-size: 0.85rem; margin-bottom: 1rem; }
-a { color: #58a6ff; text-decoration: none; }
-a:hover { text-decoration: underline; }
-.tagline { color: #8b949e; font-size: 1rem; margin-bottom: 1.5rem; }
+* {{ box-sizing: border-box; margin: 0; padding: 0; }}
+body {{ background: #0d1117; color: #e6edf3; font-family: 'Courier New', monospace; max-width: 960px; margin: 0 auto; padding: 2rem; line-height: 1.6; }}
+h1 {{ color: #58a6ff; font-size: 2rem; margin-bottom: 0.25rem; }}
+h2 {{ color: #79c0ff; font-size: 1.2rem; margin: 1.5rem 0 0.75rem; border-bottom: 1px solid #30363d; padding-bottom: 0.25rem; }}
+p {{ color: #8b949e; margin-bottom: 1rem; }}
+table {{ width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }}
+th {{ background: #161b22; color: #79c0ff; padding: 0.5rem 1rem; text-align: left; border: 1px solid #30363d; }}
+td {{ padding: 0.5rem 1rem; border: 1px solid #30363d; color: #e6edf3; }}
+tr:nth-child(even) {{ background: #161b22; }}
+.badge {{ padding: 0.15rem 0.5rem; border-radius: 3px; font-size: 0.8rem; font-weight: bold; }}
+.easy {{ background: #1a4731; color: #3fb950; }}
+.medium {{ background: #3d2b0a; color: #d29922; }}
+.hard {{ background: #3d1212; color: #f85149; }}
+.expert {{ background: #2d1b69; color: #a78bfa; }}
+pre {{ background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; overflow-x: auto; color: #79c0ff; font-size: 0.85rem; margin-bottom: 1rem; }}
+a {{ color: #58a6ff; text-decoration: none; }}
+a:hover {{ text-decoration: underline; }}
+.tagline {{ color: #8b949e; font-size: 1rem; margin-bottom: 1.5rem; }}
+.stat {{ display: inline-block; background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 0.5rem 1.2rem; margin: 0.25rem; color: #58a6ff; font-size: 0.9rem; }}
+.stat span {{ color: #e6edf3; font-size: 1.2rem; font-weight: bold; display: block; }}
 </style>
 </head>
 <body>
-<h1>🛡️ Guardrail Arena</h1>
-<p class="tagline">LLM Safety Guardrail Training Environment — OpenEnv-spec RL environment</p>
+<h1>&#x1F6E1;&#xFE0F; Guardrail Arena</h1>
+<p class="tagline">LLM Safety Guardrail Training Environment &mdash; OpenEnv-spec RL environment for training content safety agents</p>
 
-<p>An RL environment for training AI agents to act as content safety moderators. Agents observe user prompts with conversation history and context, then choose allow / refuse / modify / escalate. Rewards are asymmetric: missing an attack costs 2× more than over-blocking. Dynamic user risk scores compound future penalties for missed attacks.</p>
+<p>An RL environment where agents learn to moderate content safety: observe user prompts with conversation history and context, then choose allow / refuse / modify / escalate. Rewards are asymmetric: missing an attack costs 2&times; more than over-blocking. Dynamic user risk scores compound future penalties for missed attacks. Tasks 3 &amp; 4 require adversarial trajectory reasoning &mdash; no stateless classifier can solve them.</p>
+
+<div>
+  <div class="stat">Total Episodes Run<span>{episode_count}</span></div>
+  <div class="stat">Tasks<span>4</span></div>
+  <div class="stat">Oracle Score<span>1.0000</span></div>
+  <div class="stat">LLM Baseline<span>0.9714</span></div>
+</div>
 
 <h2>Tasks</h2>
 <table>
-<tr><th>Task ID</th><th>Difficulty</th><th>Prompts</th><th>All-Allow Baseline</th></tr>
-<tr><td>basic_threat_detection</td><td><span class="badge easy">easy</span></td><td>66 eval / 132 train</td><td>0.5000</td></tr>
-<tr><td>context_aware_policy</td><td><span class="badge medium">medium</span></td><td>58 eval / 124 train</td><td>0.4278</td></tr>
-<tr><td>multiturn_adversarial</td><td><span class="badge hard">hard</span></td><td>varies / 39 convos</td><td>0.1908</td></tr>
-<tr><td>adversarial_adaptation</td><td><span class="badge hard">expert</span></td><td>12 (dynamic)</td><td>N/A</td></tr>
+<tr><th>Task ID</th><th>Difficulty</th><th>Dataset</th><th>All-Allow</th><th>All-Refuse</th><th>LLM Baseline</th></tr>
+<tr><td>basic_threat_detection</td><td><span class="badge easy">Easy</span></td><td>66 eval / 132 train</td><td>0.5000</td><td>0.4707</td><td>0.9714 (llama-3.3-70b)</td></tr>
+<tr><td>context_aware_policy</td><td><span class="badge medium">Medium</span></td><td>83 eval / 124 train</td><td>0.4037</td><td>0.3460</td><td>0.7713 (llama-3.3-70b)</td></tr>
+<tr><td>multiturn_adversarial</td><td><span class="badge hard">Hard</span></td><td>238+ turns / 39 convos</td><td>0.1908</td><td>0.0580</td><td>0.6866 (llama-3.3-70b)</td></tr>
+<tr><td>adversarial_adaptation</td><td><span class="badge expert">Expert</span></td><td>12 dynamic / session</td><td>0.1500</td><td>0.0000</td><td>0.4820 (gpt-4o-mini)</td></tr>
 </table>
 
-<h2>Quick Start</h2>
+<h2>What Makes This Different</h2>
+<table>
+<tr><th>Benchmark</th><th>Single-turn</th><th>Multi-turn</th><th>Adversarial adaptation</th><th>Training environment</th></tr>
+<tr><td>WildGuard</td><td>&#x2705;</td><td>&#x274C;</td><td>&#x274C;</td><td>&#x274C;</td></tr>
+<tr><td>HarmBench</td><td>&#x2705;</td><td>&#x274C;</td><td>&#x274C;</td><td>&#x274C;</td></tr>
+<tr><td>AdvBench</td><td>&#x2705;</td><td>&#x274C;</td><td>&#x274C;</td><td>&#x274C;</td></tr>
+<tr><td><strong>Guardrail Arena</strong></td><td>&#x2705;</td><td>&#x2705;</td><td>&#x2705;</td><td>&#x2705;</td></tr>
+</table>
+
+<h2>Leaderboard (Top 5 per Task)</h2>
+<table>
+<tr><th colspan="3">basic_threat_detection</th><th colspan="3">context_aware_policy</th></tr>
+<tr><th>#</th><th>Agent</th><th>Score</th><th>#</th><th>Agent</th><th>Score</th></tr>
+{_build_lb_row_pair(lb, 'basic_threat_detection', 'context_aware_policy')}
+</table>
+<table>
+<tr><th colspan="3">multiturn_adversarial</th><th colspan="3">adversarial_adaptation</th></tr>
+<tr><th>#</th><th>Agent</th><th>Score</th><th>#</th><th>Agent</th><th>Score</th></tr>
+{_build_lb_row_pair(lb, 'multiturn_adversarial', 'adversarial_adaptation')}
+</table>
+
+<h2>Quick Start (5 curl commands)</h2>
 <pre>
-# 1. Reset to a task
-curl -X POST "http://localhost:7860/reset?task_id=basic_threat_detection"
+# 1. Reset to Task 1 — receive session_id and first observation
+curl -s -X POST "https://varunventra-guardrail-arena.hf.space/reset?task_id=basic_threat_detection"
 
-# 2. Submit an action (use prompt_id from observation above)
-curl -X POST "http://localhost:7860/step" \\
+# 2. Submit an action (replace SESSION_ID and PROMPT_ID from step 1)
+curl -s -X POST "https://varunventra-guardrail-arena.hf.space/step?session_id=SESSION_ID" \\
   -H "Content-Type: application/json" \\
-  -d '{"prompt_id": "&lt;id&gt;", "action_type": "allow", "reason": "Safe prompt", "modified_prompt": null}'
+  -d '{{"prompt_id":"PROMPT_ID","action_type":"allow","reason":"Safe prompt","modified_prompt":null}}'
 
-# 3. Get grader score after all prompts
-curl "http://localhost:7860/grader"
+# 3. Get grader score after episode completes
+curl -s "https://varunventra-guardrail-arena.hf.space/grader?session_id=SESSION_ID"
 
-# Optional: shuffle prompt order with a seed
-curl -X POST "http://localhost:7860/reset?task_id=basic_threat_detection&amp;seed=42"
+# 4. Submit score to leaderboard
+curl -s -X POST "https://varunventra-guardrail-arena.hf.space/submit?session_id=SESSION_ID&agent_name=MyAgent"
+
+# 5. Try the hardest task: deterministic adversarial adaptation
+curl -s -X POST "https://varunventra-guardrail-arena.hf.space/reset?task_id=adversarial_adaptation"
 </pre>
 
 <h2>API Endpoints</h2>
 <table>
 <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
 <tr><td>GET</td><td><a href="/">/</a></td><td>This page</td></tr>
-<tr><td>GET</td><td><a href="/health">/health</a></td><td>Health check — returns JSON status</td></tr>
+<tr><td>GET</td><td><a href="/health">/health</a></td><td>Health check &mdash; returns JSON status</td></tr>
 <tr><td>POST</td><td>/reset</td><td>Reset environment. Params: task_id, optional seed (int)</td></tr>
 <tr><td>POST</td><td>/step</td><td>Submit action, receive observation + reward + done + info</td></tr>
 <tr><td>GET</td><td><a href="/state">/state</a></td><td>Current environment state</td></tr>
 <tr><td>GET</td><td><a href="/tasks">/tasks</a></td><td>All task metadata + action schema</td></tr>
-<tr><td>GET</td><td><a href="/grader">/grader</a></td><td>Final grader score (0.0–1.0) after episode ends</td></tr>
+<tr><td>GET</td><td><a href="/grader">/grader</a></td><td>Final grader score (0.0&ndash;1.0) after episode ends</td></tr>
 <tr><td>GET</td><td><a href="/demo">/demo</a></td><td>Pre-scripted 5-step demo episode with full trajectory JSON</td></tr>
 <tr><td>GET</td><td><a href="/leaderboard">/leaderboard</a></td><td>Top 10 scores per task (in-memory)</td></tr>
 <tr><td>GET</td><td><a href="/baseline">/baseline</a></td><td>Pre-computed baseline scores</td></tr>
+<tr><td>GET</td><td><a href="/curriculum">/curriculum</a></td><td>Curriculum endpoint &mdash; progressive task ordering</td></tr>
+<tr><td>GET</td><td><a href="/sessions">/sessions</a></td><td>Active isolated sessions</td></tr>
 </table>
 
-<p>Full API docs: <a href="/docs">/docs</a> · <a href="/redoc">/redoc</a></p>
+<p>Full API docs: <a href="/docs">/docs</a> &middot; <a href="/redoc">/redoc</a></p>
 </body>
 </html>"""
+
+
+def _build_lb_row_pair(lb: dict, task_a: str, task_b: str) -> str:
+    """Build paired leaderboard rows for two tasks side by side."""
+    entries_a = lb.get(task_a, [])[:5]
+    entries_b = lb.get(task_b, [])[:5]
+    max_rows = max(len(entries_a), len(entries_b), 1)
+    rows = []
+    for i in range(max_rows):
+        a = entries_a[i] if i < len(entries_a) else None
+        b = entries_b[i] if i < len(entries_b) else None
+        a_cells = f"<td>#{i+1}</td><td>{a.get('agent','?')}</td><td>{a.get('score',0):.4f}</td>" if a else "<td colspan='3'></td>"
+        b_cells = f"<td>#{i+1}</td><td>{b.get('agent','?')}</td><td>{b.get('score',0):.4f}</td>" if b else "<td colspan='3'></td>"
+        rows.append(f"<tr>{a_cells}{b_cells}</tr>")
+    return "".join(rows)
+
 
 def _compute_baselines_background() -> None:
     """Run all-allow episode for each task and populate _computed_baselines.
@@ -384,8 +449,13 @@ _computed_baselines: dict[str, float] = {}
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    """HTML landing page."""
-    return HTMLResponse(content=_HTML_LANDING_PAGE)
+    """HTML landing page with live stats."""
+    with _SESSION_STORE_LOCK:
+        session_count = len(_SESSION_STORE)
+    # Use total sessions ever created as episode count proxy (persists in leaderboard entries)
+    lb = _load_leaderboard()
+    total_episodes = sum(len(v) for v in lb.values())
+    return HTMLResponse(content=_build_html_landing_page(episode_count=total_episodes, leaderboard=lb))
 
 
 # ── Response Models ───────────────────────────────────────────────────────────

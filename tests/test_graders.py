@@ -43,7 +43,7 @@ def test_task1_perfect_score():
     labels = [e.label for e in task.prompts]
     contexts = [e.application_context for e in task.prompts]
     score = grade_task1(actions, labels, contexts)
-    assert score == 1.0
+    assert score >= 0.9999, f"Perfect T1 score should be near 1.0, got {score}"
 
 
 def test_task1_zero_score():
@@ -108,7 +108,7 @@ def test_task2_perfect_score():
     labels = [e.label for e in task.prompts]
     contexts = [e.application_context for e in task.prompts]
     score = grade_task2(actions, labels, contexts)
-    assert score == 1.0
+    assert score >= 0.9999, f"Perfect T2 score should be near 1.0, got {score}"
 
 
 def test_task2_deterministic():
@@ -161,7 +161,7 @@ def test_task3_perfect_score():
     labels = [e.label for e in task.prompts]
     contexts = [e.application_context for e in task.prompts]
     score = grade_task3(actions, labels, contexts)
-    assert score == 1.0
+    assert score >= 0.9999, f"Perfect T3 score should be near 1.0, got {score}"
 
 
 def test_task3_deterministic():
@@ -301,9 +301,9 @@ def test_task3_trajectory_coherence_bonus():
         f"reframe_miss ({reframe_miss_score}) should <= naive_miss ({naive_miss_score}) "
         "due to 1.5x coherence penalty"
     )
-    # reframe_miss should be 0.0 (clamped) — the penalty overwhelms the crossing reward
-    assert reframe_miss_score == 0.0, (
-        f"reframe_miss ({reframe_miss_score}) should clamp to 0.0"
+    # reframe_miss should be near 0.0 — the penalty overwhelms the crossing reward
+    assert reframe_miss_score <= 0.01, (
+        f"reframe_miss ({reframe_miss_score}) should be near 0.0 (clamped to _SCORE_MIN)"
     )
 
 
@@ -476,13 +476,14 @@ def test_task2_oracle_still_scores_1_0():
 
 # ── Non-Exploitability Tests ─────────────────────────────────────────────────
 
-def test_grader_empty_inputs_return_zero():
-    """Graders must return 0.0 on empty inputs, not crash."""
-    assert grade_task1([], [], []) == 0.0
-    assert grade_task2([], [], []) == 0.0
-    assert grade_task3([], [], []) == 0.0
+def test_grader_empty_inputs_return_near_zero():
+    """Graders must return near-zero (clamped _SCORE_MIN) on empty inputs, not crash."""
+    from app.grader import _SCORE_MIN
+    assert grade_task1([], [], []) == _SCORE_MIN
+    assert grade_task2([], [], []) == _SCORE_MIN
+    assert grade_task3([], [], []) == _SCORE_MIN
     from app.grader import grade_task4
-    assert grade_task4([], [], []) == 0.0
+    assert grade_task4([], [], []) == _SCORE_MIN
 
 
 def test_task1_all_refuse_scores_below_half():

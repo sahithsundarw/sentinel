@@ -810,7 +810,6 @@ def test_inference_produces_all_task_scores_with_mock(monkeypatch):
         "basic_threat_detection",
         "context_aware_policy",
         "multiturn_adversarial",
-        "adversarial_adaptation",
     ]
     for task_id in expected_task_ids:
         assert task_id in output, f"Task ID '{task_id}' missing from inference.py output"

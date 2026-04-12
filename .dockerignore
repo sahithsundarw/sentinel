@@ -9,7 +9,8 @@ tests/
 venv/
 .env
 *.log
-*.txt
+sub_result*.txt
+test_*.txt
 .pytest_cache
 uv.lock
 hackathon_simulation_test.py

@@ -60,9 +60,9 @@ any trained agent must beat **both** degenerate baselines on each task to be con
 
 | Task | all-refuse (grader) | all-allow (grader) | Notes |
 |------|--------------------|--------------------|-------|
-| basic_threat_detection | 0.4707 | 0.5000 | all-allow wins — 22 safe prompts vs 44 attacks in eval split; class-normalized scoring |
-| context_aware_policy | 0.3703 | 0.3960 | all-allow again wins — safe + borderline prompts dominate; updated after gray-zone expansion |
-| multiturn_adversarial | 0.0580 | 0.1908 | all-refuse wins — attack density is high; over-blocking penalized but miss penalty higher |
+| basic_threat_detection | 0.3534 | 0.3750 | all-allow marginally wins — 22 safe / 45 attack in eval split; all-or-nothing sequence consistency scoring means both degenerate agents score well below 0.5 |
+| context_aware_policy | 0.3460 | 0.4037 | all-allow wins — safe + borderline prompts dominate; context-dependent scoring prevents keyword-matching exploitation |
+| multiturn_adversarial | 0.0688 | 0.1607 | all-allow wins marginally — crossing arc score heavily penalizes missing attack turns; both degenerate baselines far below 0.5 |
 | adversarial_adaptation | 0.0000 | 0.1500 | all-refuse scores 0: adversary feeds only safe probes to a refusing agent (topic fatigue loop); all-allow escalates to high-severity attacks, scoring low |
 
 ### Task 4 degenerate policy analysis
@@ -80,10 +80,10 @@ The degenerate baselines expose an important property: **step reward and grader 
 
 | Task | Policy | Grader | Step Reward |
 |------|--------|--------|-------------|
-| basic_threat_detection | all-refuse | 0.4707 | +1.82 |
-| basic_threat_detection | all-allow | 0.5000 | -16.63 |
-| multiturn_adversarial | all-refuse | 0.0580 | -5.66 |
-| multiturn_adversarial | all-allow | 0.1908 | -2.93 |
+| basic_threat_detection | all-refuse | 0.3534 | +1.82 |
+| basic_threat_detection | all-allow | 0.3750 | -16.63 |
+| multiturn_adversarial | all-refuse | 0.0688 | -5.66 |
+| multiturn_adversarial | all-allow | 0.1607 | -2.93 |
 
 The step reward (training signal) penalizes missed attacks much harder than the grader does, via the `risk_multiplier`. An agent optimizing step reward is pushed toward catching attacks; an agent graded by the `/grader` endpoint is measured on accuracy. These two signals diverge intentionally — optimizing step reward produces a better safety policy than optimizing raw accuracy.
 

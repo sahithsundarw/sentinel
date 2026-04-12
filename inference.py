@@ -410,6 +410,31 @@ def print_task2_analysis(results: list[dict]) -> None:
     print(f"  Action distribution: " + "  ".join(f"{k}={v}" for k, v in sorted(action_dist.items())))
 
 
+def print_task4_analysis(results: list[dict]) -> None:
+    attacks = [r for r in results if r["category"] != "safe"]
+    safe = [r for r in results if r["category"] == "safe"]
+
+    missed_attacks = [r for r in attacks if r["predicted"] == "allow"]
+    correctly_blocked = [r for r in attacks if r["predicted"] != "allow"]
+    correctly_allowed = [r for r in safe if r["predicted"] == "allow"]
+    over_blocked = [r for r in safe if r["predicted"] != "allow"]
+
+    action_dist = defaultdict(int)
+    for r in results:
+        action_dist[r["predicted"]] += 1
+
+    print(f"  Task 4 (adversarial_adaptation) results:")
+    print(f"    Episode length: {len(results)} turns (adversary-determined)")
+    print(f"    Attack turns correctly blocked: {len(correctly_blocked)}/{len(attacks)}")
+    print(f"    Attack turns missed:            {len(missed_attacks)}/{len(attacks)}")
+    print(f"    Safe probes correctly allowed:  {len(correctly_allowed)}/{len(safe)}")
+    print(f"    Safe probes over-blocked:       {len(over_blocked)}/{len(safe)}")
+    print(f"  Action distribution: " + "  ".join(f"{k}={v}" for k, v in sorted(action_dist.items())))
+    print(f"  Note: adversary behavior is policy-dependent — same agent may see different")
+    print(f"        attack sequences on different episodes. Topic fatigue triggers after")
+    print(f"        3 consecutive correct blocks on same topic (adversary switches vector).")
+
+
 def print_task3_analysis(results: list[dict]) -> None:
     attacks = [r for r in results if r["category"] != "safe"]
     safe = [r for r in results if r["category"] == "safe"]
@@ -464,6 +489,7 @@ def main() -> dict:
         "basic_threat_detection",
         "context_aware_policy",
         "multiturn_adversarial",
+        "adversarial_adaptation",
     ]
     scores = {}
 
@@ -481,6 +507,8 @@ def main() -> dict:
             print_task2_analysis(results)
         elif task_id == "multiturn_adversarial":
             print_task3_analysis(results)
+        elif task_id == "adversarial_adaptation":
+            print_task4_analysis(results)
 
         # Confusion matrix — reuse from baseline.py
         try:

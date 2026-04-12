@@ -810,13 +810,129 @@ def test_inference_produces_all_task_scores_with_mock(monkeypatch):
         "basic_threat_detection",
         "context_aware_policy",
         "multiturn_adversarial",
+        "adversarial_adaptation",
     ]
     for task_id in expected_task_ids:
         assert task_id in output, f"Task ID '{task_id}' missing from inference.py output"
 
-    # Last non-empty line must be parseable JSON with all three task scores
+    # Last non-empty line must be parseable JSON with all four task scores
     lines = [ln for ln in output.strip().splitlines() if ln.strip()]
     scores = json.loads(lines[-1])
     for task_id in expected_task_ids:
         assert task_id in scores, f"Task '{task_id}' missing from final scores JSON"
         assert isinstance(scores[task_id], (int, float)), "Score should be numeric"
+
+
+# ── /curriculum endpoint tests ─────────────────────────────────────────────────
+
+def test_curriculum_returns_4_phases():
+    """/curriculum must return exactly 4 phases in the training progression."""
+    r = client.get("/curriculum")
+    assert r.status_code == 200
+    data = r.json()
+    assert "phases" in data, "curriculum response must have 'phases'"
+    assert len(data["phases"]) == 4, f"Expected 4 phases, got {len(data['phases'])}"
+
+
+def test_curriculum_phases_have_required_fields():
+    """/curriculum phases must include task_id, target_score, recommended_episodes."""
+    r = client.get("/curriculum")
+    data = r.json()
+    required = {"phase", "task_id", "target_score", "recommended_episodes", "baseline_to_beat"}
+    for i, phase in enumerate(data["phases"]):
+        missing = required - set(phase.keys())
+        assert not missing, f"Phase {i+1} missing fields: {missing}"
+
+
+def test_curriculum_phase_task_ids_correct():
+    """/curriculum phases must cover all 4 task IDs in order."""
+    r = client.get("/curriculum")
+    data = r.json()
+    task_ids = [p["task_id"] for p in data["phases"]]
+    assert task_ids == [
+        "basic_threat_detection",
+        "context_aware_policy",
+        "multiturn_adversarial",
+        "adversarial_adaptation",
+    ]
+
+
+# ── /baseline endpoint tests ───────────────────────────────────────────────────
+
+def test_baseline_returns_200():
+    r = client.get("/baseline")
+    assert r.status_code == 200
+
+
+def test_baseline_has_all_4_tasks():
+    """/baseline must have scores for all 4 tasks."""
+    r = client.get("/baseline")
+    data = r.json()
+    assert "scores" in data
+    for task_id in ("basic_threat_detection", "context_aware_policy",
+                    "multiturn_adversarial", "adversarial_adaptation"):
+        assert task_id in data["scores"], f"Task '{task_id}' missing from /baseline"
+
+
+def test_baseline_has_oracle_score_1_0():
+    """/baseline oracle score must be 1.0 for all tasks."""
+    r = client.get("/baseline")
+    data = r.json()
+    for task_id, agents in data["scores"].items():
+        assert "oracle" in agents, f"oracle missing from /baseline task {task_id}"
+        assert agents["oracle"] == 1.0, f"oracle score != 1.0 for {task_id}"
+
+
+# ── HTML landing page tests ────────────────────────────────────────────────────
+
+def test_root_returns_200_html():
+    """GET / must return HTTP 200 with content-type text/html."""
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers.get("content-type", ""), (
+        f"Expected text/html content-type, got: {r.headers.get('content-type')}"
+    )
+
+
+def test_root_html_contains_task_table():
+    """HTML landing page must contain all 4 task IDs."""
+    r = client.get("/")
+    html = r.text
+    for task_id in ("basic_threat_detection", "context_aware_policy",
+                    "multiturn_adversarial", "adversarial_adaptation"):
+        assert task_id in html, f"Task ID '{task_id}' missing from landing page HTML"
+
+
+def test_root_html_contains_api_endpoints():
+    """HTML landing page must list key API endpoints."""
+    r = client.get("/")
+    html = r.text
+    for endpoint in ("/reset", "/step", "/grader", "/curriculum"):
+        assert endpoint in html, f"Endpoint '{endpoint}' missing from landing page"
+
+
+# ── Session eviction returns 410 not 500 ──────────────────────────────────────
+
+def test_grader_evicted_session_returns_410():
+    """Calling /grader on a non-existent session returns 410 Gone, not 500."""
+    r = client.get("/grader?session_id=00000000-0000-0000-0000-000000000000")
+    assert r.status_code == 410, f"Expected 410 Gone for evicted session, got {r.status_code}"
+
+
+def test_state_evicted_session_returns_410():
+    """Calling /state on a non-existent session returns 410 Gone."""
+    r = client.get("/state?session_id=00000000-0000-0000-0000-000000000000")
+    assert r.status_code == 410
+
+
+# ── /rollout task 4 specific test ─────────────────────────────────────────────
+
+def test_rollout_task4_grader_score_in_range():
+    """Task 4 rollout must return a grader_score between 0 and 1."""
+    # Use all-allow (allow every prompt) — adversary will escalate, score will be low but valid
+    actions = [{"action_type": "allow", "reason": "test"}] * 12
+    r = client.post("/rollout", json={"task_id": "adversarial_adaptation", "actions": actions})
+    assert r.status_code == 200
+    data = r.json()
+    assert 0.0 <= data["grader_score"] <= 1.0
+    assert len(data["trajectory"]) == 12

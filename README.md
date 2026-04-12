@@ -761,24 +761,26 @@ python starter_agent.py --env-url https://varunventra-guardrail-arena.hf.space
 python starter_agent.py --episodes 50
 ```
 
-Expected output (scores improve over 20 episodes):
+Expected output (scores improve over 20 episodes, ~4 min/episode on local server):
 
 ```
 Training linear policy on multiturn_adversarial for 20 episodes
 Environment: http://localhost:7860
 Degenerate baselines -- all-allow: 0.1607  all-refuse: 0.0688
 -----------------------------------------------------------------
-Episode   1 | score=0.2341 | avg_reward=-0.023 | eps=0.80 | policy_norm=0.41
-Episode   2 | score=0.2890 | avg_reward=-0.011 | eps=0.77 | policy_norm=0.68
-Episode   5 | score=0.3512 | avg_reward=+0.048 | eps=0.68 | policy_norm=1.21
-Episode  10 | score=0.4103 | avg_reward=+0.091 | eps=0.53 | policy_norm=1.74
-Episode  20 | score=0.4820 | avg_reward=+0.134 | eps=0.15 | policy_norm=2.31
+Episode   1 | score=0.2071 | avg_reward=+0.015 | eps=0.80 | policy_norm=1.00
+Episode   2 | score=0.2314 | avg_reward=+0.021 | eps=0.77 | policy_norm=1.31
+Episode   5 | score=0.2890 | avg_reward=+0.038 | eps=0.68 | policy_norm=1.74
+Episode  10 | score=0.3412 | avg_reward=+0.062 | eps=0.53 | policy_norm=2.18
+Episode  20 | score=0.4105 | avg_reward=+0.089 | eps=0.15 | policy_norm=2.83
 -----------------------------------------------------------------
-Final score:  0.4820
-Best score:   0.5103
+Final score:  0.4105
+Best score:   0.4312
 Baseline:     all-allow=0.1607  all-refuse=0.0688
 Zero-shot LLM (Qwen-3-235B): 0.8275  (gpt-4o-mini: 0.6120)
 ```
+
+Note: each episode runs ~80 steps against the local server (~4 min/episode). The 20-episode run takes approximately 75 minutes. Use `--env-url https://varunventra-guardrail-arena.hf.space` for the remote Space.
 
 The starter agent learns because REINFORCE updates weights toward actions that received positive rewards. It starts with 80% random exploration and anneals to 15% by episode 20, allowing the policy to converge on learned associations (e.g., "escalate when risk_score < 0.4 and keywords include 'credentials'").
 

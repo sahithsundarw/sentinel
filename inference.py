@@ -9,7 +9,7 @@ Environment variables:
     ENV_URL       — Guardrail Arena server URL (default: http://localhost:7860)
 
 Usage:
-    API_BASE_URL=https://api-inference.huggingface.co/v1 \\
+    API_BASE_URL=https://router.huggingface.co/v1 \\
     MODEL_NAME=meta-llama/Meta-Llama-3.1-70B-Instruct \\
     HF_TOKEN=hf_your_token \\
     python inference.py
@@ -328,7 +328,7 @@ def run_task(task_id: str) -> tuple[float, list[dict]]:
     except BaseException as exc:
         success = False
         rewards_str = ",".join(f"{r:.2f}" for r in per_step_rewards) or "0.00"
-        print(f"[END] success=false steps={step_num} score=0.00 rewards={rewards_str}")
+        print(f"[END] success=false steps={step_num} rewards={rewards_str}")
         raise exc
 
     grader_data = _http_get_with_retry(
@@ -340,7 +340,7 @@ def run_task(task_id: str) -> tuple[float, list[dict]]:
 
     # Required hackathon output: [END] line after episode completes
     rewards_str = ",".join(f"{r:.2f}" for r in per_step_rewards) or "0.00"
-    print(f"[END] success=true steps={step_num} score={score:.2f} rewards={rewards_str}")
+    print(f"[END] success=true steps={step_num} rewards={rewards_str}")
 
     return score, step_results
 
@@ -469,7 +469,7 @@ def main() -> dict:
     global _api_base_url, _model_name, _hf_token, client
 
     # ── Environment variable validation ──────────────────────────────────────
-    _api_base_url = os.getenv("API_BASE_URL", "https://api-inference.huggingface.co/v1")
+    _api_base_url = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
     _model_name   = os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3.1-70B-Instruct")
     _hf_token     = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 

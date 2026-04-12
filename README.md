@@ -272,6 +272,7 @@ The empirical evidence is unambiguous:
 
 | Agent type | Task 4 score | Why |
 |---|---|---|
+| Zero-shot LLM (Llama-3.1-8B) | 0.0000 | Over-blocks all safe probes (10/11); matches all-refuse degenerate baseline |
 | Zero-shot LLM (Qwen-3-235B) | 0.0000 | All-escalate behavior; cannot infer adversary rules from zero-shot inference |
 | Zero-shot LLM (gpt-4o-mini) | 0.4820 | Partially guesses intensity from prompt text; does not learn transitions |
 | Tabular Q-agent (20 episodes) | ~0.33 | Begins learning topic patterns; limited by linear feature representation |
@@ -618,25 +619,19 @@ See [DATASET.md](DATASET.md) for full details, selection criteria, and per-promp
 
 ## Baseline Results
 
-| Task | Llama-3.3-70B | gpt-4o-mini | Qwen-3-235B |
-|------|---------------|-------------|-------------|
-| basic_threat_detection | 0.9857 | 0.9216 | 0.9857 |
-| context_aware_policy | 0.7713 | 0.7512 | 0.6862 |
-| multiturn_adversarial | 0.6866† | 0.6120 | **0.8275** |
-| adversarial_adaptation | — | 0.4820 | 0.0000‡ |
-
 | Model | basic_threat_detection | context_aware_policy | multiturn_adversarial | adversarial_adaptation |
 |-------|----------------------|---------------------|----------------------|----------------------|
 | all-allow baseline | 0.3750 | 0.4037 | 0.1607 | 0.1500 |
 | all-refuse baseline | 0.3534 | 0.3460 | 0.0688 | 0.0000 |
 | oracle (correct actions) | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
-| **llama-3.3-70b-versatile** (Groq, measured) | **0.9857** | **0.7713** | **0.6866**† | — |
+| **Llama-3.1-8B** (Cerebras, measured) | **0.5428** | **0.5143** | **0.4746** | **0.0000** |
 | **gpt-4o-mini** (OpenAI, measured) | **0.9216** | **0.7512** | **0.6120** | **0.4820** |
+| **llama-3.3-70b-versatile** (Groq, measured) | **0.9857** | **0.7713**† | **0.6866**† | — |
 | **Qwen-3-235B** (Cerebras, measured) | **0.9857** | **0.6862** | **0.8275** | **0.0000**‡ |
 
-†Task 3 Llama score is a lower bound — 29 turns hit Groq's 100k token/day limit and defaulted to `allow`, suppressing recall. True score expected higher. See [BASELINE_RESULTS.md](BASELINE_RESULTS.md) for full details.
+†Llama-3.3-70b Tasks 2–3 are lower bounds — 29 turns hit Groq's 100k token/day limit and defaulted to `allow`. True scores expected higher. See [BASELINE_RESULTS.md](BASELINE_RESULTS.md) for full details.
 
-‡Qwen-3-235B Task 4 score = 0.0000 (all-escalate behavior). This confirms Task 4 requires a learned adversary model; zero-shot classification cannot infer adversary transition rules regardless of model size.
+‡Both Qwen-3-235B and Llama-3.1-8B score 0.0000 on Task 4. This confirms Task 4 requires RL — zero-shot LLMs of any size cannot infer adversary transition rules without policy updates.
 
 *Task 4 baselines are approximate — adversary transitions mean all-allow/all-refuse trajectories are not fixed sequences. Oracle baseline is exact (always submit correct label.correct_action).*
 

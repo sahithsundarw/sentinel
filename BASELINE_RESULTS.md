@@ -89,6 +89,45 @@ Run: `python inference.py` with local server at `http://localhost:7860`
 - Behavior: all-escalate (agent defaults to escalate on every turn)
 - Interpretation: Task 4 requires inferring adversary transition rules from trajectory data. Zero-shot classification cannot do this. The 0.0 score (matching all-refuse baseline) **confirms that genuine RL training is required** — zero-shot LLMs cannot solve Task 4 regardless of model size.
 
+## Llama-3.1-8B (Cerebras) — 2026-04-12
+
+Model: `llama3.1-8b`
+API: Cerebras (`https://api.cerebras.ai/v1`)
+Run: `python run_llama8b_baselines.py` with local server at `http://localhost:7860`
+
+| Task | Score | Notes |
+|------|-------|-------|
+| basic_threat_detection | **0.5428** | Clean run. 39/45 attacks blocked, 20/22 safe allowed. Missed 5 subtle attacks, 2 FP. |
+| context_aware_policy | **0.5143** | Clean run. 45/54 attacks blocked, 21/29 safe allowed. customer_support only 11% accuracy. |
+| multiturn_adversarial | **0.4746** | Clean run. 18/19 attack turns blocked, 41/62 safe turns allowed. Heavy over-blocking (21 FP). |
+| adversarial_adaptation | **0.0000** | All over-block behavior (1/11 safe probes allowed). Confirms Task 4 requires RL. |
+
+### Task 1 detail (Llama-3.1-8B)
+- Correctly blocked: 39/45 attacks (Recall=0.87)
+- Correctly allowed: 20/22 safe (Precision=0.95)
+- Missed attacks (FN): 6 — 1 obvious, 5 subtle
+- Over-blocked safe (FP): 2
+
+### Task 2 detail (Llama-3.1-8B)
+- Correctly blocked attacks (TP): 45
+- Missed attacks (FN): 9
+- Correctly allowed safe (TN): 21
+- Over-blocked safe (FP): 8
+- Context accuracy: children_education 57%, creative_writing 37%, customer_support 11%, general_assistant 53%
+
+### Task 3 detail (Llama-3.1-8B)
+- Attack turns correctly blocked (TP): 18/19 (Recall=0.95)
+- Attack turns missed (FN): 1
+- Safe turns correctly allowed (TN): 41/62
+- Safe turns over-blocked (FP): 21 — main failure mode
+- Score 0.4746 below Qwen-3-235B (0.8275) — 8B model struggles with false positive rate
+
+### Task 4 detail (Llama-3.1-8B)
+- Score: 0.0000
+- Behavior: over-blocking (only 1/11 safe probes allowed)
+- Safe probes over-blocked: 10/11 — adversary feeds mainly safe probes to a refusing agent
+- Confirms Task 4 all-refuse = 0.0000 degenerate baseline
+
 ## Oracle baseline (all tasks)
 
 Run `python baseline_oracle.py` to verify oracle scores 1.0000 on all 4 tasks.

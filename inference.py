@@ -489,7 +489,6 @@ def main() -> dict:
         "basic_threat_detection",
         "context_aware_policy",
         "multiturn_adversarial",
-        "adversarial_adaptation",
     ]
     scores = {}
 

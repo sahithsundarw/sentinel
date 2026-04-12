@@ -336,7 +336,12 @@ def run_task(task_id: str) -> tuple[float, list[dict]]:
         params=grader_params,
         task_label=f"{task_id} grader",
     )
-    score = grader_data["score"]
+    raw_score = float(grader_data["score"])
+    # Belt-and-suspenders: OpenEnv spec requires scores strictly in (0, 1).
+    # Clamp here regardless of what the grader returns.
+    _OPENENV_MIN = 1e-4
+    _OPENENV_MAX = 1 - 1e-4
+    score = round(max(_OPENENV_MIN, min(_OPENENV_MAX, raw_score)), 4)
 
     # Required hackathon output: [END] line after episode completes
     rewards_str = ",".join(f"{r:.2f}" for r in per_step_rewards) or "0.00"
@@ -489,6 +494,7 @@ def main() -> dict:
         "basic_threat_detection",
         "context_aware_policy",
         "multiturn_adversarial",
+        "adversarial_adaptation",
     ]
     scores = {}
 

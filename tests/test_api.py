@@ -810,6 +810,7 @@ def test_inference_produces_all_task_scores_with_mock(monkeypatch):
         "basic_threat_detection",
         "context_aware_policy",
         "multiturn_adversarial",
+        "adversarial_adaptation",
     ]
     for task_id in expected_task_ids:
         assert task_id in output, f"Task ID '{task_id}' missing from inference.py output"
@@ -820,6 +821,9 @@ def test_inference_produces_all_task_scores_with_mock(monkeypatch):
     for task_id in expected_task_ids:
         assert task_id in scores, f"Task '{task_id}' missing from final scores JSON"
         assert isinstance(scores[task_id], (int, float)), "Score should be numeric"
+        assert 0.0 < scores[task_id] < 1.0, (
+            f"Score for '{task_id}' must be strictly in (0, 1), got {scores[task_id]}"
+        )
 
 
 # ── /curriculum endpoint tests ─────────────────────────────────────────────────

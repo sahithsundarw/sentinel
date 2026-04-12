@@ -695,7 +695,9 @@ async def grader(
     target_env = _get_session_env(session_id)
     if not target_env.is_done():
         raise HTTPException(status_code=400, detail="Episode not complete. Finish all steps first.")
-    score = target_env.get_grader_score()
+    raw = target_env.get_grader_score()
+    # Belt-and-suspenders: clamp at HTTP response level — OpenEnv spec requires (0, 1) exclusive.
+    score = round(max(1e-4, min(1 - 1e-4, float(raw))), 4)
     task_id = target_env.current_task_id
     snapshot = None
     with _leaderboard_lock:
@@ -909,7 +911,7 @@ async def rollout(req: RolloutRequest):
         })
         obs = next_obs if not done else obs
 
-    grader_score = roll_env.get_grader_score()
+    grader_score = round(max(1e-4, min(1 - 1e-4, float(roll_env.get_grader_score()))), 4)
     return {"task_id": req.task_id, "grader_score": grader_score, "trajectory": trajectory}
 
 
@@ -975,7 +977,7 @@ async def replay(req: ReplayRequest):
         })
         obs = next_obs if not done else obs
 
-    grader_score = replay_env.get_grader_score()
+    grader_score = round(max(1e-4, min(1 - 1e-4, float(replay_env.get_grader_score()))), 4)
     return {"task_id": req.task_id, "grader_score": grader_score, "trajectory": trajectory}
 
 

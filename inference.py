@@ -528,6 +528,11 @@ def main() -> dict:
         except Exception:
             pass
 
+    # Final pass: re-clamp every score before output — no 0.0 or 1.0 can appear in the JSON
+    _MIN = 1e-4
+    _MAX = 1 - 1e-4
+    scores = {t: round(max(_MIN, min(_MAX, float(s))), 4) for t, s in scores.items()}
+
     print(f"\n{'='*50}")
     print("=== FINAL SCORES ===")
     for task_id, score in scores.items():

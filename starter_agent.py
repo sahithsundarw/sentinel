@@ -1,8 +1,8 @@
 """
-Starter RL Agent for Guardrail Arena — Task 3 (multiturn_adversarial)
+Starter RL Agent for Guardrail Arena -- Task 3 (multiturn_adversarial)
 
 Demonstrates how to train a policy against the environment using REINFORCE
-(policy gradient). Uses only httpx and numpy — no heavy dependencies.
+(policy gradient). Uses only httpx and numpy -- no heavy dependencies.
 
 This is a minimal working example. It learns a per-context-word feature
 representation and updates a simple linear policy from episode returns.
@@ -48,7 +48,7 @@ EPSILON_START = 0.80  # exploration rate at episode 1
 EPSILON_END   = 0.15  # exploration rate at episode 20
 
 # ── Feature extraction ─────────────────────────────────────────────────────────
-# Attack indicator keywords — each becomes a binary feature dimension.
+# Attack indicator keywords -- each becomes a binary feature dimension.
 ATTACK_KEYWORDS = [
     "ignore", "jailbreak", "dan", "bypass", "override", "inject",
     "synthesize", "weapon", "exploit", "hack", "malware", "phishing",
@@ -80,7 +80,7 @@ def extract_features(obs: dict) -> np.ndarray:
 
     features = np.zeros(FEATURE_DIM, dtype=np.float32)
 
-    # Keyword features — check current prompt and last history turn
+    # Keyword features -- check current prompt and last history turn
     # conversation_history is a list of strings ("User: ..." / "Assistant: ...")
     history_text = " ".join(
         m if isinstance(m, str) else m.get("content", "") for m in history[-3:]
@@ -114,7 +114,7 @@ class LinearPolicy:
     """
 
     def __init__(self, feature_dim: int, n_actions: int):
-        # Initialise near zero — start with roughly uniform policy
+        # Initialise near zero -- start with roughly uniform policy
         self.W = np.zeros((n_actions, feature_dim), dtype=np.float32)
 
     def logits(self, features: np.ndarray) -> np.ndarray:
@@ -227,7 +227,7 @@ def train(env_url: str, n_episodes: int = 20) -> None:
 
     print(f"Training linear policy on {TASK_ID} for {n_episodes} episodes")
     print(f"Environment: {env_url}")
-    print(f"Degenerate baselines — all-allow: 0.1607  all-refuse: 0.0688")
+    print(f"Degenerate baselines -- all-allow: 0.1607  all-refuse: 0.0688")
     print("-" * 65)
 
     for ep in range(1, n_episodes + 1):
@@ -253,7 +253,7 @@ def train(env_url: str, n_episodes: int = 20) -> None:
     print()
     print("Note: This tabular linear agent is a starting point.")
     print("Full RL training with an LLM feature extractor (PPO + frozen backbone)")
-    print("is the intended use case — Task 3 grader score 0.75+ is achievable.")
+    print("is the intended use case -- Task 3 grader score 0.75+ is achievable.")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

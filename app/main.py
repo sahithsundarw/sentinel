@@ -34,11 +34,24 @@ import os
 import json
 import uuid
 import time
+import math
 from logging.handlers import RotatingFileHandler
 
 from app.environment import GuardrailEnvironment
 from app.models import Action, TaskInfo
 from app.grader import grade_task1
+
+
+def clamp_score(s) -> float:
+    """Universal score clamp. Guarantees result is strictly in (0, 1).
+    Handles NaN, infinity, non-numeric types, and exact boundary values."""
+    if not isinstance(s, (int, float)) or math.isnan(s) or math.isinf(s):
+        return 0.0001
+    if s <= 0.0:
+        return 0.0001
+    if s >= 1.0:
+        return 0.9999
+    return round(s, 4)
 
 # Rotating step audit log — use /tmp/logs so the non-root container user can write
 _LOG_DIR = os.environ.get("LOG_DIR", "/tmp/logs")
@@ -695,9 +708,12 @@ async def grader(
     target_env = _get_session_env(session_id)
     if not target_env.is_done():
         raise HTTPException(status_code=400, detail="Episode not complete. Finish all steps first.")
-    raw = target_env.get_grader_score()
-    # Belt-and-suspenders: clamp at HTTP response level — OpenEnv spec requires (0, 1) exclusive.
-    score = round(max(1e-4, min(1 - 1e-4, float(raw))), 4)
+    try:
+        raw = target_env.get_grader_score()
+    except Exception:
+        raw = 0.0001
+    # Universal clamp — handles NaN, inf, exact 0.0/1.0, non-numeric
+    score = clamp_score(raw)
     task_id = target_env.current_task_id
     snapshot = None
     with _leaderboard_lock:
@@ -911,7 +927,11 @@ async def rollout(req: RolloutRequest):
         })
         obs = next_obs if not done else obs
 
-    grader_score = round(max(1e-4, min(1 - 1e-4, float(roll_env.get_grader_score()))), 4)
+    try:
+        _roll_raw = roll_env.get_grader_score()
+    except Exception:
+        _roll_raw = 0.0001
+    grader_score = clamp_score(_roll_raw)
     return {"task_id": req.task_id, "grader_score": grader_score, "trajectory": trajectory}
 
 
@@ -977,7 +997,11 @@ async def replay(req: ReplayRequest):
         })
         obs = next_obs if not done else obs
 
-    grader_score = round(max(1e-4, min(1 - 1e-4, float(replay_env.get_grader_score()))), 4)
+    try:
+        _replay_raw = replay_env.get_grader_score()
+    except Exception:
+        _replay_raw = 0.0001
+    grader_score = clamp_score(_replay_raw)
     return {"task_id": req.task_id, "grader_score": grader_score, "trajectory": trajectory}
 
 

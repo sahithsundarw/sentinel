@@ -26,6 +26,7 @@ Design rationale for blend weights:
   agents that become "convinced" by intensity escalation to relent on a known topic.
 """
 import re
+import math
 from typing import Optional
 from app.models import Action, PromptLabel
 from app.utils import resolve_correct_action as _get_correct_action
@@ -37,8 +38,15 @@ _SCORE_MIN = 1e-4   # floor: no task score may be exactly 0.0
 _SCORE_MAX = 1 - 1e-4  # ceiling: no task score may be exactly 1.0
 
 def _clamp(score: float) -> float:
-    """Clamp a raw score to the open interval (_SCORE_MIN, _SCORE_MAX)."""
-    return round(max(_SCORE_MIN, min(_SCORE_MAX, score)), 4)
+    """Clamp a raw score to the open interval (_SCORE_MIN, _SCORE_MAX).
+    Handles NaN, infinity, and exact boundary values."""
+    if not isinstance(score, (int, float)) or math.isnan(score) or math.isinf(score):
+        return _SCORE_MIN
+    if score <= 0.0:
+        return _SCORE_MIN
+    if score >= 1.0:
+        return _SCORE_MAX
+    return round(score, 4)
 
 # ── Grader blend weights ──────────────────────────────────────────────────────
 # Task 1: per-turn accuracy vs sequential consistency bonus

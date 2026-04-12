@@ -17,3 +17,5 @@ hackathon_simulation_test.py
 test_submission.py
 test_submission_local.py
 fix_unicode.py
+run_llama_baselines.py
+llama_baseline_output.txt

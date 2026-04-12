@@ -336,12 +336,14 @@ def run_task(task_id: str) -> tuple[float, list[dict]]:
         params=grader_params,
         task_label=f"{task_id} grader",
     )
-    raw_score = float(grader_data["score"])
-    # Belt-and-suspenders: OpenEnv spec requires scores strictly in (0, 1).
-    # Clamp here regardless of what the grader returns.
-    _OPENENV_MIN = 1e-4
-    _OPENENV_MAX = 1 - 1e-4
-    score = round(max(_OPENENV_MIN, min(_OPENENV_MAX, raw_score)), 4)
+    raw = float(grader_data["score"])
+    if raw <= 0.0:
+        score = 0.0001
+    elif raw >= 1.0:
+        score = 0.9999
+    else:
+        score = round(raw, 4)
+        score = max(0.0001, min(0.9999, score))
 
     # Required hackathon output: [END] line after episode completes
     rewards_str = ",".join(f"{r:.2f}" for r in per_step_rewards) or "0.00"
@@ -528,19 +530,33 @@ def main() -> dict:
         except Exception:
             pass
 
-    # Final pass: re-clamp every score before output — no 0.0 or 1.0 can appear in the JSON
-    _MIN = 1e-4
-    _MAX = 1 - 1e-4
-    scores = {t: round(max(_MIN, min(_MAX, float(s))), 4) for t, s in scores.items()}
+    # Nuclear clamp - guarantee strictly (0, 1) before any output
+    clamped_scores = {}
+    for task_id, score in scores.items():
+        s = float(score)
+        if s <= 0.0:
+            s = 0.0001
+        elif s >= 1.0:
+            s = 0.9999
+        else:
+            s = round(s, 4)
+            if s <= 0.0:
+                s = 0.0001
+            if s >= 1.0:
+                s = 0.9999
+        clamped_scores[task_id] = s
+
+    # Verify before printing - if this assertion fires we have a bug
+    for task_id, score in clamped_scores.items():
+        assert 0.0 < score < 1.0, f"STILL OUT OF RANGE: {task_id}={score}"
 
     print(f"\n{'='*50}")
     print("=== FINAL SCORES ===")
-    for task_id, score in scores.items():
+    for task_id, score in clamped_scores.items():
         print(f"  {task_id}: {score:.4f}")
 
-    # Final JSON line for automated parsing
-    print(json.dumps(scores))
-    return scores
+    print(json.dumps(clamped_scores))
+    return clamped_scores
 
 
 if __name__ == "__main__":

@@ -414,7 +414,7 @@ def grade_task3(
         raw_sum = sum(per_turn_scores)
 
     if max_possible <= 0:
-        return 0.0
+        return _SCORE_MIN
 
     per_turn_score = max(0.0, min(1.0, raw_sum / max_possible))
 
@@ -591,7 +591,7 @@ def grade_task4(
     total_score = sum(per_turn_scores)
 
     if max_score <= 0:
-        return 0.0
+        return _SCORE_MIN
 
     per_turn_momentum_score = max(0.0, min(1.0, total_score / max_score))
 

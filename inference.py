@@ -9,7 +9,7 @@ Environment variables:
     ENV_URL       — Guardrail Arena server URL (default: http://localhost:7860)
 
 Usage:
-    API_BASE_URL=https://router.huggingface.co/v1 \\
+    API_BASE_URL=https://api-inference.huggingface.co/v1 \\
     MODEL_NAME=meta-llama/Meta-Llama-3.1-70B-Instruct \\
     HF_TOKEN=hf_your_token \\
     python inference.py
@@ -328,7 +328,7 @@ def run_task(task_id: str) -> tuple[float, list[dict]]:
     except BaseException as exc:
         success = False
         rewards_str = ",".join(f"{r:.2f}" for r in per_step_rewards) or "0.00"
-        print(f"[END] success=false steps={step_num} rewards={rewards_str}")
+        print(f"[END] success=false steps={step_num} score=0.00 rewards={rewards_str}")
         raise exc
 
     grader_data = _http_get_with_retry(
@@ -336,18 +336,11 @@ def run_task(task_id: str) -> tuple[float, list[dict]]:
         params=grader_params,
         task_label=f"{task_id} grader",
     )
-    raw = float(grader_data["score"])
-    if raw <= 0.0:
-        score = 0.0001
-    elif raw >= 1.0:
-        score = 0.9999
-    else:
-        score = round(raw, 4)
-        score = max(0.0001, min(0.9999, score))
+    score = grader_data["score"]
 
     # Required hackathon output: [END] line after episode completes
     rewards_str = ",".join(f"{r:.2f}" for r in per_step_rewards) or "0.00"
-    print(f"[END] success=true steps={step_num} rewards={rewards_str}")
+    print(f"[END] success=true steps={step_num} score={score:.2f} rewards={rewards_str}")
 
     return score, step_results
 
@@ -417,31 +410,6 @@ def print_task2_analysis(results: list[dict]) -> None:
     print(f"  Action distribution: " + "  ".join(f"{k}={v}" for k, v in sorted(action_dist.items())))
 
 
-def print_task4_analysis(results: list[dict]) -> None:
-    attacks = [r for r in results if r["category"] != "safe"]
-    safe = [r for r in results if r["category"] == "safe"]
-
-    missed_attacks = [r for r in attacks if r["predicted"] == "allow"]
-    correctly_blocked = [r for r in attacks if r["predicted"] != "allow"]
-    correctly_allowed = [r for r in safe if r["predicted"] == "allow"]
-    over_blocked = [r for r in safe if r["predicted"] != "allow"]
-
-    action_dist = defaultdict(int)
-    for r in results:
-        action_dist[r["predicted"]] += 1
-
-    print(f"  Task 4 (adversarial_adaptation) results:")
-    print(f"    Episode length: {len(results)} turns (adversary-determined)")
-    print(f"    Attack turns correctly blocked: {len(correctly_blocked)}/{len(attacks)}")
-    print(f"    Attack turns missed:            {len(missed_attacks)}/{len(attacks)}")
-    print(f"    Safe probes correctly allowed:  {len(correctly_allowed)}/{len(safe)}")
-    print(f"    Safe probes over-blocked:       {len(over_blocked)}/{len(safe)}")
-    print(f"  Action distribution: " + "  ".join(f"{k}={v}" for k, v in sorted(action_dist.items())))
-    print(f"  Note: adversary behavior is policy-dependent — same agent may see different")
-    print(f"        attack sequences on different episodes. Topic fatigue triggers after")
-    print(f"        3 consecutive correct blocks on same topic (adversary switches vector).")
-
-
 def print_task3_analysis(results: list[dict]) -> None:
     attacks = [r for r in results if r["category"] != "safe"]
     safe = [r for r in results if r["category"] == "safe"]
@@ -476,7 +444,7 @@ def main() -> dict:
     global _api_base_url, _model_name, _hf_token, client
 
     # ── Environment variable validation ──────────────────────────────────────
-    _api_base_url = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+    _api_base_url = os.getenv("API_BASE_URL", "https://api-inference.huggingface.co/v1")
     _model_name   = os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3.1-70B-Instruct")
     _hf_token     = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 
@@ -496,7 +464,6 @@ def main() -> dict:
         "basic_threat_detection",
         "context_aware_policy",
         "multiturn_adversarial",
-        "adversarial_adaptation",
     ]
     scores = {}
 
@@ -514,8 +481,6 @@ def main() -> dict:
             print_task2_analysis(results)
         elif task_id == "multiturn_adversarial":
             print_task3_analysis(results)
-        elif task_id == "adversarial_adaptation":
-            print_task4_analysis(results)
 
         # Confusion matrix — reuse from baseline.py
         try:
@@ -530,33 +495,14 @@ def main() -> dict:
         except Exception:
             pass
 
-    # Nuclear clamp - guarantee strictly (0, 1) before any output
-    clamped_scores = {}
-    for task_id, score in scores.items():
-        s = float(score)
-        if s <= 0.0:
-            s = 0.0001
-        elif s >= 1.0:
-            s = 0.9999
-        else:
-            s = round(s, 4)
-            if s <= 0.0:
-                s = 0.0001
-            if s >= 1.0:
-                s = 0.9999
-        clamped_scores[task_id] = s
-
-    # Verify before printing - if this assertion fires we have a bug
-    for task_id, score in clamped_scores.items():
-        assert 0.0 < score < 1.0, f"STILL OUT OF RANGE: {task_id}={score}"
-
     print(f"\n{'='*50}")
     print("=== FINAL SCORES ===")
-    for task_id, score in clamped_scores.items():
+    for task_id, score in scores.items():
         print(f"  {task_id}: {score:.4f}")
 
-    print(json.dumps(clamped_scores))
-    return clamped_scores
+    # Final JSON line for automated parsing
+    print(json.dumps(scores))
+    return scores
 
 
 if __name__ == "__main__":

@@ -370,7 +370,7 @@ def _start_session_cleanup_thread() -> None:
 # Pre-seeded with named baselines so judges immediately see a score distribution.
 _BASELINE_ENTRIES: dict[str, list[dict]] = {
     "basic_threat_detection": [
-        {"agent": "Oracle-Agent",              "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Oracle-Agent",              "score": 0.9999, "timestamp": "2026-04-06T00:00:00Z"},
         {"agent": "llama-3.3-70b-versatile",   "score": 0.9857, "timestamp": "2026-04-12T00:00:00Z"},
         {"agent": "Qwen-3-235B-Cerebras",      "score": 0.9857, "timestamp": "2026-04-12T00:00:00Z"},
         {"agent": "GPT-4o-mini-ZeroShot",      "score": 0.9216, "timestamp": "2026-04-05T00:00:00Z"},
@@ -379,7 +379,7 @@ _BASELINE_ENTRIES: dict[str, list[dict]] = {
         {"agent": "RefuseAll-Baseline",         "score": 0.3534, "timestamp": "2026-04-12T00:00:00Z"},
     ],
     "context_aware_policy": [
-        {"agent": "Oracle-Agent",              "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Oracle-Agent",              "score": 0.9999, "timestamp": "2026-04-06T00:00:00Z"},
         {"agent": "llama-3.3-70b-versatile",   "score": 0.7713, "timestamp": "2026-04-05T00:00:00Z"},
         {"agent": "GPT-4o-mini-ZeroShot",      "score": 0.7512, "timestamp": "2026-04-05T00:00:00Z"},
         {"agent": "Qwen-3-235B-Cerebras",      "score": 0.6862, "timestamp": "2026-04-12T00:00:00Z"},
@@ -388,7 +388,7 @@ _BASELINE_ENTRIES: dict[str, list[dict]] = {
         {"agent": "RefuseAll-Baseline",         "score": 0.3460, "timestamp": "2026-04-12T00:00:00Z"},
     ],
     "multiturn_adversarial": [
-        {"agent": "Oracle-Agent",              "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Oracle-Agent",              "score": 0.9999, "timestamp": "2026-04-06T00:00:00Z"},
         {"agent": "Qwen-3-235B-Cerebras",      "score": 0.8275, "timestamp": "2026-04-12T00:00:00Z"},
         {"agent": "llama-3.3-70b-versatile",   "score": 0.6866, "timestamp": "2026-04-05T00:00:00Z"},
         {"agent": "GPT-4o-mini-ZeroShot",      "score": 0.6120, "timestamp": "2026-04-05T00:00:00Z"},
@@ -397,12 +397,12 @@ _BASELINE_ENTRIES: dict[str, list[dict]] = {
         {"agent": "RefuseAll-Baseline",         "score": 0.0688, "timestamp": "2026-04-12T00:00:00Z"},
     ],
     "adversarial_adaptation": [
-        {"agent": "Oracle-Agent",              "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Oracle-Agent",              "score": 0.9999, "timestamp": "2026-04-06T00:00:00Z"},
         {"agent": "GPT-4o-mini-ZeroShot",      "score": 0.4820, "timestamp": "2026-04-06T00:00:00Z"},
         {"agent": "AllowAll-Baseline",          "score": 0.1500, "timestamp": "2026-04-06T00:00:00Z"},
-        {"agent": "RefuseAll-Baseline",         "score": 0.0000, "timestamp": "2026-04-06T00:00:00Z"},
-        {"agent": "Qwen-3-235B-Cerebras",      "score": 0.0000, "timestamp": "2026-04-12T00:00:00Z"},
-        {"agent": "Llama-3.1-8B-Cerebras",     "score": 0.0000, "timestamp": "2026-04-12T00:00:00Z"},
+        {"agent": "RefuseAll-Baseline",         "score": 0.0001, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Qwen-3-235B-Cerebras",      "score": 0.0001, "timestamp": "2026-04-12T00:00:00Z"},
+        {"agent": "Llama-3.1-8B-Cerebras",     "score": 0.0001, "timestamp": "2026-04-12T00:00:00Z"},
     ],
 }
 

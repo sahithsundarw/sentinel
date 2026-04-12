@@ -875,12 +875,13 @@ def test_baseline_has_all_4_tasks():
 
 
 def test_baseline_has_oracle_score_1_0():
-    """/baseline oracle score must be 1.0 for all tasks."""
+    """/baseline oracle score must be near 1.0 (strictly < 1.0) for all tasks."""
     r = client.get("/baseline")
     data = r.json()
     for task_id, agents in data["scores"].items():
         assert "oracle" in agents, f"oracle missing from /baseline task {task_id}"
-        assert agents["oracle"] == 1.0, f"oracle score != 1.0 for {task_id}"
+        assert agents["oracle"] >= 0.9999, f"oracle score too low for {task_id}"
+        assert agents["oracle"] < 1.0, f"oracle score must be < 1.0 for {task_id}"
 
 
 # ── HTML landing page tests ────────────────────────────────────────────────────

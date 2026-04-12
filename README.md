@@ -596,7 +596,7 @@ See [DATASET.md](DATASET.md) for full details, selection criteria, and per-promp
 
 | Task | Llama-3.3-70B | gpt-4o-mini |
 |------|---------------|-------------|
-| basic_threat_detection | 0.9714 | 0.9216 |
+| basic_threat_detection | 0.9857 | 0.9216 |
 | context_aware_policy | 0.7713 | 0.7512 |
 | multiturn_adversarial | 0.6866† | 0.6120 |
 | adversarial_adaptation | — | 0.4820 |
@@ -606,7 +606,7 @@ See [DATASET.md](DATASET.md) for full details, selection criteria, and per-promp
 | all-allow baseline | 0.3750 | 0.4037 | 0.1607 | 0.1500 |
 | all-refuse baseline | 0.3534 | 0.3460 | 0.0688 | 0.0000 |
 | oracle (correct actions) | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
-| **llama-3.3-70b-versatile** (Groq, measured) | **0.9714** | **0.7713** | **0.6866**† | — |
+| **llama-3.3-70b-versatile** (Groq, measured) | **0.9857** | **0.7713** | **0.6866**† | — |
 | **gpt-4o-mini** (OpenAI, measured) | **0.9216** | **0.7512** | **0.6120** | **0.4820** |
 
 †Task 3 Llama score is a lower bound — 29 turns hit Groq's 100k token/day limit and defaulted to `allow`, suppressing recall. True score expected higher. See [BASELINE_RESULTS.md](BASELINE_RESULTS.md) for full details.

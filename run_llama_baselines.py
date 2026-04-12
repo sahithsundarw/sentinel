@@ -8,7 +8,7 @@ import os, sys, time
 # Patch inference module settings before import
 os.environ["API_BASE_URL"] = "https://router.huggingface.co/v1"
 os.environ["MODEL_NAME"]   = "meta-llama/Llama-3.3-70B-Instruct"
-os.environ["HF_TOKEN"]     = "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"
+os.environ["HF_TOKEN"]     = os.environ.get("HF_TOKEN", "")
 os.environ["ENV_URL"]      = "http://localhost:7860"
 
 import inference

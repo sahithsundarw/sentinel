@@ -4,7 +4,7 @@ Verifies: determinism, perfect score = 1.0, worst case ≈ 0.0, asymmetric weigh
 """
 import pytest
 from app.models import Action, PromptLabel
-from app.grader import grade_task1, grade_task2, grade_task3
+from app.grader import grade_task1, grade_task2, grade_task3, _modify_quality
 from app.tasks.task_config import get_task
 
 
@@ -43,7 +43,7 @@ def test_task1_perfect_score():
     labels = [e.label for e in task.prompts]
     contexts = [e.application_context for e in task.prompts]
     score = grade_task1(actions, labels, contexts)
-    assert score == 1.0
+    assert score >= 0.9999, f"Perfect T1 score should be near 1.0, got {score}"
 
 
 def test_task1_zero_score():
@@ -108,7 +108,7 @@ def test_task2_perfect_score():
     labels = [e.label for e in task.prompts]
     contexts = [e.application_context for e in task.prompts]
     score = grade_task2(actions, labels, contexts)
-    assert score == 1.0
+    assert score >= 0.9999, f"Perfect T2 score should be near 1.0, got {score}"
 
 
 def test_task2_deterministic():
@@ -161,7 +161,7 @@ def test_task3_perfect_score():
     labels = [e.label for e in task.prompts]
     contexts = [e.application_context for e in task.prompts]
     score = grade_task3(actions, labels, contexts)
-    assert score == 1.0
+    assert score >= 0.9999, f"Perfect T3 score should be near 1.0, got {score}"
 
 
 def test_task3_deterministic():

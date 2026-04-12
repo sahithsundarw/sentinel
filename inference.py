@@ -9,7 +9,7 @@ Environment variables:
     ENV_URL       — Guardrail Arena server URL (default: http://localhost:7860)
 
 Usage:
-    API_BASE_URL=https://api-inference.huggingface.co/v1 \\
+    API_BASE_URL=https://router.huggingface.co/v1 \\
     MODEL_NAME=meta-llama/Meta-Llama-3.1-70B-Instruct \\
     HF_TOKEN=hf_your_token \\
     python inference.py
@@ -444,7 +444,7 @@ def main() -> dict:
     global _api_base_url, _model_name, _hf_token, client
 
     # ── Environment variable validation ──────────────────────────────────────
-    _api_base_url = os.getenv("API_BASE_URL", "https://api-inference.huggingface.co/v1")
+    _api_base_url = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
     _model_name   = os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3.1-70B-Instruct")
     _hf_token     = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 

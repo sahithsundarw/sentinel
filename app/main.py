@@ -162,16 +162,16 @@ a:hover {{ text-decoration: underline; }}
   <div class="stat">Total Episodes Run<span>{episode_count}</span></div>
   <div class="stat">Tasks<span>4</span></div>
   <div class="stat">Oracle Score<span>1.0000</span></div>
-  <div class="stat">LLM Baseline<span>0.9714</span></div>
+  <div class="stat">LLM Baseline<span>0.9857</span></div>
 </div>
 
 <h2>Tasks</h2>
 <table>
 <tr><th>Task ID</th><th>Difficulty</th><th>Dataset</th><th>All-Allow</th><th>All-Refuse</th><th>LLM Baseline</th></tr>
-<tr><td>basic_threat_detection</td><td><span class="badge easy">Easy</span></td><td>66 eval / 132 train</td><td>0.5000</td><td>0.4707</td><td>0.9714 (llama-3.3-70b)</td></tr>
+<tr><td>basic_threat_detection</td><td><span class="badge easy">Easy</span></td><td>67 eval / 131 train</td><td>0.3750</td><td>0.3534</td><td>0.9857 (llama-3.3-70b)</td></tr>
 <tr><td>context_aware_policy</td><td><span class="badge medium">Medium</span></td><td>83 eval / 124 train</td><td>0.4037</td><td>0.3460</td><td>0.7713 (llama-3.3-70b)</td></tr>
-<tr><td>multiturn_adversarial</td><td><span class="badge hard">Hard</span></td><td>238+ turns / 39 convos</td><td>0.1908</td><td>0.0580</td><td>0.6866 (llama-3.3-70b)</td></tr>
-<tr><td>adversarial_adaptation</td><td><span class="badge expert">Expert</span></td><td>12 dynamic / session</td><td>0.1500</td><td>0.0000</td><td>0.4820 (gpt-4o-mini)</td></tr>
+<tr><td>multiturn_adversarial</td><td><span class="badge hard">Hard</span></td><td>238+ turns / 39 convos</td><td>0.1607</td><td>0.0688</td><td>0.6866 (llama-3.3-70b)</td></tr>
+<tr><td>adversarial_adaptation</td><td><span class="badge expert">Expert</span></td><td>12 dynamic / session</td><td>0.1500</td><td>0.0001</td><td>0.4820 (gpt-4o-mini)</td></tr>
 </table>
 
 <h2>What Makes This Different</h2>
@@ -370,31 +370,39 @@ def _start_session_cleanup_thread() -> None:
 # Pre-seeded with named baselines so judges immediately see a score distribution.
 _BASELINE_ENTRIES: dict[str, list[dict]] = {
     "basic_threat_detection": [
-        {"agent": "Oracle-Agent",              "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
-        {"agent": "llama-3.3-70b-versatile",   "score": 0.9714, "timestamp": "2026-04-05T00:00:00Z"},
+        {"agent": "Oracle-Agent",              "score": 0.9999, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "llama-3.3-70b-versatile",   "score": 0.9857, "timestamp": "2026-04-12T00:00:00Z"},
+        {"agent": "Qwen-3-235B-Cerebras",      "score": 0.9857, "timestamp": "2026-04-12T00:00:00Z"},
         {"agent": "GPT-4o-mini-ZeroShot",      "score": 0.9216, "timestamp": "2026-04-05T00:00:00Z"},
-        {"agent": "AllowAll-Baseline",          "score": 0.5000, "timestamp": "2026-04-06T00:00:00Z"},
-        {"agent": "RefuseAll-Baseline",         "score": 0.4707, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Llama-3.1-8B-Cerebras",     "score": 0.5428, "timestamp": "2026-04-12T00:00:00Z"},
+        {"agent": "AllowAll-Baseline",          "score": 0.3750, "timestamp": "2026-04-12T00:00:00Z"},
+        {"agent": "RefuseAll-Baseline",         "score": 0.3534, "timestamp": "2026-04-12T00:00:00Z"},
     ],
     "context_aware_policy": [
-        {"agent": "Oracle-Agent",              "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Oracle-Agent",              "score": 0.9999, "timestamp": "2026-04-06T00:00:00Z"},
         {"agent": "llama-3.3-70b-versatile",   "score": 0.7713, "timestamp": "2026-04-05T00:00:00Z"},
         {"agent": "GPT-4o-mini-ZeroShot",      "score": 0.7512, "timestamp": "2026-04-05T00:00:00Z"},
-        {"agent": "AllowAll-Baseline",          "score": 0.4278, "timestamp": "2026-04-06T00:00:00Z"},
-        {"agent": "RefuseAll-Baseline",         "score": 0.3682, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Qwen-3-235B-Cerebras",      "score": 0.6862, "timestamp": "2026-04-12T00:00:00Z"},
+        {"agent": "Llama-3.1-8B-Cerebras",     "score": 0.5143, "timestamp": "2026-04-12T00:00:00Z"},
+        {"agent": "AllowAll-Baseline",          "score": 0.4037, "timestamp": "2026-04-12T00:00:00Z"},
+        {"agent": "RefuseAll-Baseline",         "score": 0.3460, "timestamp": "2026-04-12T00:00:00Z"},
     ],
     "multiturn_adversarial": [
-        {"agent": "Oracle-Agent",              "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Oracle-Agent",              "score": 0.9999, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Qwen-3-235B-Cerebras",      "score": 0.8275, "timestamp": "2026-04-12T00:00:00Z"},
         {"agent": "llama-3.3-70b-versatile",   "score": 0.6866, "timestamp": "2026-04-05T00:00:00Z"},
         {"agent": "GPT-4o-mini-ZeroShot",      "score": 0.6120, "timestamp": "2026-04-05T00:00:00Z"},
-        {"agent": "AllowAll-Baseline",          "score": 0.1908, "timestamp": "2026-04-06T00:00:00Z"},
-        {"agent": "RefuseAll-Baseline",         "score": 0.0580, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Llama-3.1-8B-Cerebras",     "score": 0.4746, "timestamp": "2026-04-12T00:00:00Z"},
+        {"agent": "AllowAll-Baseline",          "score": 0.1607, "timestamp": "2026-04-12T00:00:00Z"},
+        {"agent": "RefuseAll-Baseline",         "score": 0.0688, "timestamp": "2026-04-12T00:00:00Z"},
     ],
     "adversarial_adaptation": [
-        {"agent": "Oracle-Agent",              "score": 1.0000, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Oracle-Agent",              "score": 0.9999, "timestamp": "2026-04-06T00:00:00Z"},
         {"agent": "GPT-4o-mini-ZeroShot",      "score": 0.4820, "timestamp": "2026-04-06T00:00:00Z"},
         {"agent": "AllowAll-Baseline",          "score": 0.1500, "timestamp": "2026-04-06T00:00:00Z"},
-        {"agent": "RefuseAll-Baseline",         "score": 0.0000, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "RefuseAll-Baseline",         "score": 0.0001, "timestamp": "2026-04-06T00:00:00Z"},
+        {"agent": "Qwen-3-235B-Cerebras",      "score": 0.0001, "timestamp": "2026-04-12T00:00:00Z"},
+        {"agent": "Llama-3.1-8B-Cerebras",     "score": 0.0001, "timestamp": "2026-04-12T00:00:00Z"},
     ],
 }
 

@@ -328,7 +328,7 @@ def run_task(task_id: str) -> tuple[float, list[dict]]:
     except BaseException as exc:
         success = False
         rewards_str = ",".join(f"{r:.2f}" for r in per_step_rewards) or "0.00"
-        print(f"[END] success=false steps={step_num} score=0.00 rewards={rewards_str}")
+        print(f"[END] success=false steps={step_num} score=0.0001 rewards={rewards_str}")
         raise exc
 
     grader_data = _http_get_with_retry(
@@ -336,11 +336,12 @@ def run_task(task_id: str) -> tuple[float, list[dict]]:
         params=grader_params,
         task_label=f"{task_id} grader",
     )
-    score = grader_data["score"]
+    # Clamp to open interval (0, 1) — Phase 2 validation rejects exactly 0.00 or 1.00
+    score = max(0.0001, min(0.9999, grader_data["score"]))
 
     # Required hackathon output: [END] line after episode completes
     rewards_str = ",".join(f"{r:.2f}" for r in per_step_rewards) or "0.00"
-    print(f"[END] success=true steps={step_num} score={score:.2f} rewards={rewards_str}")
+    print(f"[END] success=true steps={step_num} score={score:.4f} rewards={rewards_str}")
 
     return score, step_results
 
@@ -440,6 +441,27 @@ def print_task3_analysis(results: list[dict]) -> None:
     print(f"  Action distribution: " + "  ".join(f"{k}={v}" for k, v in sorted(action_dist.items())))
 
 
+def print_task4_analysis(results: list[dict]) -> None:
+    attacks = [r for r in results if r["category"] != "safe"]
+    safe = [r for r in results if r["category"] == "safe"]
+
+    correctly_blocked = [r for r in attacks if r["predicted"] != "allow"]
+    missed_attacks = [r for r in attacks if r["predicted"] == "allow"]
+    correctly_allowed = [r for r in safe if r["predicted"] == "allow"]
+    over_blocked = [r for r in safe if r["predicted"] != "allow"]
+
+    action_dist = defaultdict(int)
+    for r in results:
+        action_dist[r["predicted"]] += 1
+
+    print(f"  Adversarial adaptation results:")
+    print(f"    Attack turns correctly blocked: {len(correctly_blocked)}/{len(attacks)}")
+    print(f"    Attack turns missed:            {len(missed_attacks)}/{len(attacks)}")
+    print(f"    Safe probes correctly allowed:  {len(correctly_allowed)}/{len(safe)}")
+    print(f"    Safe probes over-blocked:       {len(over_blocked)}/{len(safe)}")
+    print(f"  Action distribution: " + "  ".join(f"{k}={v}" for k, v in sorted(action_dist.items())))
+
+
 def main() -> dict:
     global _api_base_url, _model_name, _hf_token, client
 
@@ -464,6 +486,7 @@ def main() -> dict:
         "basic_threat_detection",
         "context_aware_policy",
         "multiturn_adversarial",
+        "adversarial_adaptation",
     ]
     scores = {}
 
@@ -481,6 +504,8 @@ def main() -> dict:
             print_task2_analysis(results)
         elif task_id == "multiturn_adversarial":
             print_task3_analysis(results)
+        elif task_id == "adversarial_adaptation":
+            print_task4_analysis(results)
 
         # Confusion matrix — reuse from baseline.py
         try:

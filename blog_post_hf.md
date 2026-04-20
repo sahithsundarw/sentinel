@@ -1,4 +1,11 @@
-# We Built a Content Safety Training Environment — and Watched a 235B Model Score Zero
+---
+title: "Guardrail Arena: Training AI Safety Agents with Multi-Agent RL"
+thumbnail: /blog/assets/guardrail-arena/reward_curves.png
+authors:
+- user: varunventra
+- user: sahithsundarw
+- user: pranush
+---
 
 *Posted to HuggingFace Blog | Guardrail Arena | Meta x HuggingFace x Cerebral Valley OpenEnv Hackathon*
 

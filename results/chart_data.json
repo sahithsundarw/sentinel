@@ -2,7 +2,10 @@
   "charts": [
     "task4_learning_curve.png",
     "score_comparison.png",
-    "model_comparison.png"
+    "model_comparison.png",
+    "reward_curves_llm.png",
+    "reward_curves_combined.png",
+    "reward_curves_task4.png"
   ],
   "data": {
     "task4_learning_curve": {

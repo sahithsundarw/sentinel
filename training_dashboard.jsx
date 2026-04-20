@@ -21,7 +21,8 @@ import {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const BASE_URL = "http://localhost:7860";
+// Module-level mutable base URL — updated when user changes the URL input
+let BASE_URL = "https://varunventra-guardrail-arena.hf.space";
 const REFRESH_INTERVAL_MS = 5000;
 
 const COLORS = {
@@ -402,14 +403,71 @@ function LeaderboardPanel() {
   );
 }
 
+// ── Task 4 Episode Runner ─────────────────────────────────────────────────────
+
+async function runTask4Episode() {
+  const resetRes = await fetchJSON(`${BASE_URL}/reset?task_id=adversarial_adaptation`);
+  if (!resetRes?.session_id) throw new Error("Reset failed");
+  const sid = resetRes.session_id;
+  let obs = resetRes;
+  let done = false;
+  let steps = 0;
+  while (!done && steps < 15) {
+    const action = {
+      prompt_id: obs.prompt_id,
+      action_type: obs.user_risk_score > 0.5 ? "refuse" : "allow",
+      reason: "dashboard demo",
+      modified_prompt: null,
+    };
+    const res = await fetch(`${BASE_URL}/step?session_id=${sid}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(action),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) break;
+    const data = await res.json();
+    done = data.done;
+    obs = data.observation || obs;
+    steps++;
+  }
+  return { sessionId: sid, done };
+}
+
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 
 export default function TrainingDashboard() {
+  const [urlInput, setUrlInput] = useState(BASE_URL);
   const [agentName, setAgentName] = useState("guardrail_trl_agent");
   const [sessionId, setSessionId] = useState("");
+  const [task4SessionId, setTask4SessionId] = useState("");
   const [envStatus, setEnvStatus] = useState("checking");
-  const [multiAgentInfo, setMultiAgentInfo] = useState(null);
+  const [, setMultiAgentInfo] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [task4Running, setTask4Running] = useState(false);
+  const [task4Msg, setTask4Msg] = useState("");
+
+  function handleConnect() {
+    BASE_URL = urlInput.replace(/\/+$/, "");
+    setEnvStatus("checking");
+    setMultiAgentInfo(null);
+  }
+
+  async function handleRunTask4() {
+    setTask4Running(true);
+    setTask4Msg("Running Task 4 episode...");
+    try {
+      const { sessionId: sid, done } = await runTask4Episode();
+      setTask4SessionId(sid);
+      setTask4Msg(done
+        ? `Episode complete. Session: ${sid.slice(0, 8)}...`
+        : `Episode partially complete (${sid.slice(0, 8)}...) — trajectory may be incomplete`);
+    } catch (e) {
+      setTask4Msg(`Error: ${e.message}`);
+    } finally {
+      setTask4Running(false);
+    }
+  }
 
   useEffect(() => {
     async function checkHealth() {
@@ -431,50 +489,87 @@ export default function TrainingDashboard() {
 
   return (
     <div style={styles.root}>
+      {/* URL Input + Status Row */}
+      <div style={styles.urlBar}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{
+            width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+            background: envStatus === "online" ? COLORS.green : envStatus === "offline" ? COLORS.red : COLORS.yellow,
+          }} />
+          <span style={{ color: COLORS.muted, fontSize: 11, minWidth: 80 }}>
+            {envStatus === "online" ? "Online" : envStatus === "offline" ? "Offline" : "Checking..."}
+          </span>
+        </div>
+        <input
+          style={{ ...styles.input, flex: 1, maxWidth: 500 }}
+          value={urlInput}
+          onChange={e => setUrlInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleConnect()}
+          placeholder="https://varunventra-guardrail-arena.hf.space"
+        />
+        <button style={styles.btnPrimary} onClick={handleConnect}>Connect</button>
+        <span style={{ color: COLORS.muted, fontSize: 11, marginLeft: 8 }}>
+          {lastRefresh.toLocaleTimeString()}
+        </span>
+      </div>
+
       {/* Header */}
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Guardrail Arena</h1>
           <p style={styles.subtitle}>Training Dashboard — Multi-Agent Interactions (Theme #1)</p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{
-              width: 8, height: 8, borderRadius: "50%",
-              background: envStatus === "online" ? COLORS.green : COLORS.red,
-            }} />
-            <span style={{ color: COLORS.muted, fontSize: 12 }}>
-              {envStatus === "online" ? "Environment Online" : "Offline"} — {lastRefresh.toLocaleTimeString()}
-            </span>
-          </div>
+      </div>
+
+      {/* Key Numbers Strip */}
+      <div style={styles.infoBar}>
+        <div style={styles.infoItem}>
+          <span style={styles.infoLabel}>Qwen-235B on Task 4</span>
+          <span style={{ ...styles.infoValue, color: COLORS.red }}>0.0000</span>
+        </div>
+        <div style={styles.infoItem}>
+          <span style={styles.infoLabel}>Q-learner on Task 4</span>
+          <span style={{ ...styles.infoValue, color: COLORS.green }}>0.9540</span>
+        </div>
+        <div style={styles.infoItem}>
+          <span style={styles.infoLabel}>Branching Convos</span>
+          <span style={styles.infoValue}>30</span>
+        </div>
+        <div style={styles.infoItem}>
+          <span style={styles.infoLabel}>Adversary States</span>
+          <span style={styles.infoValue}>180</span>
+        </div>
+        <div style={styles.infoItem}>
+          <span style={styles.infoLabel}>Llama-8B ZS (Task 1)</span>
+          <span style={styles.infoValue}>0.5428</span>
         </div>
       </div>
 
-      {/* Multi-agent info bar */}
-      {multiAgentInfo && (
-        <div style={styles.infoBar}>
-          <div style={styles.infoItem}>
-            <span style={styles.infoLabel}>Adversary States</span>
-            <span style={styles.infoValue}>180</span>
+      {/* Multi-Agent Framing Panel */}
+      <div style={{ ...styles.card, marginBottom: 16 }}>
+        <div style={styles.cardHeader}>
+          <span style={styles.cardTitle}>Multi-Agent Architecture</span>
+          <span style={{ ...styles.badge, background: "#1a1a2e", color: COLORS.purple }}>Theme #1: Multi-Agent Interactions</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{ background: "#0d1117", borderRadius: 6, padding: "12px 16px", border: `1px solid ${COLORS.border}` }}>
+            <div style={{ color: COLORS.red, fontWeight: 700, marginBottom: 8 }}>Adversary: DeterministicAdversary FSM</div>
+            <div style={{ color: COLORS.muted, fontSize: 12, lineHeight: 1.6 }}>
+              60 states (10 topics × 6 intensities) × 3 surface variants = 180 observable states<br/>
+              Adapts in real-time to defender's actions<br/>
+              <span style={{ color: COLORS.orange }}>allow → escalate intensity | block → back off</span>
+            </div>
           </div>
-          <div style={styles.infoItem}>
-            <span style={styles.infoLabel}>Topics</span>
-            <span style={styles.infoValue}>10</span>
-          </div>
-          <div style={styles.infoItem}>
-            <span style={styles.infoLabel}>Intensity Levels</span>
-            <span style={styles.infoValue}>6</span>
-          </div>
-          <div style={styles.infoItem}>
-            <span style={styles.infoLabel}>Qwen-235B on Task 4</span>
-            <span style={{ ...styles.infoValue, color: COLORS.red }}>0.0000</span>
-          </div>
-          <div style={styles.infoItem}>
-            <span style={styles.infoLabel}>Q-learner on Task 4</span>
-            <span style={{ ...styles.infoValue, color: COLORS.green }}>0.9540</span>
+          <div style={{ background: "#0d1117", borderRadius: 6, padding: "12px 16px", border: `1px solid ${COLORS.border}` }}>
+            <div style={{ color: COLORS.green, fontWeight: 700, marginBottom: 8 }}>Defender: Trainable Safety Policy</div>
+            <div style={{ color: COLORS.muted, fontSize: 12, lineHeight: 1.6 }}>
+              Observation: prompt + context + risk_score<br/>
+              Action: allow / refuse / modify / escalate<br/>
+              <span style={{ color: COLORS.blue }}>Reward: +0.20 correct block | -0.30 missed attack</span>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Controls */}
       <div style={styles.controls}>
@@ -496,6 +591,19 @@ export default function TrainingDashboard() {
             placeholder="UUID from /reset"
           />
         </div>
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Task 4 Demo</label>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              style={{ ...styles.btnPrimary, opacity: task4Running ? 0.6 : 1 }}
+              onClick={handleRunTask4}
+              disabled={task4Running}
+            >
+              {task4Running ? "Running..." : "Run Task 4 Episode"}
+            </button>
+            {task4Msg && <span style={{ fontSize: 11, color: COLORS.muted }}>{task4Msg}</span>}
+          </div>
+        </div>
       </div>
 
       {/* Main grid */}
@@ -503,8 +611,8 @@ export default function TrainingDashboard() {
         <RewardCurvePanel agentName={agentName} />
         <ActionDistributionPanel sessionId={sessionId} />
         <TaskComparisonPanel agentName={agentName} />
-        <AdversaryStatePanel sessionId={sessionId} />
-        <div style={{ gridColumn: "span 2" }}>
+        {task4SessionId && <AdversaryStatePanel sessionId={task4SessionId} />}
+        <div style={{ gridColumn: task4SessionId ? "span 1" : "span 2" }}>
           <LeaderboardPanel />
         </div>
       </div>
@@ -660,5 +768,26 @@ const styles = {
     justifyContent: "space-between",
     fontSize: 11,
     color: COLORS.muted,
+  },
+  urlBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "8px 12px",
+    background: COLORS.card,
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  btnPrimary: {
+    background: COLORS.blue,
+    border: "none",
+    borderRadius: 6,
+    color: "#fff",
+    padding: "6px 14px",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
   },
 };

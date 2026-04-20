@@ -21,13 +21,20 @@ Endpoints:
     DELETE /sessions/{id}     — Delete a session and free resources
 """
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+import asyncio
+import traceback
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ValidationError
 from typing import Optional, Literal
 from datetime import datetime, timezone
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import threading
 import logging
 import os
@@ -330,7 +337,16 @@ def _compute_baselines_background() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: start session cleanup thread and baseline computation in background."""
+    """Startup: pre-warm task configs, start session cleanup thread and baseline computation."""
+    global _server_ready
+    # Pre-warm task configs (already module-level cached in task_config.py, this is a no-op fast call)
+    from app.tasks.task_config import get_task as _get_task_cfg
+    for _tid in ("basic_threat_detection", "context_aware_policy", "multiturn_adversarial", "adversarial_adaptation"):
+        try:
+            _get_task_cfg(_tid)
+        except Exception as exc:
+            _log.warning("Task config pre-warm failed for %s: %s", _tid, exc)
+    _server_ready = True
     _start_session_cleanup_thread()
     t = threading.Thread(target=_compute_baselines_background, daemon=True, name="baseline-compute")
     t.start()
@@ -347,20 +363,121 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# ── Stats counters (module-level, populated by middleware) ────────────────────
+_stats = {
+    "start_time": time.time(),
+    "request_counts": defaultdict(int),
+    "episodes_completed": 0,
+}
+
+# ── Server readiness flag (set True after startup pre-warm) ───────────────────
+_server_ready: bool = False
+
+# ── Middleware registration order (last add_middleware = first executed) ───────
+
+# GZip (innermost — compresses response body, registered first = executes last)
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
+# CORS (registered second = executes second from inside)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"], expose_headers=["X-Response-Time"])
+
+
+# Timing + stats decorators execute outermost (first registered = first executed for @middleware)
+@app.middleware("http")
+async def add_response_timing(request: Request, call_next):
+    """Attach X-Response-Time header to every response."""
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    response.headers["X-Response-Time"] = f"{elapsed_ms:.1f}ms"
+    return response
+
+
+@app.middleware("http")
+async def count_requests(request: Request, call_next):
+    """Increment per-path request counter for /stats."""
+    _stats["request_counts"][request.url.path] += 1
+    return await call_next(request)
+
+
+# ── Custom exception classes ───────────────────────────────────────────────────
+
+class _SessionExpiredError(Exception):
+    """Raised when a session_id is missing or has been evicted."""
+    def __init__(self, session_id: str):
+        self.session_id = session_id
+        super().__init__(f"Session '{session_id}' not found or expired.")
+
+
+# ── Exception handlers ────────────────────────────────────────────────────────
+
+@app.exception_handler(_SessionExpiredError)
+async def session_expired_handler(request: Request, exc: _SessionExpiredError):
+    return JSONResponse(
+        status_code=410,
+        content={
+            "error": "session_expired",
+            "message": "Session not found or expired. Call POST /reset to start a new episode.",
+            "session_id": exc.session_id,
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "validation_error",
+            "message": "Invalid request data",
+            "details": exc.errors(),
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "internal_server_error",
+            "message": str(exc),
+            "path": str(request.url.path),
+        },
+    )
 
 # ── Session store ─────────────────────────────────────────────────────────────
 # Isolated sessions: each /reset creates a UUID-keyed GuardrailEnvironment.
 # Max 100 sessions; oldest evicted when capacity is reached.
 # Backwards compat: when no session_id is passed, global `env` is used (openenv
 # validator and older inference scripts continue to work without any changes).
-_MAX_SESSIONS = 100
-_SESSION_TTL_SECONDS = 30 * 60  # 30 minutes of inactivity → evict
+_MAX_SESSIONS = 200
+_SESSION_TTL_SECONDS = 3600  # 60 minutes of inactivity → evict
 _CLEANUP_INTERVAL_SECONDS = 5 * 60  # cleanup runs every 5 minutes
 
 # Each entry: {"env": GuardrailEnvironment, "last_activity": float (epoch seconds)}
 _SESSION_STORE: OrderedDict[str, dict] = OrderedDict()
 _SESSION_STORE_LOCK = threading.Lock()
+
+# Per-session asyncio locks — prevent concurrent /step calls from corrupting state
+_session_locks: dict[str, asyncio.Lock] = {}
+
+# Grader result cache — prevents double-grading; cleared when session is deleted
+_grader_cache: dict[str, dict] = {}
+
+
+def _get_or_create_session_lock(session_id: str) -> asyncio.Lock:
+    """Return the asyncio.Lock for session_id, creating one if needed."""
+    if session_id not in _session_locks:
+        _session_locks[session_id] = asyncio.Lock()
+    return _session_locks[session_id]
+
+
+def _cleanup_session_resources(session_id: str) -> None:
+    """Remove per-session lock and grader cache entries when a session is deleted."""
+    _session_locks.pop(session_id, None)
+    _grader_cache.pop(session_id, None)
 
 
 def _create_session() -> tuple[GuardrailEnvironment, str]:
@@ -375,6 +492,7 @@ def _create_session() -> tuple[GuardrailEnvironment, str]:
                 "Agents holding that session_id will receive a 410 Gone on their next /step or /grader call.",
                 _MAX_SESSIONS, evicted_sid,
             )
+            _cleanup_session_resources(evicted_sid)
         _SESSION_STORE[sid] = {"env": new_env, "last_activity": time.monotonic()}
     return new_env, sid
 
@@ -388,14 +506,7 @@ def _get_session_env(session_id: Optional[str]) -> GuardrailEnvironment:
         )
     with _SESSION_STORE_LOCK:
         if session_id not in _SESSION_STORE:
-            raise HTTPException(
-                status_code=410,
-                detail=(
-                    f"Session '{session_id}' has been evicted or has expired. "
-                    f"The server holds at most {_MAX_SESSIONS} concurrent sessions (TTL: "
-                    f"{_SESSION_TTL_SECONDS // 60} min). Call /reset to start a new session."
-                ),
-            )
+            raise _SessionExpiredError(session_id)
         _SESSION_STORE[session_id]["last_activity"] = time.monotonic()
         return _SESSION_STORE[session_id]["env"]
 
@@ -410,6 +521,7 @@ def _cleanup_stale_sessions() -> int:
         ]
         for sid in stale:
             _SESSION_STORE.pop(sid, None)
+            _cleanup_session_resources(sid)
     return len(stale)
 
 
@@ -544,6 +656,15 @@ async def root():
     return HTMLResponse(content=_build_html_landing_page(episode_count=total_episodes, leaderboard=lb))
 
 
+@app.get("/demo_runner", response_class=HTMLResponse)
+async def demo_runner():
+    """Self-contained Security Operations Center demo runner."""
+    html_path = Path("demo_runner.html")
+    if html_path.exists():
+        return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
+    return HTMLResponse(content="<p>demo_runner.html not found</p>", status_code=404)
+
+
 # ── Response Models ───────────────────────────────────────────────────────────
 
 class HealthResponse(BaseModel):
@@ -583,6 +704,41 @@ async def health():
     return {"status": "healthy", "environment": "guardrail-arena", "version": "1.0.0"}
 
 
+@app.get("/ready")
+async def ready():
+    """Readiness check. Returns 503 until all task configs are loaded and server is ready."""
+    if not _server_ready:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "loading", "message": "Server is starting up. Task configs are being loaded."},
+        )
+    with _SESSION_STORE_LOCK:
+        active = len(_SESSION_STORE)
+    return {
+        "status": "ready",
+        "tasks": 4,
+        "active_sessions": active,
+    }
+
+
+@app.get("/stats")
+async def stats():
+    """Request and episode statistics since server startup."""
+    uptime = time.time() - _stats["start_time"]
+    with _SESSION_STORE_LOCK:
+        active = len(_SESSION_STORE)
+    return {
+        "uptime_seconds": round(uptime),
+        "uptime_human": f"{int(uptime // 3600)}h {int((uptime % 3600) // 60)}m",
+        "total_requests": sum(_stats["request_counts"].values()),
+        "active_sessions": active,
+        "episodes_completed": _stats["episodes_completed"],
+        "top_endpoints": dict(
+            sorted(_stats["request_counts"].items(), key=lambda x: x[1], reverse=True)[:10]
+        ),
+    }
+
+
 @app.get("/metadata")
 async def metadata():
     """OpenEnv spec: environment metadata."""
@@ -596,6 +752,18 @@ async def metadata():
         ),
         "version": "1.0.0",
         "tags": ["openenv", "safety", "guardrails", "content-moderation", "adversarial", "llm-safety"],
+    }
+
+
+@app.get("/config")
+async def config():
+    """Return demo configuration — exposes API keys set in environment variables.
+    Only served from localhost; safe for demo use."""
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    hf_token   = os.environ.get("HF_TOKEN", "") or os.environ.get("HUGGINGFACE_TOKEN", "")
+    return {
+        "openai_api_key": openai_key if openai_key else None,
+        "hf_token":       hf_token   if hf_token   else None,
     }
 
 
@@ -650,31 +818,33 @@ async def step(action: Action, session_id: Optional[str] = Query(default=None)):
     """Take an action. Returns observation, reward, done, info.
     Pass session_id (from /reset response) to use an isolated session."""
     target_env = _get_session_env(session_id)
-    try:
-        observation, reward, done, info = target_env.step(action)
-    except RuntimeError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except ValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+    lock = _get_or_create_session_lock(session_id)
+    async with lock:
+        try:
+            observation, reward, done, info = target_env.step(action)
+        except RuntimeError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except ValidationError as e:
+            raise HTTPException(status_code=422, detail=str(e))
 
-    result = {
-        "observation": observation.model_dump() if observation else None,
-        "reward": reward.model_dump(),
-        "done": done,
-        "info": info,
-    }
-    _step_logger.info(
-        "task=%s prompt_id=%s action=%s reward=%.4f outcome=%s session=%s",
-        target_env.current_task_id or "unknown",
-        action.prompt_id,
-        action.action_type,
-        reward.score,
-        reward.breakdown.get("outcome", ""),
-        session_id or "shared",
-    )
-    return result
+        result = {
+            "observation": observation.model_dump() if observation else None,
+            "reward": reward.model_dump(),
+            "done": done,
+            "info": info,
+        }
+        _step_logger.info(
+            "task=%s prompt_id=%s action=%s reward=%.4f outcome=%s session=%s",
+            target_env.current_task_id or "unknown",
+            action.prompt_id,
+            action.action_type,
+            reward.score,
+            reward.breakdown.get("outcome", ""),
+            session_id or "shared",
+        )
+        return result
 
 
 @app.get("/state")
@@ -819,8 +989,14 @@ async def grader(
     target_env = _get_session_env(session_id)
     if not target_env.is_done():
         raise HTTPException(status_code=400, detail="Episode not complete. Finish all steps first.")
+
+    # Return cached result if this session was already graded
+    if session_id and session_id in _grader_cache:
+        return _grader_cache[session_id]
+
     score = target_env.get_grader_score()
     task_id = target_env.current_task_id
+    _stats["episodes_completed"] += 1
     snapshot = None
     with _leaderboard_lock:
         if task_id in _leaderboard:
@@ -836,7 +1012,10 @@ async def grader(
             snapshot = {k: list(v) for k, v in _leaderboard.items()}
     if snapshot is not None:
         _save_leaderboard(snapshot)
-    return {"task_id": task_id, "score": score}
+    result = {"task_id": task_id, "score": score}
+    if session_id:
+        _grader_cache[session_id] = result
+    return result
 
 
 @app.get("/sessions", response_model=SessionsResponse)
@@ -868,6 +1047,7 @@ async def delete_session(session_id: str):
         if session_id not in _SESSION_STORE:
             raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
         del _SESSION_STORE[session_id]
+    _cleanup_session_resources(session_id)
     return {"status": "deleted", "session_id": session_id}
 
 

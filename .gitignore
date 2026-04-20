@@ -8,7 +8,14 @@ venv*/
 
 # Secrets
 .env
+*.env
+.env.*
 .openai_key
+secrets.txt
+*_secrets.py
+inference_key.txt
+*.key
+*.token
 
 # OS junk
 .DS_Store

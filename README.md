@@ -78,6 +78,117 @@ This environment is directly inspired by Meta's [GOAT (Generative Offensive Agen
 
 ---
 
+## Multi-Agent Architecture
+
+Guardrail Arena implements Theme #1: **Multi-Agent Interactions**. Every episode pits two agents against each other:
+
+| Agent | Role | Control |
+|---|---|---|
+| **Adversary** (DeterministicAdversary FSM) | Generates attack sequences; adapts based on defender's last action | Environment (deterministic, rule-based) |
+| **Defender** (your policy) | Classifies each prompt; chooses allow / refuse / modify / escalate | Your training code |
+
+The adversary is not a language model. It is a finite-state machine with 10 topics × 6 intensity levels = **60 internal states**, each with 3 surface prompt variants (selected by session salt) = **180 observable states**. The defender sees only the surface prompt — it cannot observe topic index, intensity level, fatigue counter, or honeypot flag directly.
+
+**Partial observability is the core challenge**: the optimal defensive policy requires the defender to *infer* the adversary's hidden state from observed prompt patterns across turns. This is a theory-of-mind problem, not a classification problem.
+
+**Non-stationary distribution**: the prompt distribution the defender sees is a function of its own past decisions. This makes supervised learning on a fixed dataset impossible for Task 4 — the training distribution is defined by the policy itself.
+
+```
+Adversary FSM (10 topics × 6 intensity levels)
+     |
+     |  generates prompt based on (topic, intensity, session_salt)
+     ↓
+Defender receives: [surface_prompt, context, risk_score, history]
+     |
+     |  cannot see: topic_idx, intensity, fatigue_counter, honeypot_flag
+     ↓
+Defender action: allow / refuse / modify / escalate
+     |
+     |  adversary reads action, updates (topic, intensity) per FSM rules
+     ↓
+Next adversary state → next prompt
+```
+
+See `GET /multi_agent_info` for the complete multi-agent framing JSON, and `GET /adversary_state?session_id=<id>` (post-episode) for the adversary trajectory.
+
+---
+
+## Training Your Agent with TRL
+
+Train a language model policy directly against the live environment using the provided TRL scripts.
+
+### Quick Start (SFT — 30 min on Colab T4)
+
+```bash
+pip install "unsloth[colab-new]" "trl>=0.12.0" transformers peft bitsandbytes httpx datasets
+
+# Phase 1: Supervised Fine-Tuning on labeled training data
+python train_trl.py --method sft \
+    --task basic_threat_detection \
+    --env-url https://varunventra-guardrail-arena.hf.space \
+    --epochs 3
+
+# Phase 2: PPO online learning with environment reward signal
+python train_trl.py --method ppo \
+    --task context_aware_policy \
+    --episodes 30 \
+    --checkpoint ./checkpoints/sft_final \
+    --env-url https://varunventra-guardrail-arena.hf.space
+
+# Phase 3: DPO refinement from preference pairs
+python train_trl.py --method dpo \
+    --task context_aware_policy \
+    --checkpoint ./checkpoints/ppo_final
+```
+
+### Full 3-Phase Pipeline
+
+```bash
+# Run all phases sequentially: SFT -> PPO -> DPO -> Self-play
+python training_strategy.py --phase all --task basic_threat_detection
+
+# Evaluate across all 4 tasks
+python training_strategy.py --phase eval-all --checkpoint ./checkpoints/ppo_final
+```
+
+### Training Data
+
+The `/training_data` endpoint provides labeled examples in three formats:
+
+```bash
+# Raw format (prompt_id, user_prompt, correct_action, features)
+curl "https://varunventra-guardrail-arena.hf.space/training_data?task_id=basic_threat_detection&format=raw"
+
+# SFT format (prompt + completion pairs for SFTTrainer)
+curl "https://varunventra-guardrail-arena.hf.space/training_data?task_id=basic_threat_detection&format=sft"
+
+# Chat format (messages list for apply_chat_template)
+curl "https://varunventra-guardrail-arena.hf.space/training_data?task_id=basic_threat_detection&format=chat"
+```
+
+See [TRAINING_STRATEGY.md](TRAINING_STRATEGY.md) for the full 3-phase curriculum and per-task hyperparameter guidance. See [train_trl.py](train_trl.py) for the complete PPO+SFT+DPO training script. The Google Colab notebook ([training_colab.ipynb](training_colab.ipynb)) runs end-to-end on a T4 GPU in under 30 minutes.
+
+---
+
+## Training Results
+
+| Model | Task 1 | Task 2 | Task 3 | Task 4 |
+|---|---|---|---|---|
+| Oracle (ground truth) | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+| llama-3.3-70b (Groq) | 0.9857 | 0.7713 | 0.6866 | — |
+| Qwen-3-235B (Cerebras) | 0.9857 | 0.6862 | 0.8275 | **0.0000** |
+| GPT-4o-mini (OpenAI) | 0.9216 | 0.7512 | 0.6120 | 0.4820 |
+| Llama-3.1-8B zero-shot | 0.5428 | 0.5143 | 0.4746 | 0.0000 |
+| **Tabular Q-learner (20 ep)** | — | — | — | **0.9540** |
+| All-Allow baseline | 0.3750 | 0.4037 | 0.1607 | 0.1500 |
+| All-Refuse baseline | 0.3534 | 0.3460 | 0.0688 | 0.0000 |
+
+**Key finding**: A 60-state tabular Q-learner reaches 0.9540 on Task 4 in 20 episodes. Qwen-3-235B (235B parameters) scores 0.0000 — identical to all-refuse. Model scale does not help. Policy learning does.
+
+Reward curves: [results/task4_learning_curve.png](results/task4_learning_curve.png) | [results/score_comparison.png](results/score_comparison.png)
+
+---
+
 ## Why This Requires RL
 
 **Tasks 3 and 4 are structurally RL-required.** Tasks 1 and 2 are sophisticated classification tasks with dense reward shaping. Here is the honest account of each:
@@ -645,6 +756,8 @@ See [DATASET.md](DATASET.md) for full details, selection criteria, and per-promp
 
 Guardrail Arena provides a standardized training and evaluation environment for the exact problem Meta faces at scale: every Llama deployment needs a guardrail layer that is context-aware, adversarially robust, and adaptive. Meta's GOAT paper trains the attacker side — generative adversarial agents that probe LLM safety boundaries. Guardrail Arena trains the defensive counterpart. Together, GOAT + Guardrail Arena form a complete red-team/blue-team training pipeline: GOAT generates novel attacks, Guardrail Arena trains the defender to resist them.
 
+**Theme #1 — Multi-Agent Interactions**: Guardrail Arena is built specifically for this theme. The Adversary and Defender are two agents co-evolving within a single environment. The defender's optimal policy is non-trivially dependent on the adversary's strategy — it must learn to infer hidden FSM state, avoid topic fatigue traps, and detect honeypot probes. This is the class of multi-agent problem that Meta's GOAT research is designed to study, and Guardrail Arena provides a concrete, trainable instance of it.
+
 The asymmetric reward design mirrors production priorities: a missed attack that harms a real user is not equivalent to over-blocking a safe request. The dynamic `user_risk_score` reflects real deployment signals — an account that has attempted policy violations should receive elevated scrutiny. The branching conversation mechanic reflects the reality that adversarial users adapt their strategy based on whether their previous turn was blocked. No existing safety benchmark captures this feedback loop.
 
 ---
@@ -855,6 +968,13 @@ sentinel/
 ├── baseline.py             # LLM inference baseline (requires OPENAI_API_KEY)
 ├── validate.py             # OpenEnv submission validator (3-step check)
 ├── inference.py            # Inference script
+├── train_trl.py            # TRL PPO+SFT+DPO training script (Phase 1–3)
+├── train_sft.py            # Standalone SFT baseline script
+├── training_strategy.py    # Full 3-phase pipeline orchestrator
+├── generate_charts.py      # Reward curve visualization (no training needed)
+├── training_colab.ipynb    # Google Colab notebook (T4 GPU, ~30 min)
+├── blog_post.md            # HuggingFace blog post
+├── TRAINING_STRATEGY.md    # 3-phase curriculum documentation
 ├── app/
 │   ├── __init__.py
 │   ├── main.py             # FastAPI endpoints

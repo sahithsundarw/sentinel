@@ -83,6 +83,10 @@ class GuardrailEnvironment:
         self._contexts: list[str] = []
         self._step_risk_scores: list[float] = []
 
+        # Per-step reward tracking for /reward_breakdown endpoint
+        self._step_rewards: list[float] = []
+        self._step_reward_breakdowns: list[dict] = []
+
         # Task 3: dynamic conversation history built from actual agent actions.
         # Maps conversation_id -> list of alternating "User: ..." / "Assistant: ..." strings.
         self._conv_dynamic_history: dict[str, list[str]] = {}
@@ -126,6 +130,8 @@ class GuardrailEnvironment:
         self._labels = []
         self._contexts = []
         self._step_risk_scores = []
+        self._step_rewards = []
+        self._step_reward_breakdowns = []
         self._episode_missed_attacks = 0
 
         # Compute starting risk score from cross-episode history before resetting.
@@ -313,6 +319,10 @@ class GuardrailEnvironment:
         )
         self._cumulative_score += step_score
         self._cumulative_score = round(self._cumulative_score, 4)
+
+        # Record per-step reward for /reward_breakdown endpoint
+        self._step_rewards.append(step_score)
+        self._step_reward_breakdowns.append(dict(reward_breakdown))
 
         # Track max possible score for episode_difficulty computation
         lbl = current_entry.label

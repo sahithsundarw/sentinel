@@ -1,0 +1,74 @@
+{
+  "charts": [
+    "task4_learning_curve.png",
+    "score_comparison.png",
+    "model_comparison.png"
+  ],
+  "data": {
+    "task4_learning_curve": {
+      "episodes": [
+        0,
+        1,
+        5,
+        10,
+        15,
+        20
+      ],
+      "scores": [
+        0.0,
+        0.0,
+        0.0,
+        0.5301,
+        0.954,
+        0.954
+      ],
+      "all_allow_baseline": 0.15,
+      "all_refuse_baseline": 0.0,
+      "source": "train_task4.py measured run"
+    },
+    "baselines": {
+      "all_allow": [
+        0.375,
+        0.4037,
+        0.1607,
+        0.15
+      ],
+      "all_refuse": [
+        0.3534,
+        0.346,
+        0.0688,
+        0.0
+      ],
+      "llama_8b_zs": [
+        0.5428,
+        0.5143,
+        0.4746,
+        0.0
+      ],
+      "gpt4o_mini": [
+        0.9216,
+        0.7512,
+        0.612,
+        0.482
+      ],
+      "llama_70b": [
+        0.9857,
+        0.7713,
+        0.6866,
+        null
+      ],
+      "qwen_235b": [
+        0.9857,
+        0.6862,
+        0.8275,
+        0.0
+      ],
+      "oracle": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  }
+}

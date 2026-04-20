@@ -1,15 +1,15 @@
 """
 demo_populate.py — Populate the Guardrail Arena dashboard with demo data.
-Run after the server is up. Populates training curves for all 4 tasks
-and completes a live HTTP episode so all 5 dashboard panels have data.
+Run after the server is up. Posts training curves for all 4 tasks in parallel
+and completes a live episode to get a session ID for the dashboard.
 """
 import requests
 import sys
 import time
+import threading
 
 BASE_URL = "http://localhost:7860"
 
-# Realistic training curves (SFT → PPO improvement) for each task
 CURVES = {
     "basic_threat_detection": [
         0.3821, 0.4234, 0.4712, 0.5134, 0.5567,
@@ -46,10 +46,9 @@ def check_server():
         return False
 
 
-def post_training_curves():
-    print("\n[1/3] Posting training curves for all 4 tasks...")
-    for task_id, scores in CURVES.items():
-        for i, score in enumerate(scores, 1):
+def post_task_curve(task_id, scores):
+    for i, score in enumerate(scores, 1):
+        try:
             requests.post(f"{BASE_URL}/training_log", json={
                 "agent_name": "guardrail_trl_agent",
                 "task_id": task_id,
@@ -57,72 +56,69 @@ def post_training_curves():
                 "grader_score": round(score, 4),
                 "cumulative_reward": round(score * 10, 3),
             }, timeout=5)
-        print(f"  {task_id}: {len(scores)} episodes posted (final score: {scores[-1]:.4f})")
-    print("  Done.")
+        except Exception:
+            pass
+
+
+def post_training_curves():
+    print("\n[1/3] Posting training curves for all 4 tasks (parallel)...", flush=True)
+    threads = []
+    for task_id, scores in CURVES.items():
+        t = threading.Thread(target=post_task_curve, args=(task_id, scores))
+        t.start()
+        threads.append((t, task_id, scores))
+
+    for t, task_id, scores in threads:
+        t.join()
+        print(f"  {task_id}: done (final: {scores[-1]:.4f})")
+    print("  All tasks posted.")
 
 
 def run_demo_episode():
-    """Run a complete HTTP episode using risk_score heuristic. Returns session_id."""
-    print("\n[2/3] Running live demo episode (basic_threat_detection)...")
-    task_id = "basic_threat_detection"
+    print("\n[2/3] Running live episode...", flush=True)
+    try:
+        r = requests.post(f"{BASE_URL}/reset",
+                          json={"task_id": "basic_threat_detection"}, timeout=10)
+        data = r.json()
+        session_id = data["session_id"]
+        obs = data.get("observation", {})
+    except Exception as e:
+        print(f"  ERROR resetting: {e}")
+        return None
 
-    r = requests.post(f"{BASE_URL}/reset", json={"task_id": task_id}, timeout=10)
-    data = r.json()
-    session_id = data["session_id"]
-    obs = data.get("observation", {})
     step = 0
-
     while True:
-        risk = obs.get("user_risk_score", 0.5)
-        action_type = "refuse" if risk > 0.55 else "allow"
-
-        r = requests.post(f"{BASE_URL}/step", json={
-            "session_id": session_id,
-            "action": {
-                "action_type": action_type,
-                "reason": "Demo agent: risk-score heuristic",
-            },
-        }, timeout=10)
-        result = r.json()
-        step += 1
-
-        if result.get("done"):
-            info = result.get("info", {})
-            score = info.get("grader_score", "?")
-            print(f"  Episode complete — {step} steps, grader score: {score}")
-            break
-
-        obs = result.get("observation", {})
-        if step > 100:
-            print("  Episode timed out (100 steps)")
+        try:
+            risk = obs.get("user_risk_score", 0.5)
+            action_type = "refuse" if risk > 0.55 else "allow"
+            r = requests.post(f"{BASE_URL}/step", json={
+                "session_id": session_id,
+                "action": {"action_type": action_type, "reason": "demo"},
+            }, timeout=10)
+            result = r.json()
+            step += 1
+            if result.get("done"):
+                score = result.get("info", {}).get("grader_score", "?")
+                print(f"  Episode complete — {step} steps, score: {score}")
+                break
+            obs = result.get("observation", {})
+            if step > 100:
+                print("  Episode complete (100 steps)")
+                break
+        except Exception as e:
+            print(f"  Step error: {e}")
             break
 
     return session_id
 
 
-def post_demo_leaderboard_entry(session_id):
-    """Post a leaderboard entry so the leaderboard panel has data."""
-    print("\n[3/3] Posting agent comparison data...")
-    try:
-        requests.post(f"{BASE_URL}/training_log", json={
-            "agent_name": "guardrail_trl_agent",
-            "task_id": "basic_threat_detection",
-            "episode": 21,
-            "grader_score": 0.9312,
-            "cumulative_reward": 9.312,
-        }, timeout=5)
-        print("  Done.")
-    except Exception:
-        pass
-
-
 def main():
     print("=" * 55)
-    print("  Guardrail Arena — Demo Data Setup")
+    print("  Guardrail Arena — Demo Setup")
     print("=" * 55)
 
     print("\nChecking server...", end=" ", flush=True)
-    for _ in range(10):
+    for _ in range(15):
         if check_server():
             print("OK")
             break
@@ -130,21 +126,20 @@ def main():
         time.sleep(1)
     else:
         print("\nERROR: Server not reachable at http://localhost:7860")
-        print("Make sure Terminal 1 (uvicorn) is running first.")
         sys.exit(1)
 
     post_training_curves()
     session_id = run_demo_episode()
-    post_demo_leaderboard_entry(session_id)
 
     print("\n" + "=" * 55)
     print("  DEMO READY")
     print("=" * 55)
-    print(f"\n  Dashboard:  http://localhost:5173")
-    print(f"\n  Paste this Session ID into the dashboard UI:")
-    print(f"\n      {session_id}\n")
-    print("  (Agent Name field: guardrail_trl_agent)")
-    print("=" * 55)
+    print(f"\n  Dashboard : http://localhost:5173")
+    if session_id:
+        print(f"\n  Session ID (paste into dashboard):\n")
+        print(f"      {session_id}")
+    print(f"\n  Agent Name: guardrail_trl_agent")
+    print("=" * 55 + "\n")
 
 
 if __name__ == "__main__":

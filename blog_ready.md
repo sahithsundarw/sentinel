@@ -33,11 +33,11 @@ This creates **partial observability** and **non-stationary distributions**: the
 |---|---|---|---|---|
 | Qwen-3-235B | 0.9857 | 0.6862 | 0.8275 | **0.0000** |
 | GPT-4o-mini | 0.9216 | 0.7512 | 0.6120 | 0.4820 |
-| Llama-3.1-8B (zero-shot) | 0.6097 | 0.5143 | 0.4746 | 0.0000 |
-| Llama-3.1-8B (SFT) | **0.9492** | — | — | — |
+| Llama-3.1-8B (zero-shot) | 0.6097 | 0.5493 | 0.3988 | 0.0000 |
+| Llama-3.1-8B (SFT, 3 epochs) | **0.9504** | **0.5978** | **0.7104** | — |
 | Tabular Q-learner | — | — | — | **0.9540** |
 
-SFT alone takes Llama-3.1-8B from **0.6097 → 0.9492** (+0.34) on Task 1. The 235B Qwen model scores the same as "always refuse" on Task 4, while a 60-state tabular Q-learner reaches **0.9540** in 20 episodes.
+SFT on a combined multi-task dataset takes Llama-3.1-8B from **0.6097 → 0.9504** (+0.34) on Task 1, **0.3988 → 0.7104** (+0.31) on Task 3. The 235B Qwen model scores the same as "always refuse" on Task 4, while a 60-state tabular Q-learner reaches **0.9540** in 20 episodes.
 
 Model scale does not help. Training does.
 

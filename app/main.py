@@ -25,13 +25,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 import asyncio
-import traceback
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.exceptions import RequestValidationError
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, field_validator
 from typing import Optional, Literal
 from datetime import datetime, timezone
 from collections import OrderedDict, defaultdict
@@ -437,7 +436,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    traceback.print_exc()
+    _log.exception("Unhandled exception on %s", request.url.path)
     return JSONResponse(
         status_code=500,
         content={
@@ -756,9 +755,12 @@ async def metadata():
 
 
 @app.get("/config")
-async def config():
+async def config(request: Request):
     """Return demo configuration — exposes API keys set in environment variables.
     Only served from localhost; safe for demo use."""
+    client_host = request.client.host if request.client else ""
+    if client_host not in ("127.0.0.1", "::1", "localhost"):
+        raise HTTPException(status_code=403, detail="Config endpoint is only accessible from localhost.")
     openai_key = os.environ.get("OPENAI_API_KEY", "")
     hf_token   = os.environ.get("HF_TOKEN", "") or os.environ.get("HUGGINGFACE_TOKEN", "")
     return {
@@ -889,7 +891,6 @@ async def training_data(
         prompt_id, prompt_text, correct_action, attack_features,
         category, severity, application_context, split
     """
-    _VALID_TASK_IDS = {"basic_threat_detection", "context_aware_policy", "multiturn_adversarial", "adversarial_adaptation"}
     if task_id not in _VALID_TASK_IDS:
         raise HTTPException(status_code=422, detail=f"Unknown task_id '{task_id}'. Valid: {sorted(_VALID_TASK_IDS)}")
     if format not in ("raw", "sft", "chat"):
@@ -986,6 +987,13 @@ async def grader(
 ):
     """Return grader score for the current completed episode. Optionally pass agent_name to record on leaderboard.
     Pass session_id to score an isolated session."""
+    # Validate and normalise agent_name before doing anything else
+    if agent_name is not None:
+        agent_name = agent_name.strip()
+        if len(agent_name) == 0:
+            raise HTTPException(status_code=422, detail="agent_name must not be empty.")
+        if len(agent_name) > 128:
+            raise HTTPException(status_code=422, detail="agent_name must be 128 characters or fewer.")
     target_env = _get_session_env(session_id)
     if not target_env.is_done():
         raise HTTPException(status_code=400, detail="Episode not complete. Finish all steps first.")
@@ -1122,6 +1130,16 @@ class SubmitRequest(BaseModel):
     score: float
     task_id: str
 
+    @field_validator("agent_name")
+    @classmethod
+    def validate_agent_name(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) == 0:
+            raise ValueError("agent_name must not be empty.")
+        if len(v) > 128:
+            raise ValueError("agent_name must be 128 characters or fewer.")
+        return v
+
 
 @app.post("/submit", response_model=SubmitResponse)
 async def submit(req: SubmitRequest, session_id: Optional[str] = Query(default=None)):
@@ -1150,7 +1168,7 @@ async def submit(req: SubmitRequest, session_id: Optional[str] = Query(default=N
         _leaderboard[req.task_id].append(entry)
         _leaderboard[req.task_id].sort(key=lambda x: x["score"], reverse=True)
         _leaderboard[req.task_id] = _leaderboard[req.task_id][:10]
-        snapshot = dict(_leaderboard)
+        snapshot = {k: list(v) for k, v in _leaderboard.items()}
     _save_leaderboard(snapshot)
     return {"status": "ok", "task_id": req.task_id, "score": score}
 
@@ -1192,7 +1210,12 @@ async def rollout(req: RolloutRequest):
     action_iter = iter(req.actions)
 
     while not roll_env.is_done():
-        act_req = next(action_iter)
+        act_req = next(action_iter, None)
+        if act_req is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Ran out of actions before the episode finished. Provide enough actions to cover all prompts.",
+            )
         action = Action(
             prompt_id=obs.prompt_id,
             action_type=act_req.action_type,
@@ -1459,6 +1482,23 @@ class TrainingLogEntry(BaseModel):
     action_distribution: Optional[dict] = None
     timestamp: Optional[str] = None
 
+    @field_validator("agent_name")
+    @classmethod
+    def validate_agent_name(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) == 0:
+            raise ValueError("agent_name must not be empty.")
+        if len(v) > 128:
+            raise ValueError("agent_name must be 128 characters or fewer.")
+        return v
+
+    @field_validator("task_id")
+    @classmethod
+    def validate_task_id(cls, v: str) -> str:
+        if v not in _VALID_TASK_IDS:
+            raise ValueError(f"Unknown task_id '{v}'. Valid: {sorted(_VALID_TASK_IDS)}")
+        return v
+
 
 @app.post("/training_log")
 async def post_training_log(entry: TrainingLogEntry):
@@ -1480,8 +1520,8 @@ async def post_training_log(entry: TrainingLogEntry):
         try:
             with open(_TRAINING_LOG_PATH, "w") as f:
                 json.dump(_training_logs, f)
-        except Exception:
-            pass
+        except Exception as _disk_exc:
+            _log.error("Failed to persist training_log to disk: %s", _disk_exc)
     return {"status": "ok", "agent_name": entry.agent_name, "entries": len(_training_logs[entry.agent_name])}
 
 
@@ -1704,6 +1744,8 @@ async def agent_comparison(
     agent_names = [a.strip() for a in agents.split(",") if a.strip()]
     if len(agent_names) < 1:
         raise HTTPException(status_code=422, detail="Provide at least one agent name.")
+    if task_id is not None and task_id not in _VALID_TASK_IDS:
+        raise HTTPException(status_code=422, detail=f"Unknown task_id '{task_id}'. Valid: {sorted(_VALID_TASK_IDS)}")
 
     with _training_log_lock:
         results = []

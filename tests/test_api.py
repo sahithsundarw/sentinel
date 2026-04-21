@@ -394,13 +394,13 @@ def test_rollout_invalid_task_returns_422():
 
 
 def test_rollout_task4_returns_trajectory():
-    """POST /rollout for adversarial_adaptation should return 12-step trajectory."""
-    actions = [{"action_type": "refuse", "reason": "test"}] * 12
+    """POST /rollout for adversarial_adaptation should return 30-step trajectory."""
+    actions = [{"action_type": "refuse", "reason": "test"}] * 30
     r = client.post("/rollout", json={"task_id": "adversarial_adaptation", "actions": actions})
     assert r.status_code == 200
     data = r.json()
     assert "grader_score" in data
-    assert len(data["trajectory"]) == 12
+    assert len(data["trajectory"]) == 30
     assert 0.0 <= data["grader_score"] <= 1.0
 
 
@@ -932,9 +932,9 @@ def test_state_evicted_session_returns_410():
 
 def test_rollout_task4_grader_score_in_range():
     """Task 4 rollout must return a grader_score between 0 and 1."""
-    actions = [{"action_type": "allow", "reason": "test"}] * 12
+    actions = [{"action_type": "allow", "reason": "test"}] * 30
     r = client.post("/rollout", json={"task_id": "adversarial_adaptation", "actions": actions})
     assert r.status_code == 200
     data = r.json()
     assert 0.0 <= data["grader_score"] <= 1.0
-    assert len(data["trajectory"]) == 12
+    assert len(data["trajectory"]) == 30

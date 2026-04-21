@@ -1024,7 +1024,7 @@ def test_task4_reset_returns_valid_observation():
     assert obs.user_prompt
     assert obs.application_context == "customer_support"
     assert obs.turn_number == 1
-    assert obs.prompts_remaining == 11  # 12 total, first served, 11 remaining
+    assert obs.prompts_remaining == 29  # 30 total, first served, 29 remaining
 
 
 def test_task4_episode_runs_for_exactly_max_turns():

@@ -1124,7 +1124,7 @@ TASK4_PROMPTS: list[list[PromptLabel]] = [
 
 NUM_TOPICS = len(TASK4_PROMPTS)   # 10
 NUM_INTENSITIES = 6               # 0–5
-TASK4_EPISODE_LENGTH = 12
+TASK4_EPISODE_LENGTH = 30
 
 
 class DeterministicAdversary:

@@ -706,7 +706,7 @@ def test_task3_episode_done_at_end():
 
 
 def test_task4_episode_done_after_max_turns():
-    """Task 4 environment should report done=True after 12 turns (max_turns)."""
+    """Task 4 environment should report done=True after 30 turns (max_turns)."""
     from app.environment import GuardrailEnvironment
     from app.models import Action
     env = GuardrailEnvironment()
@@ -723,4 +723,4 @@ def test_task4_episode_done_after_max_turns():
         if not done:
             obs = next_obs
     assert env.is_done(), "Task 4 environment should be done after max_turns"
-    assert turn_count <= 12, f"Task 4 should complete in at most 12 turns, took {turn_count}"
+    assert turn_count <= 30, f"Task 4 should complete in at most 30 turns, took {turn_count}"

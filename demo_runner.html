@@ -1002,6 +1002,207 @@ input:focus-visible  { outline: none; }
 #stat-steps, #stat-caught, #breakdown-status,
 #active-task-name, #active-task-meta,
 #session-id-display { display: none; }
+
+/* ════════════════════════════════════════════════════════════════
+   VISUAL UPGRADE — layered depth, gradients, micro-interactions
+   ════════════════════════════════════════════════════════════════ */
+
+/* 1 ── Page background: radial glows instead of flat black */
+html, body {
+  background:
+    radial-gradient(ellipse 70% 50% at 12% 0%,   rgba(59,130,246,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 40% at 88% 100%,  rgba(139,92,246,0.08) 0%, transparent 55%),
+    #070b10 !important;
+}
+
+/* 2 ── Accent line: animated gradient instead of solid blue */
+#accent-line {
+  height: 2px !important;
+  background: linear-gradient(90deg, #3b82f6 0%, #a78bfa 50%, #3b82f6 100%) !important;
+  background-size: 200% 100% !important;
+  animation: accent-flow 5s linear infinite !important;
+}
+@keyframes accent-flow { to { background-position: -200% 0; } }
+
+/* 3 ── Header: glass morphism */
+#header-top {
+  background: rgba(7,11,16,0.92) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05), 0 4px 28px rgba(0,0,0,0.5) !important;
+}
+#header-bottom {
+  background: rgba(7,11,16,0.85) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+}
+
+/* 4 ── Run Episode button: pulsing glow (idle) + scale (hover) */
+@keyframes run-idle-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(59,130,246,0.35), 0 2px 8px rgba(59,130,246,0.2),  inset 0 1px 0 rgba(255,255,255,0.12); }
+  50%       { box-shadow: 0 0 22px rgba(59,130,246,0.55), 0 4px 14px rgba(59,130,246,0.3), inset 0 1px 0 rgba(255,255,255,0.18); }
+}
+#start-btn {
+  transition: all 0.2s ease !important;
+  border-radius: 8px !important;
+  letter-spacing: 0.05em !important;
+}
+#start-btn:not(.running) {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  border: 1px solid rgba(59,130,246,0.5) !important;
+  animation: run-idle-glow 2.8s ease-in-out infinite !important;
+}
+#start-btn:not(.running):hover {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
+  box-shadow: 0 0 32px rgba(59,130,246,0.7), 0 6px 20px rgba(59,130,246,0.4) !important;
+  transform: scale(1.04) !important;
+  animation: none !important;
+}
+#start-btn:active { transform: scale(0.97) !important; animation: none !important; }
+
+/* 5 ── Task buttons: gradient when active, glow on hover */
+.task-btn {
+  border-radius: 6px !important;
+  transition: all 0.15s ease !important;
+}
+.task-btn.active {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+  box-shadow: 0 0 14px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.15) !important;
+  border-color: rgba(59,130,246,0.6) !important;
+}
+.task-btn:hover:not(.active) {
+  transform: scale(1.02) !important;
+}
+
+/* 6 ── Panels: gradient surfaces + stronger borders */
+.panel {
+  background: linear-gradient(180deg,
+    rgba(255,255,255,0.045) 0%,
+    rgba(255,255,255,0.02) 100%) !important;
+  border-right: 1px solid rgba(255,255,255,0.08) !important;
+}
+.panel.panel-running {
+  border-top: 2px solid var(--blue) !important;
+  box-shadow: inset 0 2px 0 rgba(59,130,246,0.1) !important;
+}
+
+/* 7 ── Panel headers: darker glass + stronger label */
+.panel-header {
+  background: rgba(0,0,0,0.35) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+  padding: 10px 16px !important;
+}
+.panel-title {
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  color: rgba(255,255,255,0.5) !important;
+}
+
+/* 8 ── Stat cells: gradient surfaces + bigger numbers */
+.stat-cell {
+  background: linear-gradient(145deg,
+    rgba(255,255,255,0.055) 0%,
+    rgba(255,255,255,0.02) 100%) !important;
+}
+.stat-num-big {
+  font-size: 36px !important;
+  letter-spacing: -0.04em !important;
+}
+.stat-grid {
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+}
+
+/* 9 ── Counter cells */
+.counters {
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+.counter-cell { background: rgba(255,255,255,0.03) !important; }
+.counter-num  { font-size: 30px !important; letter-spacing: -0.03em !important; }
+
+/* 10 ── Idle title: gradient text */
+.idle-title {
+  background: linear-gradient(135deg, #f1f5f9 0%, #64748b 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  font-size: 50px !important;
+  letter-spacing: -0.05em !important;
+}
+.idle-sub   { font-size: 15px !important; color: rgba(255,255,255,0.4) !important; }
+.idle-stats { color: rgba(255,255,255,0.2) !important; }
+.idle-status .status-text {
+  color: #60a5fa !important;
+  letter-spacing: 0.2em !important;
+}
+
+/* 11 ── Logo name: gradient text */
+#logo-name {
+  background: linear-gradient(135deg, #f1f5f9 0%, #94a3b8 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  font-size: 16px !important;
+  letter-spacing: 0.08em !important;
+}
+
+/* 12 ── Feed rows: slightly more padding + smoother left border */
+.feed-row {
+  border-left-width: 3px !important;
+  transition: background-color 150ms ease !important;
+}
+.feed-row:not(.in-progress):hover {
+  background-color: rgba(255,255,255,0.025) !important;
+}
+
+/* 13 ── Run Again button: gradient */
+#run-again-btn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+  border-radius: 8px !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 0 14px rgba(59,130,246,0.3) !important;
+}
+#run-again-btn:hover {
+  background: linear-gradient(135deg, #60a5fa, #3b82f6) !important;
+  box-shadow: 0 0 26px rgba(59,130,246,0.55) !important;
+  transform: scale(1.02) !important;
+}
+
+/* 14 ── End-state score: bigger, tighter */
+.es-score-big {
+  font-size: 56px !important;
+  letter-spacing: -0.04em !important;
+}
+
+/* 15 ── Timeline panel: glass */
+#timeline-panel {
+  background: rgba(0,0,0,0.4) !important;
+  border-top: 1px solid rgba(255,255,255,0.07) !important;
+}
+
+/* 16 ── Header running state: stronger glow */
+#header-top.running {
+  border-bottom-color: rgba(59,130,246,0.4) !important;
+  box-shadow: 0 1px 0 rgba(59,130,246,0.2), 0 4px 24px rgba(59,130,246,0.08) !important;
+}
+
+/* 17 ── Confidence bar track: taller, rounded */
+.conf-track { height: 6px !important; background: rgba(255,255,255,0.07) !important; }
+
+/* 18 ── Baseline table active row: more visible */
+.bl-row.bl-active {
+  background: rgba(59,130,246,0.1) !important;
+  border-left-color: var(--blue) !important;
+}
+
+/* 19 ── Speed / model buttons: rounded */
+.speed-btn { border-radius: 5px !important; }
+.speed-btn.active { border-radius: 5px !important; }
+#model-select { border-radius: 5px !important; }
+
+/* 20 ── Toast: rounded corners, softer */
+.api-toast { border-radius: 8px !important; }
 </style>
 </head>
 <body>

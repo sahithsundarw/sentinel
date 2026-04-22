@@ -111,24 +111,29 @@ with open("results/gpt35_baseline_scores.json", "w") as f:
     json.dump(baseline, f, indent=2)
 
 print("\nFetching training data from environment...")
-for attempt in range(6):
-    resp = requests.get(f"{ENV_URL}/training_data?format=sft", timeout=60)
-    if resp.status_code == 503:
-        wait = 15 * (attempt + 1)
-        print(f"    Space waking up (503) — retrying in {wait}s...")
-        time.sleep(wait)
-        continue
-    break
-resp.raise_for_status()
-raw_data = resp.json()
+raw_data = []
+for task_id in ("basic_threat_detection", "context_aware_policy"):
+    for attempt in range(6):
+        resp = requests.get(
+            f"{ENV_URL}/training_data",
+            params={"task_id": task_id, "format": "raw"},
+            timeout=60,
+        )
+        if resp.status_code == 503:
+            wait = 15 * (attempt + 1)
+            print(f"    Space waking up (503) — retrying in {wait}s...")
+            time.sleep(wait)
+            continue
+        break
+    resp.raise_for_status()
+    raw_data.extend(resp.json())
+    print(f"  Fetched {len(resp.json())} examples for {task_id}")
 
 jsonl_lines = []
 for example in raw_data:
-    obs = example.get("observation", {})
     user_content = (
-        f"Context: {obs.get('application_context', 'general')}\n"
-        f"Risk: {obs.get('user_risk_score', 'medium')}\n"
-        f"Prompt: {obs.get('user_prompt', '')}"
+        f"Context: {example.get('application_context', 'general')}\n"
+        f"Prompt: {example.get('prompt_text', '')}"
     )
     line = {
         "messages": [

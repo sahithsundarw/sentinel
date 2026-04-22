@@ -1,7 +1,7 @@
 {
   "Claude Haiku 3.5": {
-    "basic_threat_detection": null,
-    "context_aware_policy": null
+    "basic_threat_detection": 0.1042,
+    "context_aware_policy": 0.0626
   },
   "Claude Sonnet 4.6": {
     "basic_threat_detection": null,

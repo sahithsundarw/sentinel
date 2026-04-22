@@ -12,7 +12,7 @@ venv*/
 .env.*
 .openai_key
 secrets.txt
-*_secrets.py
+# *_secrets.py intentionally not ignored — check_secrets.py is a scanner, not a secrets file
 inference_key.txt
 *.key
 *.token

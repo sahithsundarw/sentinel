@@ -484,15 +484,29 @@ def chart_sft_curve():
         curve = np.clip(curve + rng.normal(0, 0.008, len(steps)), 0, 1)
         ax.plot(steps, curve, color=AMBER, linewidth=2, alpha=0.8,
                 label="Llama SFT (projected)")
-        ax.text(0.5, 0.5, "PRELIMINARY\nRun training_colab.ipynb to update",
+        ax.text(0.5, 0.5, "PRELIMINARY\nRun scripts/train_local.py --phase sft",
                 transform=ax.transAxes, ha="center", va="center",
                 fontsize=18, color="#333333", alpha=0.6, fontweight="bold",
                 fontfamily=MONOSPACE, rotation=15)
     else:
-        step_vals = llama_data.get("steps", list(range(len(llama_data.get("scores", [])))))
-        score_vals = llama_data.get("scores", [zero_shot])
-        ax.plot(step_vals, score_vals, color=ACCENT, linewidth=2.2,
-                label="Llama-3.1-8B SFT (real)")
+        baseline = llama_data.get("baseline_score", zero_shot)
+        post_sft = llama_data.get("post_sft_score")
+        if post_sft is not None:
+            ax.plot([0, 500], [baseline, post_sft], color=ACCENT, linewidth=2.2,
+                    marker="o", markersize=7, label="Llama-3.1-8B SFT (real)")
+            ax.annotate(f"{baseline:.4f}", xy=(0, baseline),
+                        xytext=(20, baseline - 0.04),
+                        color=FG, fontsize=9, fontfamily=MONOSPACE,
+                        arrowprops=dict(arrowstyle="->", color=FG, lw=0.8))
+            ax.annotate(f"{post_sft:.4f}", xy=(500, post_sft),
+                        xytext=(420, post_sft + 0.03),
+                        color=ACCENT, fontsize=9, fontfamily=MONOSPACE, fontweight="bold",
+                        arrowprops=dict(arrowstyle="->", color=ACCENT, lw=0.8))
+        else:
+            step_vals = llama_data.get("steps", [0])
+            score_vals = llama_data.get("scores", [baseline])
+            ax.plot(step_vals, score_vals, color=ACCENT, linewidth=2.2,
+                    label="Llama-3.1-8B SFT (real)")
 
     ax.axhline(zero_shot, color=RED, linestyle="--", linewidth=1.5, alpha=0.8,
                label=f"Zero-Shot Baseline (Llama-3.1-8B) = {zero_shot}")
@@ -519,6 +533,76 @@ def chart_sft_curve():
 
 
 # ---------------------------------------------------------------------------
+# Chart 7 — Full Training Progression (Zero-Shot → SFT → PPO)
+# ---------------------------------------------------------------------------
+
+def chart_full_training_curve():
+    sft_data = _load_json("results/llama_sft_scores.json")
+    ppo_data = _load_json("results/llama_ppo_scores.json")
+    is_placeholder = sft_data is None or ppo_data is None
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    _apply_dark_theme(fig, ax)
+
+    phases = ["Zero-Shot", "After SFT", "After PPO"]
+    x = np.array([0, 1, 2])
+
+    ALL_ALLOW = 0.3750
+
+    ax.axhline(ALL_ALLOW, color="#888888", linestyle="--", linewidth=1.2,
+               label=f"all-allow baseline: {ALL_ALLOW}", alpha=0.7)
+
+    if is_placeholder:
+        scores = [0.5428, 0.74, 0.83]
+        ax.plot(x, scores, color=AMBER, linewidth=2, marker="o", markersize=8,
+                alpha=0.7, label="Llama-3.1-8B (projected)")
+        ax.text(0.5, 0.5, "PRELIMINARY\nRun scripts/train_local.py --phase all",
+                transform=ax.transAxes, ha="center", va="center",
+                fontsize=16, color="#333333", alpha=0.6, fontweight="bold",
+                fontfamily=MONOSPACE, rotation=12)
+    else:
+        baseline = sft_data.get("baseline_score", 0.5428)
+        post_sft = sft_data.get("post_sft_score", baseline)
+        post_ppo = ppo_data.get("post_ppo_score", post_sft)
+        scores = [baseline, post_sft, post_ppo]
+
+        ax.fill_between(x, ALL_ALLOW, scores,
+                        where=np.array(scores) > ALL_ALLOW,
+                        alpha=0.12, color=ACCENT)
+        ax.plot(x, scores, color=ACCENT, linewidth=2.5, marker="o", markersize=9,
+                zorder=5, label="Llama-3.1-8B (trained)")
+
+        for xi, score, phase in zip(x, scores, phases):
+            offset = 0.035 if score < ALL_ALLOW + 0.06 else -0.05
+            ax.annotate(
+                f"{score:.4f}",
+                xy=(xi, score), xytext=(xi, score + offset),
+                ha="center", color=ACCENT, fontsize=10,
+                fontweight="bold", fontfamily=MONOSPACE,
+            )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(phases, fontsize=11, fontfamily=MONOSPACE)
+    ax.set_ylabel("Task 1 Average Reward", fontsize=11, fontfamily=MONOSPACE)
+    ax.set_ylim(0.0, 1.05)
+    ax.set_xlim(-0.3, 2.3)
+    ax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
+
+    ax.set_title("Llama-3.1-8B Training Progression — Task 1",
+                 fontsize=14, fontweight="bold", color=FG, pad=12)
+    ax.text(0.5, 1.02, "Zero-Shot → Supervised Fine-Tuning → PPO on Live Environment",
+            transform=ax.transAxes, ha="center", fontsize=9,
+            color="#aaaaaa", fontfamily=MONOSPACE)
+
+    ax.legend(loc="lower right", framealpha=0.15, labelcolor=FG,
+              facecolor=BG, edgecolor=DARK_GRAY, fontsize=9)
+
+    path = _save(fig, "full_training_curve.png")
+    note = " (placeholder)" if is_placeholder else " (real data)"
+    print(f"  Saved: {path}{note}")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -532,6 +616,7 @@ def main():
     chart_action_distribution()
     chart_before_after_table()
     chart_sft_curve()
+    chart_full_training_curve()
 
     print()
     for name, note in [
@@ -540,7 +625,8 @@ def main():
         ("heatmap.png", ""),
         ("action_distribution.png", ""),
         ("before_after_table.png", ""),
-        ("sft_curve.png", " (placeholder — run training_colab.ipynb to update)"),
+        ("sft_curve.png", " (placeholder until scripts/train_local.py --phase sft)"),
+        ("full_training_curve.png", " (placeholder until scripts/train_local.py --phase all)"),
     ]:
         path = os.path.join(OUTPUT_DIR, name)
         status = "OK" if os.path.exists(path) else "MISSING"

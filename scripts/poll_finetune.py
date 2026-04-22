@@ -11,6 +11,12 @@ import subprocess
 import sys
 import time
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 job_path = "data/finetune_job.json"

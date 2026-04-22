@@ -11,6 +11,12 @@ import os
 import sys
 import time
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 ENV_URL = "https://varunventra-guardrail-arena.hf.space"
 

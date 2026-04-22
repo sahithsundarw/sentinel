@@ -5,6 +5,12 @@ import json
 import os
 import time
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 ENV_URL = "https://varunventra-guardrail-arena.hf.space"
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 

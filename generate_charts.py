@@ -503,10 +503,9 @@ def chart_sft_curve():
                         color=ACCENT, fontsize=9, fontfamily=MONOSPACE, fontweight="bold",
                         arrowprops=dict(arrowstyle="->", color=ACCENT, lw=0.8))
         else:
-            step_vals = llama_data.get("steps", [0])
-            score_vals = llama_data.get("scores", [baseline])
-            ax.plot(step_vals, score_vals, color=ACCENT, linewidth=2.2,
-                    label="Llama-3.1-8B SFT (real)")
+            # Only baseline available — plot a single point
+            ax.scatter([0], [baseline], color=ACCENT, s=60, zorder=5,
+                       label=f"Llama-3.1-8B baseline ({baseline:.4f})")
 
     ax.axhline(zero_shot, color=RED, linestyle="--", linewidth=1.5, alpha=0.8,
                label=f"Zero-Shot Baseline (Llama-3.1-8B) = {zero_shot}")
@@ -607,7 +606,7 @@ def chart_full_training_curve():
 # ---------------------------------------------------------------------------
 
 def main():
-    print("Generating 6 publication-quality charts...\n")
+    print("Generating 7 publication-quality charts...\n")
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     chart_hero_learning_curve()

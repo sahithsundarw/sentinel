@@ -1,6 +1,6 @@
 """
 +==============================================================================+
-?          HACKATHON SIMULATION TEST SUITE -- Guardrail Arena                 ?
+?          HACKATHON SIMULATION TEST SUITE -- Sentinel                 ?
 ?                                                                              ?
 ?  Simulates EXACTLY how the hackathon judges will evaluate your submission.  ?
 ?  Two URLs they collect:                                                      ?
@@ -1384,7 +1384,7 @@ def print_final_report(report: TestReport):
 
 if __name__ == "__main__":
     print(f"\n{BOLD}{CYAN}{'='*70}")
-    print(f"  HACKATHON SIMULATION TEST SUITE -- Guardrail Arena")
+    print(f"  HACKATHON SIMULATION TEST SUITE -- Sentinel")
     print(f"  Testing as if you are the hackathon evaluation system")
     print(f"{'='*70}{RESET}\n")
     print(f"  Root:      {ROOT}")

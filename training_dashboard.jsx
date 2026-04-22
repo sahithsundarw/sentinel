@@ -1,5 +1,5 @@
 /**
- * training_dashboard.jsx — Guardrail Arena Training Dashboard
+ * training_dashboard.jsx — Sentinel Training Dashboard
  * Dependencies: React, Recharts
  */
 
@@ -761,7 +761,7 @@ export default function Dashboard() {
         <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, paddingBottom: 18, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div>
             <h1 className="ga-title-gradient" style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.6px", margin: 0 }}>
-              Guardrail Arena
+              Sentinel
             </h1>
             <p style={{ margin: "5px 0 0", fontSize: 12.5, color: C.muted, letterSpacing: "0.01em" }}>
               Training Dashboard · Multi-Agent Interactions (Theme #1)
@@ -906,7 +906,7 @@ export default function Dashboard() {
 
         {/* ── Footer ── */}
         <footer style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.07)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: C.dim }}>
-          <span>Guardrail Arena · Meta × HuggingFace × Cerebral Valley OpenEnv Hackathon</span>
+          <span>Sentinel · Meta × HuggingFace × Cerebral Valley OpenEnv Hackathon</span>
           <div style={{ display: "flex", gap: 20 }}>
             <a className="ga-link" href={`${BASE_URL}/docs`} target="_blank" rel="noopener noreferrer" style={{ color: C.blue }}>API Docs</a>
             <a className="ga-link" href="https://github.com/sahithsundarw/sentinel" target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>GitHub</a>

@@ -1,5 +1,5 @@
 """
-FastAPI application — Guardrail Arena OpenEnv HTTP interface.
+FastAPI application — Sentinel OpenEnv HTTP interface.
 
 Endpoints:
     GET  /                    — HTML landing page
@@ -59,10 +59,10 @@ _LEADERBOARD_PATH = "leaderboard.json"
 _leaderboard_lock = threading.Lock()
 _computed_baselines_lock = threading.Lock()
 
-_log = logging.getLogger("guardrail_arena")
+_log = logging.getLogger("sentinel")
 
 # ── HF Datasets Hub persistence ───────────────────────────────────────────────
-# Set HF_LEADERBOARD_REPO=your-user/guardrail-arena-leaderboard and HF_TOKEN
+# Set HF_LEADERBOARD_REPO=your-user/sentinel-leaderboard and HF_TOKEN
 # in your HF Space secrets to enable cross-restart persistence.
 # Without these env vars the server falls back to local leaderboard.json only.
 _HF_REPO = os.getenv("HF_LEADERBOARD_REPO", "")
@@ -125,7 +125,7 @@ def _build_html_landing_page(episode_count: int = 0, leaderboard: dict = None) -
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Guardrail Arena</title>
+<title>Sentinel</title>
 <style>
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{ background: #0a0a0a; color: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 1000px; margin: 0 auto; padding: 2rem; line-height: 1.6; }}
@@ -169,7 +169,7 @@ a:hover {{ color: #60a5fa; text-decoration: underline; }}
 
 <!-- Section 1: Hero -->
 <div class="hero-badge">Theme #1: Multi-Agent Interactions &bull; OpenEnv Hackathon 2026</div>
-<h1>&#x1F6E1; Guardrail Arena</h1>
+<h1>&#x1F6E1; Sentinel</h1>
 <p style="color:#e6edf3; font-size:1.05rem; margin-bottom:0.5rem;">A multi-agent adversarial training environment for AI safety agents</p>
 <p style="font-size:0.9rem;">An adaptive attacker and a safety defender co-evolve through interaction. The attacker adapts its strategy based on what the defender does. The defender must infer the attacker&rsquo;s intent from text alone. <strong style="color:#ef4444;">A 235B-parameter model scores 0.0000 on Task 4.</strong> A tabular Q-learner trained for 20 episodes scores 0.9540.</p>
 
@@ -295,7 +295,7 @@ python train_trl.py --task basic_threat_detection --method ppo --episodes 20
 </div>
 
 <p style="font-size:0.82rem; color:#374151; margin-top:2rem; border-top:1px solid #111827; padding-top:1rem;">
-GOAT trains the attacker. Guardrail Arena trains the defender. Together: a complete red-team / blue-team pipeline.<br>
+GOAT trains the attacker. Sentinel trains the defender. Together: a complete red-team / blue-team pipeline.<br>
 <strong style="color:#3b82f6;">We don&rsquo;t evaluate safety. We train it.</strong>
 </p>
 </body>
@@ -331,7 +331,7 @@ def _compute_baselines_background() -> None:
             with _computed_baselines_lock:
                 _computed_baselines[task_id] = b_env.get_grader_score()
         except Exception as exc:
-            logging.getLogger("guardrail_arena").warning("Baseline computation failed for %s: %s", task_id, exc)
+            logging.getLogger("sentinel").warning("Baseline computation failed for %s: %s", task_id, exc)
 
 
 @asynccontextmanager
@@ -353,7 +353,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Guardrail Arena",
+    title="Sentinel",
     description=(
         "LLM Safety Guardrail Training Environment — an OpenEnv-spec RL environment "
         "where agents learn to moderate content safety decisions."
@@ -700,7 +700,7 @@ class DeleteSessionResponse(BaseModel):
 @app.get("/health", response_model=HealthResponse)
 async def health():
     """Health check. Returns status=healthy for OpenEnv spec compliance."""
-    return {"status": "healthy", "environment": "guardrail-arena", "version": "1.0.0"}
+    return {"status": "healthy", "environment": "sentinel", "version": "1.0.0"}
 
 
 @app.get("/ready")
@@ -742,7 +742,7 @@ async def stats():
 async def metadata():
     """OpenEnv spec: environment metadata."""
     return {
-        "name": "Guardrail Arena",
+        "name": "Sentinel",
         "description": (
             "An OpenEnv-spec RL environment for training AI content safety agents. "
             "Agents learn to moderate LLM prompts across four difficulty tiers: "
@@ -1413,7 +1413,7 @@ async def curriculum():
 
 @app.get("/multi_agent_info")
 async def multi_agent_info():
-    """Return structured multi-agent framing for Guardrail Arena (Theme #1: Multi-Agent Interactions)."""
+    """Return structured multi-agent framing for Sentinel (Theme #1: Multi-Agent Interactions)."""
     return {
         "theme": "multi_agent_interactions",
         "sub_theme": "scalable_oversight",

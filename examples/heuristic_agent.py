@@ -1,5 +1,5 @@
 """
-Heuristic keyword-based agent for Guardrail Arena.
+Heuristic keyword-based agent for Sentinel.
 
 Demonstrates the complete API loop (reset → step → grader) for all three
 main tasks using a simple rule-based classifier. No ML dependencies — only
@@ -182,7 +182,7 @@ def run_task(base_url: str, task_id: str, agent_name: str = "HeuristicAgent") ->
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Heuristic keyword agent for Guardrail Arena")
+    parser = argparse.ArgumentParser(description="Heuristic keyword agent for Sentinel")
     parser.add_argument("--url", default="http://localhost:7860", help="Base URL of the environment server")
     parser.add_argument("--agent", default="HeuristicAgent", help="Agent name for leaderboard")
     args = parser.parse_args()

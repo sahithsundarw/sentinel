@@ -34,5 +34,11 @@ training_log.json
 # Local output directories
 output/
 
+# Model checkpoints (never commit weights)
+*.bin
+*.pt
+*.safetensors
+checkpoints/
+
 # Claude local settings
 .claude/

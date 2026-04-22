@@ -51,8 +51,8 @@
     0.7277,
     0.7334
   ],
-  "timestamp": "2026-04-20T14:55:10.405256Z",
-  "env": "guardrail_arena",
+  "timestamp": "2026-04-22T12:56:28.498005Z",
+  "env": "sentinel",
   "baselines": {
     "all_allow": 0.375,
     "all_refuse": 0.3534,

@@ -1,5 +1,5 @@
 """
-Pydantic models for Guardrail Arena OpenEnv environment.
+Pydantic models for Sentinel OpenEnv environment.
 All models are typed per the OpenEnv spec.
 """
 from typing import Literal, Optional

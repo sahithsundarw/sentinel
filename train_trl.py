@@ -1,4 +1,4 @@
-"""train_trl.py -- TRL-based RL training for Guardrail Arena.
+"""train_trl.py -- TRL-based RL training for Sentinel.
 
 Supports three training methods:
   - sft:  Supervised Fine-Tuning on labeled /training_data (Phase 1)
@@ -69,7 +69,7 @@ Respond with ONLY valid JSON: {"action_type": "allow|refuse|modify|escalate", "r
 # ── Environment client ─────────────────────────────────────────────────────────
 
 class GuardrailEnvClient:
-    """HTTP client for the Guardrail Arena environment with cold-start retry."""
+    """HTTP client for the Sentinel environment with cold-start retry."""
 
     def __init__(self, base_url: str, task_id: str, max_retries: int = 5):
         self.base_url = base_url.rstrip("/")
@@ -405,7 +405,7 @@ def run_ppo(cfg: TrainConfig, env: GuardrailEnvClient, model, tokenizer) -> dict
             action = parse_action(response_text, prompt_id)
             result = env.step(action)
 
-            step_reward = result.get("reward", 0.0)
+            step_reward = float(result.get("reward", {}).get("score", 0.0) if isinstance(result.get("reward"), dict) else result.get("reward", 0.0))
             episode_reward += step_reward
 
             queries_buf.append(input_ids[0])
@@ -555,7 +555,7 @@ def print_results(results: dict, cfg: TrainConfig) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="TRL-based RL training for Guardrail Arena",
+        description="TRL-based RL training for Sentinel",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--task", default="basic_threat_detection",
@@ -593,7 +593,7 @@ def main() -> None:
 
     os.makedirs(cfg.output, exist_ok=True)
 
-    print("Guardrail Arena TRL Training")
+    print("Sentinel TRL Training")
     print(f"  Task:    {cfg.task}")
     print(f"  Method:  {cfg.method}")
     print(f"  Model:   {cfg.model}")

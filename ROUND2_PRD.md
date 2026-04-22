@@ -1,4 +1,4 @@
-# Guardrail Arena — Round 2 PRD (Product Requirements Document)
+# Sentinel — Round 2 PRD (Product Requirements Document)
 
 > **Purpose**: This is the single source of truth for everything the team (Sahith, Varun, Pranush) needs to build for Round 2 of the Meta × HuggingFace × Cerebral Valley OpenEnv Hackathon. Hand this document to Claude Code. Every deliverable, code change, endpoint addition, file creation, testing requirement, and deployment step is specified here.
 
@@ -41,7 +41,7 @@
 
 ### 1.1 What We Built in Round 1
 
-**Guardrail Arena** is an OpenEnv-spec RL environment for training AI content safety agents. Live at `https://varunventra-guardrail-arena.hf.space`.
+**Sentinel** is an OpenEnv-spec RL environment for training AI content safety agents. Live at `https://varunventra-guardrail-arena.hf.space`.
 
 The agent acts as an LLM content moderator. Each step it receives an observation (user prompt + context + risk signals) and must choose: `allow`, `refuse`, `modify`, or `escalate`.
 
@@ -205,7 +205,7 @@ The agent acts as an LLM content moderator. Each step it receives an observation
 
 **Our mapping:**
 
-| Theme Element | Guardrail Arena Implementation |
+| Theme Element | Sentinel Implementation |
 |---------------|-------------------------------|
 | Competition | Adversary (attacker) vs. Defender (safety agent) — zero-sum |
 | Partially observable | Agent sees prompt text but NOT adversary's internal state (topic, intensity, fatigue counter, honeypot flag) |
@@ -219,7 +219,7 @@ This is exactly our use case — a safety oversight agent monitoring an LLM's I/
 
 ### 3.2 Secondary Theme: Theme #4 — Self-Improvement
 
-| Theme Element | Guardrail Arena Implementation |
+| Theme Element | Sentinel Implementation |
 |---------------|-------------------------------|
 | Adaptive curricula | Task 4 adversary escalates difficulty based on agent's weaknesses |
 | Self-play | Attacker ↔ Defender feedback loop creates automatic difficulty progression |
@@ -228,9 +228,9 @@ This is exactly our use case — a safety oversight agent monitoring an LLM's I/
 
 ### 3.3 Framing Rules (Apply to ALL Materials)
 
-**Always say**: "Guardrail Arena is a multi-agent adversarial training environment where an adaptive attacker and a safety defender co-evolve through interaction."
+**Always say**: "Sentinel is a multi-agent adversarial training environment where an adaptive attacker and a safety defender co-evolve through interaction."
 
-**Never say**: "Guardrail Arena is a classification benchmark" or "a safety evaluation dataset."
+**Never say**: "Sentinel is a classification benchmark" or "a safety evaluation dataset."
 
 **In technical contexts, emphasize**:
 1. The adversary is an agent with its own policy (FSM transitions)
@@ -240,7 +240,7 @@ This is exactly our use case — a safety oversight agent monitoring an LLM's I/
 5. The optimal defender policy requires theory-of-mind about adversary behavior
 
 **When talking to Meta judges specifically**:
-- GOAT trains the attacker side → Guardrail Arena trains the defender side → together they form a complete red-team/blue-team pipeline
+- GOAT trains the attacker side → Sentinel trains the defender side → together they form a complete red-team/blue-team pipeline
 - Every Llama deployment needs this — context-aware, adversarially robust guardrails
 - The asymmetric reward mirrors production priorities (false negatives > false positives)
 
@@ -256,7 +256,7 @@ This is a **mandatory minimum requirement**. Without it, the team is disqualifie
 
 A Google Colab notebook (`training_colab.ipynb`) that:
 1. Loads a small LLM via Unsloth (4-bit quantization)
-2. Connects to the Guardrail Arena environment via HTTP
+2. Connects to the Sentinel environment via HTTP
 3. Runs training episodes using TRL
 4. Produces reward curve plots
 5. Shows measurable improvement over zero-shot baseline
@@ -295,7 +295,7 @@ A Google Colab notebook (`training_colab.ipynb`) that:
                                      │ HTTPS
                                      ▼
                       ┌─────────────────────────┐
-                      │  Guardrail Arena API     │
+                      │  Sentinel API     │
                       │  HF Space or localhost   │
                       │  /reset → /step → /grader│
                       └─────────────────────────┘
@@ -385,7 +385,7 @@ print(f"Total params: {sum(p.numel() for p in model.parameters()):,}")
 **Cell 4: Environment Client**
 ```python
 class GuardrailEnvClient:
-    """HTTP client for Guardrail Arena environment."""
+    """HTTP client for Sentinel environment."""
 
     def __init__(self, base_url: str, task_id: str, request_delay: float = 0.3):
         self.base_url = base_url.rstrip("/")
@@ -724,7 +724,7 @@ print(f"{'='*70}")
 ```python
 def plot_training_results(metrics, config, save_path="reward_curves.png"):
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-    fig.suptitle(f"Guardrail Arena — Training Progress ({config.task_id})",
+    fig.suptitle(f"Sentinel — Training Progress ({config.task_id})",
                  fontsize=16, fontweight="bold")
 
     # ── Plot 1: Grader Score vs Episode ──
@@ -837,7 +837,7 @@ print(json.dumps(summary, indent=2))
    ```python
    from google.colab import drive
    drive.mount('/content/drive')
-   # Save to: /content/drive/MyDrive/guardrail_arena_checkpoints/
+   # Save to: /content/drive/MyDrive/sentinel_checkpoints/
    ```
 
 ---
@@ -881,7 +881,7 @@ python train_trl.py --model unsloth/Qwen2.5-7B-Instruct-bnb-4bit --task basic_th
 ### 5.4 Script Structure
 
 ```python
-"""train_trl.py — Minimal TRL training script for Guardrail Arena.
+"""train_trl.py — Minimal TRL training script for Sentinel.
 
 Usage:
     python train_trl.py --task basic_threat_detection --method ppo --episodes 20
@@ -1034,7 +1034,7 @@ SFT cannot solve Task 4 because the training data is static — it doesn't captu
   - Red dashed: all-allow baseline
   - Orange dashed: all-refuse baseline
   - Green dashed: Llama-3.1-8B zero-shot
-- Title: "Guardrail Arena — Training Progress (Task 1)"
+- Title: "Sentinel — Training Progress (Task 1)"
 - Must be readable at slide resolution (large fonts, clean grid)
 - Save as PNG at 300 DPI
 
@@ -1074,7 +1074,7 @@ A markdown blog post (`blog_post.md`) to publish on HuggingFace. Must be readabl
 ### 8.2 Structure (Strict — Every Section Required)
 
 ```markdown
-# Guardrail Arena: Training AI Safety Agents with Multi-Agent RL
+# Sentinel: Training AI Safety Agents with Multi-Agent RL
 
 ## The Problem (3 sentences)
 [Hook with the herbal tea example. Then: "Every safety benchmark evaluates
@@ -1082,7 +1082,7 @@ prompts one at a time. None can detect a 4-turn coordinated extraction attempt
 where no individual turn is flagged as harmful."]
 
 ## What We Built (4 sentences)
-[Guardrail Arena is an OpenEnv RL environment with 4 tasks... Two novel mechanics:
+[Sentinel is an OpenEnv RL environment with 4 tasks... Two novel mechanics:
 branching conversations (Task 3) and adaptive adversary FSM (Task 4)...
 A 235B parameter model scores 0 on Task 4... Live at URL]
 
@@ -1098,7 +1098,7 @@ goes from 0.0 to 0.95 in 20 episodes.]
 ![Training Results](reward_curves.png)
 
 ## Why This Matters (2 sentences)
-[Meta's GOAT trains the attacker. Guardrail Arena trains the defender.
+[Meta's GOAT trains the attacker. Sentinel trains the defender.
 Together: complete red-team/blue-team pipeline.]
 
 ## Try It
@@ -1113,7 +1113,7 @@ Together: complete red-team/blue-team pipeline.]
 - 1-2 embedded images (reward curve, architecture diagram)
 - No academic jargon
 - End with call-to-action: "Try your own agent against it"
-- Publish at: `https://huggingface.co/blog/[username]/guardrail-arena`
+- Publish at: `https://huggingface.co/blog/[username]/sentinel`
 
 ---
 
@@ -1129,7 +1129,7 @@ See `PITCH_GUIDE.md` for complete details. Summary:
 
 ### 9.1 Slides to Create (4 total)
 
-1. **"Your guardrail misses coordinated attacks"** — WildGuard vs Guardrail Arena side-by-side
+1. **"Your guardrail misses coordinated attacks"** — WildGuard vs Sentinel side-by-side
 2. **Branching conversation diagram** — CONV_Q crossing with two paths
 3. **Task 4 state machine** — Simplified FSM for one topic
 4. **Training results** — Two reward curves + live URL
@@ -1429,7 +1429,7 @@ The current `GET /` endpoint returns a basic HTML landing page. Overhaul it to:
 
 ```html
 <!-- Section 1: Hero -->
-<h1>🛡️ Guardrail Arena</h1>
+<h1>🛡️ Sentinel</h1>
 <p>A multi-agent adversarial training environment for AI safety agents</p>
 <p>Theme: Multi-Agent Interactions | OpenEnv Hackathon 2026</p>
 
@@ -1902,8 +1902,8 @@ python baseline_oracle.py
 # MUST: All 4 tasks score 1.0000
 
 # 4. Verify Docker builds locally
-docker build -t guardrail-arena .
-docker run -p 7860:7860 guardrail-arena
+docker build -t sentinel .
+docker run -p 7860:7860 sentinel
 curl http://localhost:7860/health
 # MUST: {"status": "healthy"}
 
@@ -1968,7 +1968,7 @@ HF_TOKEN=<token> ENV_URL=https://varunventra-guardrail-arena.hf.space python inf
 - [ ] Opens in Colab without errors
 - [ ] First cell installs all dependencies without conflicts
 - [ ] Loads model via Unsloth (4-bit quantization) without OOM on T4
-- [ ] Connects to Guardrail Arena API (health check passes)
+- [ ] Connects to Sentinel API (health check passes)
 - [ ] Runs at least 10 episodes of training
 - [ ] Uses TRL (PPOTrainer or SFTTrainer)
 - [ ] Produces 4-panel reward curve plot

@@ -1,10 +1,10 @@
-# Training Strategy for Guardrail Arena
+# Training Strategy for Sentinel
 
 > A 3-phase curriculum that progresses from supervised imitation to online RL to adversarial self-play.
 
 ## Overview
 
-Guardrail Arena exposes four tasks of increasing difficulty. The right training method depends on the task:
+Sentinel exposes four tasks of increasing difficulty. The right training method depends on the task:
 
 | Task | What makes it hard | Best method |
 |---|---|---|
@@ -48,7 +48,7 @@ python train_sft.py --task basic_threat_detection --epochs 3
 
 **Goal**: Improve further by interacting with the live environment and receiving per-step rewards. The policy learns from its own mistakes in ways SFT cannot capture.
 
-**Why PPO**: The Guardrail Arena reward function is differentiable with respect to action choices but not with respect to model weights — we need policy gradient methods. PPO is stable, sample-efficient, and compatible with TRL's `PPOTrainer`.
+**Why PPO**: The Sentinel reward function is differentiable with respect to action choices but not with respect to model weights — we need policy gradient methods. PPO is stable, sample-efficient, and compatible with TRL's `PPOTrainer`.
 
 **Starting from the SFT checkpoint** (recommended for Tasks 1-3):
 ```bash

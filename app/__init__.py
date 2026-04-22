@@ -1,1 +1,1 @@
-# Guardrail Arena — LLM Safety Guardrail Training Environment
+# Sentinel — LLM Safety Guardrail Training Environment

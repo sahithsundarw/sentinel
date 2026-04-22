@@ -2,7 +2,7 @@
 
 # We Built a Content Safety Training Environment — and Watched a 235B Model Score Zero
 
-*Guardrail Arena | Meta x HuggingFace x Cerebral Valley OpenEnv Hackathon*
+*Sentinel | Meta x HuggingFace x Cerebral Valley OpenEnv Hackathon*
 
 ---
 
@@ -14,7 +14,7 @@ Static benchmarks measure what a model knows. They do not measure what happens w
 
 ## What We Built
 
-**Guardrail Arena** is an OpenRL-compatible training environment for content safety moderation. An agent receives a stream of user prompts and must classify each one: **allow**, **refuse**, **modify**, or **escalate**.
+**Sentinel** is an OpenRL-compatible training environment for content safety moderation. An agent receives a stream of user prompts and must classify each one: **allow**, **refuse**, **modify**, or **escalate**.
 
 The environment exposes a standard `reset / step / grader` interface, compatible with TRL's `PPOTrainer` and any RL framework.
 

@@ -6,7 +6,7 @@ import uvicorn
 
 
 def main() -> None:
-    """Start the Guardrail Arena server."""
+    """Start the Sentinel server."""
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",

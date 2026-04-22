@@ -1,5 +1,5 @@
 """
-Shared pytest fixtures for Guardrail Arena tests.
+Shared pytest fixtures for Sentinel tests.
 
 sys.path is configured here once for all test files.
 Individual test files must NOT add their own sys.path.insert calls.

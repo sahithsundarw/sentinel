@@ -2,7 +2,7 @@
 
 ## Context
 
-Guardrail Arena is a live RL environment at `https://varunventra-guardrail-arena.hf.space`. It has a FastAPI backend with these relevant endpoints:
+Sentinel is a live RL environment at `https://varunventra-guardrail-arena.hf.space`. It has a FastAPI backend with these relevant endpoints:
 
 ```
 POST /reset?task_id=<task_id>         → {session_id, prompt_id, user_prompt, application_context, user_risk_score, ...}
@@ -100,7 +100,7 @@ Apply theme via `data-theme="dark"` / `data-theme="light"` on `<html>`.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  ▣ GUARDRAIL ARENA          [1] [2] [3] [4]    [▶ START]   [◐ DARK]│
+│  ▣ SENTINEL          [1] [2] [3] [4]    [▶ START]   [◐ DARK]│
 │  AI Safety Training Environment    v2.0         ENV: [____________] │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -354,7 +354,7 @@ When opened in a browser (via `file://` or served by the FastAPI app at `GET /de
 ## Exact Behavior Required
 
 ### On page load
-- Show the Guardrail Arena branding (`🛡️ Guardrail Arena`)
+- Show the Sentinel branding (`🛡️ Sentinel`)
 - Show a task selector: 4 buttons — one per task, with difficulty labels
 - Show a large **"▶ START DEMO"** button
 - Show the environment URL in small text at the bottom, editable
@@ -375,7 +375,7 @@ The user clicks once. Everything plays out in front of them like a live feed. No
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  🛡️ GUARDRAIL ARENA          [Task 1] [Task 2] [Task 3] [Task 4]    │
+│  🛡️ SENTINEL          [Task 1] [Task 2] [Task 3] [Task 4]    │
 │                                                    ▶ START DEMO      │
 ├───────────────────┬─────────────────────┬───────────────────────────┤
 │                   │                     │                           │

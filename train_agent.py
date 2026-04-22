@@ -1,5 +1,5 @@
 """
-Minimal RL training loop for Guardrail Arena.
+Minimal RL training loop for Sentinel.
 
 Trains a tabular Q-learning agent using only numpy and the standard library.
 No PyTorch, no ML frameworks — runs anywhere.

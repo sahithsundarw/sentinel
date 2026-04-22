@@ -1,4 +1,4 @@
-"""generate_charts.py — Produce reward curve visualizations for Guardrail Arena Round 2.
+"""generate_charts.py — Produce reward curve visualizations for Sentinel Round 2.
 
 Generates Charts D, E, F, and a 4-panel combined PNG from baseline data.
 If results/local_training_results.json exists, uses real training data for LLM panel.
@@ -176,7 +176,7 @@ def chart_d_score_comparison(output_dir: str) -> None:
     ax.set_xticks(x)
     ax.set_xticklabels(TASK_LABELS, color="#9ca3af", fontsize=10)
     ax.set_ylabel("Grader Score (0.0 – 1.0)", color="#9ca3af", fontsize=12)
-    ax.set_title("Guardrail Arena — Score Comparison Across All Tasks & Agents",
+    ax.set_title("Sentinel — Score Comparison Across All Tasks & Agents",
                  color="#ffffff", fontsize=13, fontweight="bold")
     ax.set_ylim(0, 1.15)
     ax.tick_params(colors="#9ca3af")
@@ -241,7 +241,7 @@ def chart_f_model_comparison(output_dir: str) -> None:
     cbar.ax.tick_params(colors="#9ca3af")
     cbar.set_label("Grader Score", color="#9ca3af")
 
-    ax.set_title("Guardrail Arena — Model × Task Performance Matrix",
+    ax.set_title("Sentinel — Model × Task Performance Matrix",
                  color="#ffffff", fontsize=13, fontweight="bold", pad=12)
     for spine in ax.spines.values():
         spine.set_visible(False)
@@ -404,13 +404,15 @@ def chart_combined_4panel(output_dir: str, llm_results: dict | None) -> None:
     x = np.arange(4)
     width = 0.28
     zs_scores = BASELINES["llama_8b_zs"]
+    panel3_simulated = not bool(llm_results)
     tr_scores = [
         llm_results["final_score"] if (llm_results and i == 0) else BASELINES["llama_8b_zs"][i]
         for i in range(4)
     ] if llm_results else [s * 1.35 for s in BASELINES["llama_8b_zs"]]
 
     ax.bar(x - width / 2, zs_scores, width, label="Zero-shot", color="#6366f1", alpha=0.85)
-    ax.bar(x + width / 2, tr_scores, width, label="Trained (SFT)", color="#22c55e", alpha=0.85)
+    trained_label = "Trained (SFT)" if llm_results else "Trained (SFT — projected)"
+    ax.bar(x + width / 2, tr_scores, width, label=trained_label, color="#22c55e" if not panel3_simulated else "#f59e0b", alpha=0.85)
 
     for i, (zs, tr) in enumerate(zip(zs_scores, tr_scores)):
         ax.text(i - width / 2, zs + 0.01, f"{zs:.2f}", ha="center", fontsize=6.5, color="#d1d5db")
@@ -420,7 +422,12 @@ def chart_combined_4panel(output_dir: str, llm_results: dict | None) -> None:
     ax.set_xticks(x)
     ax.set_xticklabels(short_labels, color="#9ca3af", fontsize=7)
     ax.set_ylabel("Score", color="#9ca3af", fontsize=8)
-    ax.set_title("Before vs After Training", color="#f0f0f0", fontsize=10, fontweight="bold")
+    title3 = "Before vs After Training" if not panel3_simulated else "Before vs After Training (projected)"
+    ax.set_title(title3, color="#f0f0f0" if not panel3_simulated else "#f59e0b", fontsize=10, fontweight="bold")
+    if panel3_simulated:
+        ax.text(0.5, 0.97, "PROJECTED — run real training for actual values",
+                transform=ax.transAxes, ha="center", va="top",
+                fontsize=7, color="#f59e0b", style="italic")
     ax.set_ylim(0, 1.15)
     ax.tick_params(colors="#9ca3af", labelsize=7)
     ax.spines["bottom"].set_color("#1f2937")
@@ -470,7 +477,7 @@ def chart_combined_4panel(output_dir: str, llm_results: dict | None) -> None:
     ax.grid(True, axis="x", alpha=0.12, color="#374151")
 
     # Title
-    fig.suptitle("Guardrail Arena — Training Results", color="#ffffff",
+    fig.suptitle("Sentinel — Training Results", color="#ffffff",
                  fontsize=14, fontweight="bold", y=0.98)
 
     path = os.path.join(output_dir, "reward_curves_combined.png")
@@ -501,7 +508,7 @@ def _save_metadata(output_dir: str, charts: list[str]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate Guardrail Arena reward curve visualizations")
+    parser = argparse.ArgumentParser(description="Generate Sentinel reward curve visualizations")
     parser.add_argument("--output-dir", default="./results", help="Output directory for charts")
     parser.add_argument("--dpi", type=int, default=300, help="Chart DPI (default: 300)")
     parser.add_argument("--no-llm-panel", action="store_true",

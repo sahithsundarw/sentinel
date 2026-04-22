@@ -1,5 +1,5 @@
 """
-Starter RL Agent for Guardrail Arena -- Task 3 (multiturn_adversarial)
+Starter RL Agent for Sentinel -- Task 3 (multiturn_adversarial)
 
 Demonstrates how to train a policy against the environment using REINFORCE
 (policy gradient). Uses only httpx and numpy -- no heavy dependencies.
@@ -258,9 +258,9 @@ def train(env_url: str, n_episodes: int = 20) -> None:
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Starter RL agent for Guardrail Arena Task 3")
+    parser = argparse.ArgumentParser(description="Starter RL agent for Sentinel Task 3")
     parser.add_argument("--env-url",  default="http://localhost:7860",
-                        help="Guardrail Arena server URL (default: http://localhost:7860)")
+                        help="Sentinel server URL (default: http://localhost:7860)")
     parser.add_argument("--episodes", type=int, default=20,
                         help="Number of training episodes (default: 20)")
     args = parser.parse_args()

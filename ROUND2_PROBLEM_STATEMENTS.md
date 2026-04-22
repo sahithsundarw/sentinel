@@ -1,7 +1,7 @@
 # Round 2 Problem Statements — Multi-Agent Interactions
-## Guardrail Arena — Hackathon Round 2 Candidates
+## Sentinel — Hackathon Round 2 Candidates
 
-These problem statements all build directly on the existing Guardrail Arena project.
+These problem statements all build directly on the existing Sentinel project.
 Each is ranked and described in full submission format.
 
 ---
@@ -27,7 +27,7 @@ This is the most natural, powerful extension of your existing project.
 You already have a deterministic rule-based adversary (Task 4). This replaces that
 with a *learned* LLM attacker that improves alongside the defender — creating
 a genuine Red Team / Blue Team co-evolution loop. Meta's GOAT paper trains the attacker
-side. Guardrail Arena trains the defender side. This problem statement does both,
+side. Sentinel trains the defender side. This problem statement does both,
 simultaneously, in one environment. No existing safety benchmark does this.
 
 ---
@@ -42,7 +42,7 @@ simultaneously, in one environment. No existing safety benchmark does this.
 ---
 
 ### Environment
-**Guardrail Arena v2** — extends the existing HuggingFace Space environment.
+**Sentinel v2** — extends the existing HuggingFace Space environment.
 
 The existing Task 4 deterministic adversary is replaced by a **learned attacker agent**.
 Both agents run as independent policy models connected to the same environment session.
@@ -68,7 +68,7 @@ observation space it always has (user_prompt, conversation_history, user_risk_sc
                           = -R for missing                  = +R for bypassing
 ```
 
-The environment enforces the same asymmetric reward structure as existing Guardrail Arena
+The environment enforces the same asymmetric reward structure as existing Sentinel
 (missed attacks penalized 2× more than over-blocks). The attacker's reward is the
 defender's negative reward — making it a zero-sum game on attack turns only.
 
@@ -84,7 +84,7 @@ defender's negative reward — making it a zero-sum game on attack turns only.
 - Self-improvement: REINFORCE policy gradient on bypass events — learns which prompt framings, topic transitions, and surface variants the current defender fails on
 
 **Defender Agent:**
-- Same observation space as existing Guardrail Arena (no changes to defender interface)
+- Same observation space as existing Sentinel (no changes to defender interface)
 - Actions: allow / refuse / modify / escalate
 - Self-improvement: PPO with frozen LLM backbone for prompt encoding, trainable policy head
 - Cross-episode memory: user_session_history tracks which attack categories the defender
@@ -109,7 +109,7 @@ static tasks — despite never training on them directly.
 
 ### Reward / Evaluation Logic
 
-**Per-turn (defender):** same as existing Guardrail Arena reward function — unchanged.
+**Per-turn (defender):** same as existing Sentinel reward function — unchanged.
 
 **Per-turn (attacker):**
 ```
@@ -152,7 +152,7 @@ use layered defenses. This problem statement asks: can a *team* of specialized
 AI safety agents — each trained on a different attack category — collectively
 outperform a single generalist agent? It tests true multi-agent coordination
 (agents must communicate and resolve disagreements) and is directly buildable
-on top of Guardrail Arena's existing reward and evaluation infrastructure.
+on top of Sentinel's existing reward and evaluation infrastructure.
 
 ---
 
@@ -162,12 +162,12 @@ on top of Guardrail Arena's existing reward and evaluation infrastructure.
 > Can a coordinating team of specialized safety agents — a classifier, a
 > context-tracker, and a risk-assessor — communicate mid-episode, resolve
 > disagreements, and collectively outperform a monolithic generalist on
-> Guardrail Arena's adversarial task suite?
+> Sentinel's adversarial task suite?
 
 ---
 
 ### Environment
-**Guardrail Arena v2 — Multi-Panel Mode** — extends the existing environment with
+**Sentinel v2 — Multi-Panel Mode** — extends the existing environment with
 a new `/multi_step` endpoint that accepts a panel decision payload instead of a
 single action. The underlying tasks (1–4) are unchanged; only the agent interface
 changes.
@@ -226,7 +226,7 @@ Teams are evaluated on whether they can implement a smarter resolver
 
 ### Tasks
 
-All four existing Guardrail Arena tasks are used unchanged.
+All four existing Sentinel tasks are used unchanged.
 The panel is evaluated against the same grader scores.
 
 Additional multi-agent metrics:
@@ -289,7 +289,7 @@ safety decision than any binary classifier.
 ---
 
 ### Environment
-**Guardrail Arena v2 — Debate Mode** — same tasks, same rewards, same grader.
+**Sentinel v2 — Debate Mode** — same tasks, same rewards, same grader.
 New endpoint `/debate_step` accepts a structured debate transcript instead of
 a single action.
 
@@ -346,7 +346,7 @@ Prosecutor        Defense
 
 ### Tasks
 
-All four Guardrail Arena tasks are used.
+All four Sentinel tasks are used.
 
 The debate format is most valuable on:
 - **Task 2** gray-zone prompts (same prompt, different correct action by context)
@@ -399,7 +399,7 @@ serving different applications (a children's education bot, a creative writing t
 a customer support agent). This problem statement asks: can domain-specialized
 safety agents share what they learn — attack patterns discovered in one domain
 propagating as early warnings to others — and collectively outperform isolated agents?
-It maps directly to Guardrail Arena's existing application_context feature (Task 2)
+It maps directly to Sentinel's existing application_context feature (Task 2)
 and extends it into a full federated learning setting.
 
 ---
@@ -417,7 +417,7 @@ and extends it into a full federated learning setting.
 ---
 
 ### Environment
-**Guardrail Arena v2 — Federated Mode** — three parallel environment instances,
+**Sentinel v2 — Federated Mode** — three parallel environment instances,
 each running a different `application_context` domain. A shared **Threat Intelligence
 Bus** sits between them: agents can publish anonymized attack signatures and
 subscribe to alerts from other domains.
@@ -537,5 +537,5 @@ episode N) before any individual agent's score degrades by > 0.10.
 
 **Overall recommendation: Problem Statement 1** — it directly extends Task 4's
 deterministic adversary into a learned adversary, makes both sides improve simultaneously,
-and tells the cleanest story: "Meta's GOAT trains the attacker; Guardrail Arena trains
+and tells the cleanest story: "Meta's GOAT trains the attacker; Sentinel trains
 the defender; Round 2 does both at once."

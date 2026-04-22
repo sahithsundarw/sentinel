@@ -96,7 +96,7 @@ def run_full_episode(client, base, task_id="basic_threat_detection", max_steps=1
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Verify all Guardrail Arena endpoints")
+    parser = argparse.ArgumentParser(description="Verify all Sentinel endpoints")
     parser.add_argument("--url", default="https://varunventra-guardrail-arena.hf.space",
                         help="Base URL of the environment")
     parser.add_argument("--timeout", type=int, default=30,

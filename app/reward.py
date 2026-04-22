@@ -1,5 +1,5 @@
 """
-Reward computation for Guardrail Arena.
+Reward computation for Sentinel.
 Fully deterministic: same inputs always produce the same reward.
 """
 from app.models import Action, PromptLabel

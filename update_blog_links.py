@@ -16,8 +16,8 @@ GITHUB_URL = "https://github.com/sahithsundarw/sentinel"
 HF_SPACE_URL = "https://varunventra-guardrail-arena.hf.space"
 
 HF_FRONTMATTER = """---
-title: "Guardrail Arena: Training AI Safety Agents with Multi-Agent RL"
-thumbnail: /blog/assets/guardrail-arena/reward_curves.png
+title: "Sentinel: Training AI Safety Agents with Multi-Agent RL"
+thumbnail: /blog/assets/sentinel/reward_curves.png
 authors:
 - user: varunventra
 - user: sahithsundarw

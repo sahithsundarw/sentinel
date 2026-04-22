@@ -1,12 +1,12 @@
 """
-Inference script for Guardrail Arena.
+Inference script for Sentinel.
 Runs a model through all 3 tasks and returns grader scores with behavioral analysis.
 
 Environment variables:
     API_BASE_URL  — OpenAI-compatible endpoint base URL (required)
     MODEL_NAME    — Model to use, e.g. "meta-llama/Llama-3.1-70B-Instruct" (required)
     HF_TOKEN      — API key / HuggingFace token (required)
-    ENV_URL       — Guardrail Arena server URL (default: http://localhost:7860)
+    ENV_URL       — Sentinel server URL (default: http://localhost:7860)
 
 Usage:
     API_BASE_URL=https://router.huggingface.co/v1 \\
@@ -261,7 +261,7 @@ def run_task(task_id: str) -> tuple[float, list[dict]]:
     grader_params = {"session_id": session_id} if session_id else {}
 
     # Required hackathon output: [START] line at episode begin
-    print(f"[START] task={task_id} env=guardrail-arena model={_model_name}")
+    print(f"[START] task={task_id} env=sentinel model={_model_name}")
 
     done = False
     step_results = []

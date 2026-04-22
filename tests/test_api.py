@@ -1,5 +1,5 @@
 """
-API layer tests for Guardrail Arena.
+API layer tests for Sentinel.
 Uses FastAPI TestClient (no live server required).
 """
 import pytest

@@ -1,13 +1,13 @@
 ---
-title: "Guardrail Arena: Training AI Safety Agents with Multi-Agent RL"
-thumbnail: /blog/assets/guardrail-arena/reward_curves.png
+title: "Sentinel: Training AI Safety Agents with Multi-Agent RL"
+thumbnail: /blog/assets/sentinel/reward_curves.png
 authors:
 - user: varunventra
 - user: sahithsundarw
 - user: pranush
 ---
 
-*Posted to HuggingFace Blog | Guardrail Arena | Meta x HuggingFace x Cerebral Valley OpenEnv Hackathon*
+*Posted to HuggingFace Blog | Sentinel | Meta x HuggingFace x Cerebral Valley OpenEnv Hackathon*
 
 ---
 
@@ -19,7 +19,7 @@ Static benchmarks measure what a model knows. They do not measure what happens w
 
 ## What We Built
 
-**Guardrail Arena** is an OpenRL-compatible training environment for content safety moderation. An agent receives a stream of user prompts and must classify each one:
+**Sentinel** is an OpenRL-compatible training environment for content safety moderation. An agent receives a stream of user prompts and must classify each one:
 
 - **allow** — safe content, let it through
 - **refuse** — clear violation, block it
@@ -52,7 +52,7 @@ The 235B parameter Qwen model scores the same as "always refuse" on Task 4. A 60
 
 Model scale does not help. Policy learning does.
 
-![Task 4 Q-Learner Learning Curve](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/task4_learning_curve.png)
+![Task 4 Q-Learner Learning Curve](results/task4_learning_curve.png)
 
 ## Why This Matters
 
@@ -60,7 +60,7 @@ Safety evaluation is a solved problem. Safety *training* is not.
 
 The gap between Tasks 1–3 (where large models do well) and Task 4 (where they fail completely) shows that **adversarial robustness requires online learning**, not bigger models or better prompts.
 
-Guardrail Arena makes that gap measurable — and trainable.
+Sentinel makes that gap measurable — and trainable.
 
 ## Try It
 

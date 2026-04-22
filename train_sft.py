@@ -1,4 +1,4 @@
-"""train_sft.py -- Supervised Fine-Tuning baseline for Guardrail Arena.
+"""train_sft.py -- Supervised Fine-Tuning baseline for Sentinel.
 
 Uses labeled training data from /training_data endpoint to teach an LLM
 the correct action mapping for content safety moderation.
@@ -307,7 +307,7 @@ def run_sft(args, env: EnvClient, model, tokenizer) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="SFT supervised baseline training for Guardrail Arena",
+        description="SFT supervised baseline training for Sentinel",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--task", default="basic_threat_detection",
@@ -315,7 +315,7 @@ def main() -> None:
                                  "multiturn_adversarial", "adversarial_adaptation"],
                         help="Task to train on")
     parser.add_argument("--env-url", default="http://localhost:7860",
-                        help="Guardrail Arena environment URL")
+                        help="Sentinel environment URL")
     parser.add_argument("--model", default="unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
                         help="Unsloth model name")
     parser.add_argument("--epochs", type=int, default=3, help="Number of SFT epochs")
@@ -332,7 +332,7 @@ def main() -> None:
 
     os.makedirs(args.output, exist_ok=True)
 
-    print(f"Guardrail Arena SFT Training")
+    print(f"Sentinel SFT Training")
     print(f"  Task:       {args.task}")
     print(f"  Model:      {args.model}")
     print(f"  Epochs:     {args.epochs}")

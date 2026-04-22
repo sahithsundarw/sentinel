@@ -153,7 +153,7 @@ def save_results(task_id: str, method: str, zero_shot: float, final: float,
         "episodes": episodes,
         "scores": [round(s, 4) for s in scores],
         "timestamp": datetime.utcnow().isoformat() + "Z",
-        "env": "guardrail_arena",
+        "env": "sentinel",
         "baselines": {
             "all_allow": 0.3750,
             "all_refuse": 0.3534,
@@ -176,7 +176,7 @@ def print_summary(task_id: str, zero_shot: float, final: float, best: float,
 
     print()
     print("=" * 40)
-    print("GUARDRAIL ARENA - TRAINING COMPLETE")
+    print("SENTINEL - TRAINING COMPLETE")
     print("=" * 40)
     print(f"Task:        {task_id}")
     print(f"Model:       {model}")
@@ -196,7 +196,7 @@ def print_summary(task_id: str, zero_shot: float, final: float, best: float,
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Run or simulate LLM training on Guardrail Arena"
+        description="Run or simulate LLM training on Sentinel"
     )
     parser.add_argument("--task", default="basic_threat_detection",
                         choices=list(ZERO_SHOT_BASELINES.keys()),
@@ -215,7 +215,7 @@ def main() -> None:
                         help="Random seed for mock curve generation")
     args = parser.parse_args()
 
-    print("Guardrail Arena — Local Training Runner")
+    print("Sentinel — Local Training Runner")
     print("=" * 50)
 
     task_id = args.task

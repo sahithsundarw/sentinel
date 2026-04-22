@@ -1,5 +1,5 @@
 """
-demo_populate.py — Populate the Guardrail Arena dashboard with demo data.
+demo_populate.py — Populate the Sentinel dashboard with demo data.
 Run after the server is up. Posts training curves for all 4 tasks in parallel
 and completes a live episode to get a session ID for the dashboard.
 """
@@ -114,7 +114,7 @@ def run_demo_episode():
 
 def main():
     print("=" * 55)
-    print("  Guardrail Arena — Demo Setup")
+    print("  Sentinel — Demo Setup")
     print("=" * 55)
 
     print("\nChecking server...", end=" ", flush=True)

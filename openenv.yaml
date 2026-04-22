@@ -1,4 +1,4 @@
-name: guardrail-arena
+name: sentinel
 description: "An RL environment for training AI agents to act as content safety moderators for LLM systems. The agent must distinguish safe prompts from adversarial attacks (jailbreaks, prompt injections, social engineering) and take the appropriate action (allow, refuse, modify, escalate) while balancing safety and helpfulness. Features two live RL mechanics: (1) Dynamic user_risk_score — starts at 0.5 and shifts each step based on agent history; missing an attack lowers the score (raising future missed-attack penalties), while correctly blocking raises it, so every decision compounds into future reward. (2) Branching conversations in Task 3 — adversarial conversations fork at their crossing point: catch the attack and the next turn is a reframed attempt at the same exploit; miss it and the next turn is a deeper, more direct demand. Future observations are a direct function of past agent actions."
 author: "varunventra"
 homepage: "https://github.com/sahithsundarw/sentinel"

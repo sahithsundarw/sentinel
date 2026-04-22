@@ -1,5 +1,5 @@
 """
-Baseline inference script for Guardrail Arena.
+Baseline inference script for Sentinel.
 
 Two modes:
   1. LLM mode (default): uses OpenAI gpt-4o-mini. Requires OPENAI_API_KEY.

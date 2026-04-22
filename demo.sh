@@ -1,12 +1,12 @@
 #!/bin/bash
-# Guardrail Arena — Demo Launcher (Mac/Linux)
+# Sentinel — Demo Launcher (Mac/Linux)
 # Double-click or: chmod +x demo.sh && ./demo.sh
 
 set -e
 
 echo ""
 echo " ============================================"
-echo "   Guardrail Arena — Starting Demo..."
+echo "   Sentinel — Starting Demo..."
 echo " ============================================"
 echo ""
 
@@ -59,7 +59,7 @@ echo "Server ready!"
 # ── Open browser to demo runner ───────────────────────────────────
 echo ""
 echo "============================================"
-echo "  GUARDRAIL ARENA DEMO READY"
+echo "  SENTINEL DEMO READY"
 echo "============================================"
 echo ""
 echo "  Demo Runner:  http://localhost:7860/demo_runner"

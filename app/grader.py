@@ -1,5 +1,5 @@
 """
-Task graders for Guardrail Arena.
+Task graders for Sentinel.
 All graders are fully deterministic: same inputs → same score.
 Scores are normalized to [0.0, 1.0].
 

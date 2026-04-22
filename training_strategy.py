@@ -1,4 +1,4 @@
-"""training_strategy.py -- Full 3-phase training pipeline for Guardrail Arena.
+"""training_strategy.py -- Full 3-phase training pipeline for Sentinel.
 
 Orchestrates SFT -> PPO -> DPO -> Self-Play curriculum in sequence.
 Each phase builds on the previous checkpoint.
@@ -328,7 +328,8 @@ def phase_ppo(args, env: EnvClient, model, tokenizer) -> dict:
             action = parse_action(response_text, prompt_id)
             result = env.step(action)
 
-            step_reward = result.get("reward", 0.0)
+            _r = result.get("reward", 0.0)
+            step_reward = float(_r.get("score", 0.0) if isinstance(_r, dict) else _r)
             ep_reward += step_reward
             q_buf.append(input_ids[0])
             r_buf.append(gen_ids)
@@ -483,7 +484,8 @@ def phase_self_play(args, env: EnvClient, model, tokenizer) -> dict:
             action = parse_action(response_text, prompt_id)
             result = env.step(action)
 
-            step_reward = result.get("reward", 0.0)
+            _r = result.get("reward", 0.0)
+            step_reward = float(_r.get("score", 0.0) if isinstance(_r, dict) else _r)
             ep_reward += step_reward
             q_buf.append(input_ids[0])
             r_buf.append(gen_ids)
@@ -543,7 +545,7 @@ def phase_eval_all(args, model, tokenizer) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Guardrail Arena 3-phase training pipeline",
+        description="Sentinel 3-phase training pipeline",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--phase", default="ppo",
@@ -567,7 +569,7 @@ def main() -> None:
 
     os.makedirs(args.output, exist_ok=True)
 
-    print("Guardrail Arena Training Pipeline")
+    print("Sentinel Training Pipeline")
     print(f"  Phase:  {args.phase}")
     print(f"  Task:   {args.task}")
     print(f"  Env:    {args.env_url}")

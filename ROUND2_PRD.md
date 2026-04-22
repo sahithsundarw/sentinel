@@ -102,7 +102,7 @@ The agent acts as an LLM content moderator. Each step it receives an observation
 | HuggingFace Space | `https://huggingface.co/spaces/varunventra/guardrail-arena` | Deployed via orphan `hf-clean` |
 | Live API | `https://varunventra-guardrail-arena.hf.space` | — |
 
-**Critical deployment rule**: HuggingFace pushes MUST use `git push hf hf-clean:main --force` from an orphan branch. The GitHub `main` history contains an exposed token (`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`) that HF's pre-receive hook rejects. This token MUST be revoked at `huggingface.co/settings/tokens`.
+**Critical deployment rule**: HuggingFace pushes MUST use `git push hf hf-clean:main --force` from an orphan branch. The GitHub `main` history contains an exposed token (`<REVOKED>`) that HF's pre-receive hook rejects. That token has been revoked at `huggingface.co/settings/tokens`.
 
 ### 1.6 Existing Endpoints
 

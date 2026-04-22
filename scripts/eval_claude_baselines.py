@@ -45,10 +45,13 @@ def get_claude_action(model_id: str, observation: dict) -> tuple[str, str]:
     )
     message = client.messages.create(
         model=model_id,
-        max_tokens=10,
+        max_tokens=20,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": obs_text}],
     )
+    # content is empty when Anthropic's server-side filter intercepts adversarial prompts
+    if not message.content or message.content[0].type != "text":
+        return "refuse", "content filtered by API safety system"
     action = message.content[0].text.strip().lower()
     if action not in ("allow", "refuse", "modify", "escalate"):
         action = "refuse"

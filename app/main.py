@@ -30,6 +30,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ValidationError, field_validator
 from typing import Optional, Literal
 from datetime import datetime, timezone
@@ -380,6 +381,10 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 # CORS (registered second = executes second from inside)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"], expose_headers=["X-Response-Time"])
 
+
+_results_dir = Path(__file__).resolve().parent.parent / "results"
+if _results_dir.exists():
+    app.mount("/results", StaticFiles(directory=str(_results_dir)), name="results")
 
 # Timing + stats decorators execute outermost (first registered = first executed for @middleware)
 @app.middleware("http")

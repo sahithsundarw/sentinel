@@ -126,8 +126,10 @@ for task_id in ("basic_threat_detection", "context_aware_policy"):
             continue
         break
     resp.raise_for_status()
-    raw_data.extend(resp.json())
-    print(f"  Fetched {len(resp.json())} examples for {task_id}")
+    # format=raw returns {"task_id": ..., "count": ..., "prompts": [...]}
+    prompts = resp.json()["prompts"]
+    raw_data.extend(prompts)
+    print(f"  Fetched {len(prompts)} examples for {task_id}")
 
 jsonl_lines = []
 for example in raw_data:

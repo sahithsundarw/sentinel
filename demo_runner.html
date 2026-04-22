@@ -8,75 +8,75 @@
 <style>
 /* ── Variables ─────────────────────────────────────────────────── */
 /* ══════════════════════════════════════════════════════════════ */
-/* DARK MODE — Pure Monochrome + One Vivid Electric Blue         */
+/* DARK MODE — Premium Navy + Blue                               */
 /* ══════════════════════════════════════════════════════════════ */
 :root[data-theme="dark"] {
-  /* Surfaces — pure near-black */
-  --bg-base:        #0a0a0a;
-  --bg-surface:     #111111;
-  --bg-surface-2:   #181818;
-  --bg-surface-3:   #222222;
+  /* Surfaces — deep layered navy */
+  --bg-base:        #07101f;
+  --bg-surface:     #0b1423;
+  --bg-surface-2:   #0f1a2e;
+  --bg-surface-3:   #172038;
 
-  /* Borders — clean neutral */
-  --border:         #252525;
-  --border-strong:  #333333;
+  /* Borders */
+  --border:         rgba(255,255,255,0.06);
+  --border-strong:  rgba(255,255,255,0.10);
 
-  /* Text — crisp cool white */
-  --text-primary:   #f0f0f0;
-  --text-secondary: #888888;
-  --text-tertiary:  #444444;
+  /* Text */
+  --text-primary:   #e6edf3;
+  --text-secondary: #9fb0c3;
+  --text-tertiary:  #6b7a90;
 
-  /* THE one vivid accent — electric blue */
+  /* Accent — blue */
   --blue:           #3b82f6;
   --blue-bright:    #60a5fa;
-  --blue-dim:       #0d1b33;
+  --blue-dim:       rgba(59,130,246,0.12);
 
-  /* Status signals — functional, not decorative */
-  --green:          #34d399;
-  --green-bright:   #6ee7b7;
-  --green-dim:      #01200e;
-  --red:            #f87171;
-  --red-bright:     #fca5a5;
-  --red-dim:        #2c0808;
-  --yellow:         #fbbf24;
-  --yellow-bright:  #fde68a;
-  --yellow-dim:     #241c00;
+  /* Status */
+  --green:          #22c55e;
+  --green-bright:   #4ade80;
+  --green-dim:      rgba(34,197,94,0.10);
+  --red:            #ef4444;
+  --red-bright:     #f87171;
+  --red-dim:        rgba(239,68,68,0.10);
+  --yellow:         #f59e0b;
+  --yellow-bright:  #fbbf24;
+  --yellow-dim:     rgba(245,158,11,0.10);
 }
 
 /* ══════════════════════════════════════════════════════════════ */
-/* LIGHT MODE — Clean White + Vivid Electric Blue               */
+/* LIGHT MODE — Soft Blue-Gray + Blue                           */
 /* ══════════════════════════════════════════════════════════════ */
 :root[data-theme="light"] {
-  /* Surfaces — crisp white */
-  --bg-base:        #f5f5f5;
+  /* Surfaces */
+  --bg-base:        #f0f4f8;
   --bg-surface:     #ffffff;
-  --bg-surface-2:   #f0f0f0;
-  --bg-surface-3:   #e5e5e5;
+  --bg-surface-2:   #f8fafc;
+  --bg-surface-3:   #e9eef5;
 
-  /* Borders — neutral gray */
-  --border:         #e0e0e0;
-  --border-strong:  #c8c8c8;
+  /* Borders */
+  --border:         rgba(0,0,0,0.07);
+  --border-strong:  rgba(0,0,0,0.13);
 
-  /* Text — pure near-black */
-  --text-primary:   #0a0a0a;
-  --text-secondary: #555555;
-  --text-tertiary:  #aaaaaa;
+  /* Text */
+  --text-primary:   #0f172a;
+  --text-secondary: #334155;
+  --text-tertiary:  #94a3b8;
 
-  /* THE one vivid accent — electric blue */
+  /* Accent — blue */
   --blue:           #2563eb;
-  --blue-bright:    #1d4ed8;
+  --blue-bright:    #3b82f6;
   --blue-dim:       #eff6ff;
 
-  /* Status signals */
-  --green:          #059669;
-  --green-bright:   #047857;
-  --green-dim:      #ecfdf5;
+  /* Status */
+  --green:          #16a34a;
+  --green-bright:   #22c55e;
+  --green-dim:      #dcfce7;
   --red:            #dc2626;
-  --red-bright:     #b91c1c;
-  --red-dim:        #fef2f2;
+  --red-bright:     #ef4444;
+  --red-dim:        #fee2e2;
   --yellow:         #d97706;
-  --yellow-bright:  #b45309;
-  --yellow-dim:     #fffbeb;
+  --yellow-bright:  #f59e0b;
+  --yellow-dim:     #fef3c7;
 }
 
 /* ── Font variables ────────────────────────────────────────────── */
@@ -160,11 +160,11 @@ html, body {
 }
 .task-btn.active {
   background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 700;
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.35);
 }
 .task-btn:hover:not(.active) {
   border-color: var(--blue); color: var(--blue);
-  box-shadow: 0 0 6px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.2);
 }
 
 /* Speed control */
@@ -203,7 +203,7 @@ html, body {
   background: var(--blue); border: 1px solid var(--blue); color: #fff;
   cursor: pointer; border-radius: 6px; flex-shrink: 0;
   transition: background 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
-  margin-left: auto; /* push to right in header-top */
+  margin-left: auto;
   box-shadow: 0 0 14px rgba(59, 130, 246, 0.3);
 }
 #start-btn:not(.running):hover {
@@ -232,25 +232,31 @@ html, body {
 #app {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 88px); /* 2px accent + 52px header-top + 34px header-bottom */
+  height: calc(100vh - 88px);
+  background: var(--bg-base);
+  padding-bottom: 10px;
 }
 
 #panels {
   display: grid;
-  grid-template-columns: 35% 30% 35%;
+  grid-template-columns: 1.2fr 2fr 1.5fr;
+  gap: 12px;
+  padding: 10px 12px 0;
   flex: 1;
   overflow: hidden;
   min-height: 0;
+  background: var(--bg-base);
 }
 
 /* ── Panel chrome ──────────────────────────────────────────────── */
 .panel {
   display: flex; flex-direction: column;
-  border-right: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 14px;
   overflow: hidden;
   background: var(--bg-surface);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
 }
-.panel:last-child { border-right: none; }
 
 .panel-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -518,7 +524,7 @@ html, body {
   border-radius: 2px; overflow: hidden;
 }
 #confidence-fill {
-  height: 100%; background: linear-gradient(90deg, #059669, #34d399); width: 50%;
+  height: 100%; background: linear-gradient(90deg, #2563eb, #3b82f6); width: 50%;
   transition: width 400ms ease;
 }
 #confidence-fill.state-green  { background: linear-gradient(90deg, #059669, #34d399); }
@@ -618,7 +624,7 @@ html, body {
 #final-bar-fill    { height: 100%; background: var(--blue); transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
 #es-llm-bar-fill   { height: 100%; background: var(--blue); transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
 .score-progress-fill.grade-a { background: linear-gradient(90deg, #059669, #34d399) !important; }
-.score-progress-fill.grade-b { background: linear-gradient(90deg, #1d4ed8, #3b82f6) !important; }
+.score-progress-fill.grade-b { background: linear-gradient(90deg, #2563eb, #3b82f6) !important; }
 .score-progress-fill.grade-c { background: linear-gradient(90deg, #b45309, #fbbf24) !important; }
 .score-progress-fill.grade-f { background: linear-gradient(90deg, #b91c1c, #f87171) !important; }
 .final-row {
@@ -655,7 +661,7 @@ html, body {
   cursor: pointer; border-radius: 6px;
   transition: background 150ms, box-shadow 150ms;
 }
-#run-again-btn:hover { background: var(--blue-bright); border-color: var(--blue-bright); box-shadow: 0 0 18px rgba(59, 130, 246, 0.4); }
+#run-again-btn:hover { background: var(--blue-bright); border-color: var(--blue-bright); box-shadow: 0 0 20px rgba(59, 130, 246, 0.45); }
 
 /* ── Panel 3: Attack Breakdown / Adversary ─────────────────────── */
 .attack-row {
@@ -709,10 +715,12 @@ html, body {
 
 /* ── Risk Timeline (bottom) ────────────────────────────────────── */
 #timeline-panel {
-  height: 88px; flex-shrink: 0;
+  height: 72px; flex-shrink: 0;
   background: var(--bg-surface);
-  border-top: 1px solid var(--border);
   display: flex; flex-direction: column;
+  margin: 6px 12px 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
 }
 .tl-header {
   font-family: var(--font-mono); font-size: 10px; font-weight: 600;
@@ -925,7 +933,7 @@ html, body {
   border-top: 1px solid var(--border); margin-top: 4px;
 }
 
-/* ── Baseline table — generous row height in Panel 3 ────────────── */
+/* ── Baseline table — row sizing ────────────────────────────────── */
 .bl-row { font-size: 12px; }
 .bl-task { font-size: 12px; color: var(--text-primary); font-weight: 500; }
 .bl-score-cell { font-size: 13px; }
@@ -971,11 +979,11 @@ html, body {
 }
 
 /* ── Timeline — compact ──────────────────────────────────────────── */
-#timeline-panel { height: 64px; }
+/* (height set in base #timeline-panel above) */
 .tl-header { padding: 5px 16px 0; }
 
 /* ── Header — subtle bottom glow when running ───────────────────── */
-#header-top.running { border-bottom-color: var(--blue); box-shadow: 0 1px 0 0 rgba(59, 130, 246, 0.15); }
+#header-top.running { border-bottom-color: var(--blue); box-shadow: 0 1px 0 0 rgba(59, 130, 246, 0.2); }
 
 /* ── End state score — grade colors ────────────────────────────── */
 .es-score-big.grade-a { color: var(--green); }
@@ -1004,205 +1012,451 @@ input:focus-visible  { outline: none; }
 #session-id-display { display: none; }
 
 /* ════════════════════════════════════════════════════════════════
-   VISUAL UPGRADE — layered depth, gradients, micro-interactions
+   VISUAL UPGRADE v4 — Premium Navy + Blue
    ════════════════════════════════════════════════════════════════ */
 
-/* 1 ── Page background: radial glows instead of flat black */
-html, body {
-  background:
-    radial-gradient(ellipse 70% 50% at 12% 0%,   rgba(59,130,246,0.10) 0%, transparent 60%),
-    radial-gradient(ellipse 55% 40% at 88% 100%,  rgba(139,92,246,0.08) 0%, transparent 55%),
-    #070b10 !important;
+/* ── SHARED: layout + shape + animation ── */
+#header-wrap, #app { position: relative; z-index: 1; }
+
+@keyframes accent-flow {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@keyframes run-idle-glow {
+  0%, 100% { box-shadow: 0 0 14px rgba(59,130,246,0.5), 0 2px 12px rgba(59,130,246,0.3); }
+  50%       { box-shadow: 0 0 32px rgba(59,130,246,0.8), 0 4px 22px rgba(59,130,246,0.5); }
 }
 
-/* 2 ── Accent line: animated gradient instead of solid blue */
 #accent-line {
   height: 2px !important;
-  background: linear-gradient(90deg, #3b82f6 0%, #a78bfa 50%, #3b82f6 100%) !important;
+  background: linear-gradient(90deg,
+    transparent 0%, rgba(59,130,246,0.6) 20%, #60a5fa 50%, rgba(59,130,246,0.6) 80%, transparent 100%) !important;
   background-size: 200% 100% !important;
-  animation: accent-flow 5s linear infinite !important;
-}
-@keyframes accent-flow { to { background-position: -200% 0; } }
-
-/* 3 ── Header: glass morphism */
-#header-top {
-  background: rgba(7,11,16,0.92) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
-  border-bottom: 1px solid rgba(255,255,255,0.07) !important;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.05), 0 4px 28px rgba(0,0,0,0.5) !important;
-}
-#header-bottom {
-  background: rgba(7,11,16,0.85) !important;
-  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+  animation: accent-flow 4s linear infinite !important;
 }
 
-/* 4 ── Run Episode button: pulsing glow (idle) + scale (hover) */
-@keyframes run-idle-glow {
-  0%, 100% { box-shadow: 0 0 10px rgba(59,130,246,0.35), 0 2px 8px rgba(59,130,246,0.2),  inset 0 1px 0 rgba(255,255,255,0.12); }
-  50%       { box-shadow: 0 0 22px rgba(59,130,246,0.55), 0 4px 14px rgba(59,130,246,0.3), inset 0 1px 0 rgba(255,255,255,0.18); }
-}
-#start-btn {
-  transition: all 0.2s ease !important;
-  border-radius: 8px !important;
-  letter-spacing: 0.05em !important;
-}
-#start-btn:not(.running) {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
-  border: 1px solid rgba(59,130,246,0.5) !important;
-  animation: run-idle-glow 2.8s ease-in-out infinite !important;
-}
-#start-btn:not(.running):hover {
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
-  box-shadow: 0 0 32px rgba(59,130,246,0.7), 0 6px 20px rgba(59,130,246,0.4) !important;
-  transform: scale(1.04) !important;
-  animation: none !important;
-}
-#start-btn:active { transform: scale(0.97) !important; animation: none !important; }
+/* Button shapes */
+.task-btn     { border-radius: 6px !important; transition: all 0.18s cubic-bezier(0.4,0,0.2,1) !important; font-size: 11px !important; }
+.speed-btn    { border-radius: 5px !important; }
+#model-select { border-radius: 5px !important; }
+#start-btn    { border-radius: 8px !important; letter-spacing: 0.06em !important; font-size: 12px !important; transition: all 0.2s cubic-bezier(0.4,0,0.2,1) !important; }
+#run-again-btn { border-radius: 8px !important; transition: all 0.2s cubic-bezier(0.4,0,0.2,1) !important; }
+.panel-badge  { border-radius: 20px !important; font-size: 9px !important; padding: 2px 9px !important; }
+.api-toast    { border-radius: 8px !important; backdrop-filter: blur(16px) !important; }
 
-/* 5 ── Task buttons: gradient when active, glow on hover */
-.task-btn {
-  border-radius: 6px !important;
-  transition: all 0.15s ease !important;
+/* Stat cards — gap-based, rounded */
+.stat-grid {
+  display: grid !important; grid-template-columns: 1fr 1fr !important;
+  gap: 8px !important; background: transparent !important; border: none !important;
+  border-radius: 0 !important; overflow: visible !important;
+  box-shadow: none !important; margin-bottom: 10px !important;
 }
-.task-btn.active {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
-  box-shadow: 0 0 14px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.15) !important;
-  border-color: rgba(59,130,246,0.6) !important;
-}
-.task-btn:hover:not(.active) {
-  transform: scale(1.02) !important;
-}
-
-/* 6 ── Panels: gradient surfaces + stronger borders */
-.panel {
-  background: linear-gradient(180deg,
-    rgba(255,255,255,0.045) 0%,
-    rgba(255,255,255,0.02) 100%) !important;
-  border-right: 1px solid rgba(255,255,255,0.08) !important;
-}
-.panel.panel-running {
-  border-top: 2px solid var(--blue) !important;
-  box-shadow: inset 0 2px 0 rgba(59,130,246,0.1) !important;
-}
-
-/* 7 ── Panel headers: darker glass + stronger label */
-.panel-header {
-  background: rgba(0,0,0,0.35) !important;
-  border-bottom: 1px solid rgba(255,255,255,0.07) !important;
-  padding: 10px 16px !important;
-}
-.panel-title {
-  font-size: 11px !important;
-  letter-spacing: 0.12em !important;
-  color: rgba(255,255,255,0.5) !important;
-}
-
-/* 8 ── Stat cells: gradient surfaces + bigger numbers */
 .stat-cell {
-  background: linear-gradient(145deg,
-    rgba(255,255,255,0.055) 0%,
-    rgba(255,255,255,0.02) 100%) !important;
+  border-radius: 12px !important; padding: 16px 18px !important;
+  position: relative; overflow: hidden;
+  transition: border-color 200ms ease, box-shadow 200ms ease !important;
 }
 .stat-num-big {
-  font-size: 36px !important;
-  letter-spacing: -0.04em !important;
+  font-size: 36px !important; font-weight: 700 !important;
+  letter-spacing: -0.04em !important; font-variant-numeric: tabular-nums !important;
 }
-.stat-grid {
-  border-radius: 8px !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04) !important;
-}
+.stat-lbl { font-size: 9px !important; letter-spacing: 0.16em !important; font-weight: 600 !important; }
 
-/* 9 ── Counter cells */
+/* Counter tiles */
 .counters {
-  border-radius: 8px !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+  display: grid !important; grid-template-columns: repeat(4, 1fr) !important;
+  gap: 6px !important; background: transparent !important; border: none !important;
+  border-radius: 0 !important; overflow: visible !important;
+  box-shadow: none !important; margin-bottom: 10px !important;
 }
-.counter-cell { background: rgba(255,255,255,0.03) !important; }
-.counter-num  { font-size: 30px !important; letter-spacing: -0.03em !important; }
+.counter-cell {
+  border-radius: 10px !important; padding: 10px 6px !important;
+  transition: background-color 180ms ease, border-color 180ms ease !important;
+}
+.counter-num  { font-size: 24px !important; letter-spacing: -0.03em !important; font-variant-numeric: tabular-nums !important; }
+.counter-lbl  { font-size: 8px !important; letter-spacing: 0.14em !important; }
 
-/* 10 ── Idle title: gradient text */
-.idle-title {
-  background: linear-gradient(135deg, #f1f5f9 0%, #64748b 100%) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
-  font-size: 50px !important;
-  letter-spacing: -0.05em !important;
-}
-.idle-sub   { font-size: 15px !important; color: rgba(255,255,255,0.4) !important; }
-.idle-stats { color: rgba(255,255,255,0.2) !important; }
-.idle-status .status-text {
-  color: #60a5fa !important;
-  letter-spacing: 0.2em !important;
-}
+/* Risk bar */
+.conf-track { height: 8px !important; border-radius: 4px !important; }
+.conf-lbl   { font-size: 9px !important; letter-spacing: 0.12em !important; }
 
-/* 11 ── Logo name: gradient text */
-#logo-name {
-  background: linear-gradient(135deg, #f1f5f9 0%, #94a3b8 100%) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
-  font-size: 16px !important;
-  letter-spacing: 0.08em !important;
-}
+/* Feed + table rows */
+.feed-row     { border-left-width: 3px !important; transition: background-color 140ms ease !important; }
+.bl-row       { transition: background-color 140ms ease !important; }
+.bl-score-cell { font-variant-numeric: tabular-nums !important; }
 
-/* 12 ── Feed rows: slightly more padding + smoother left border */
-.feed-row {
-  border-left-width: 3px !important;
-  transition: background-color 150ms ease !important;
-}
-.feed-row:not(.in-progress):hover {
-  background-color: rgba(255,255,255,0.025) !important;
-}
-
-/* 13 ── Run Again button: gradient */
-#run-again-btn {
-  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
-  border-radius: 8px !important;
-  transition: all 0.2s ease !important;
-  box-shadow: 0 0 14px rgba(59,130,246,0.3) !important;
-}
-#run-again-btn:hover {
-  background: linear-gradient(135deg, #60a5fa, #3b82f6) !important;
-  box-shadow: 0 0 26px rgba(59,130,246,0.55) !important;
-  transform: scale(1.02) !important;
-}
-
-/* 14 ── End-state score: bigger, tighter */
+/* End state score */
 .es-score-big {
-  font-size: 56px !important;
-  letter-spacing: -0.04em !important;
+  font-size: 56px !important; letter-spacing: -0.05em !important;
+  font-variant-numeric: tabular-nums !important;
 }
 
-/* 15 ── Timeline panel: glass */
-#timeline-panel {
-  background: rgba(0,0,0,0.4) !important;
+/* Panel header text */
+.panel-title {
+  font-size: 9px !important; letter-spacing: 0.2em !important;
+  font-weight: 700 !important; text-transform: uppercase !important;
+}
+
+/* Terminal idle state */
+.idle-terminal {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column;
+  font-family: var(--font-mono);
+}
+.term-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  background: var(--bg-surface-2); flex-shrink: 0;
+}
+.term-dot { width: 9px; height: 9px; border-radius: 50%; }
+.term-dot.red    { background: #ef4444; opacity: 0.65; }
+.term-dot.yellow { background: #f59e0b; opacity: 0.65; }
+.term-dot.green  { background: #22c55e; opacity: 0.65; }
+.term-label { font-size: 10px; color: var(--text-tertiary); letter-spacing: 0.06em; margin-left: 8px; }
+.term-body {
+  flex: 1; padding: 16px 16px;
+  display: flex; flex-direction: column; gap: 5px; overflow: hidden;
+}
+.term-line { font-size: 11px; color: var(--text-secondary); line-height: 1.6; }
+.term-prompt { color: var(--blue-bright); margin-right: 8px; font-weight: 600; }
+.term-dim    { color: var(--text-tertiary); }
+.term-divider { color: var(--text-tertiary); opacity: 0.4; letter-spacing: -0.02em; }
+.term-empty {
+  font-size: 12px; color: var(--text-tertiary);
+  margin-top: 16px; padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.term-hint { font-size: 11px; color: var(--text-tertiary); margin-top: 6px; line-height: 1.6; }
+.term-hint kbd {
+  display: inline-block; padding: 1px 7px;
+  background: var(--bg-surface-3); border: 1px solid var(--border-strong);
+  border-radius: 4px; font-size: 10px; font-family: var(--font-sans);
+  color: var(--text-secondary); font-weight: 500;
+}
+.term-live {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 10px; padding: 4px 10px;
+  background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3);
+  border-radius: 6px; font-size: 9px; letter-spacing: 0.1em;
+  color: #60a5fa; text-transform: uppercase; align-self: flex-start;
+}
+.term-live-dot {
+  width: 5px; height: 5px; border-radius: 50%; background: #60a5fa;
+  box-shadow: 0 0 6px rgba(96,165,250,0.8);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ══════════════════════════════════════════════════════════════
+   DARK MODE — Navy + Blue Premium
+   ══════════════════════════════════════════════════════════════ */
+
+/* Root background: deep navy with CENTERED TOP spotlight (Closeify vibe) */
+[data-theme="dark"] html,
+[data-theme="dark"] body {
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -15%,  rgba(59,130,246,0.38) 0%, rgba(59,130,246,0.10) 40%, transparent 65%),
+    radial-gradient(ellipse 55% 35% at 50% -5%,   rgba(96,165,250,0.22) 0%, transparent 50%),
+    #07101f !important;
+}
+
+/* No dot grid — clean cinematic look like the reference */
+[data-theme="dark"] body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none; z-index: 0;
+  opacity: 0.6;
+}
+
+/* Header — transparent glass that lets the spotlight through */
+[data-theme="dark"] #header-top {
+  background: rgba(7,16,31,0.72) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.055) !important;
+  box-shadow: 0 1px 0 rgba(59,130,246,0.12), 0 8px 40px rgba(0,0,0,0.3) !important;
+}
+[data-theme="dark"] #header-bottom {
+  background: rgba(7,16,31,0.60) !important;
+  backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+}
+[data-theme="dark"] #header-top.running {
+  border-bottom-color: rgba(59,130,246,0.4) !important;
+  box-shadow: 0 1px 0 rgba(59,130,246,0.3), 0 4px 32px rgba(59,130,246,0.08) !important;
+}
+
+/* Logo — bright white with blue fade, like Closeify */
+[data-theme="dark"] #logo-name {
+  background: linear-gradient(120deg, #ffffff 0%, #93c5fd 100%) !important;
+  -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important;
+  background-clip: text !important; font-size: 15px !important;
+  letter-spacing: 0.06em !important; font-weight: 800 !important;
+  filter: drop-shadow(0 0 10px rgba(59,130,246,0.35)) !important;
+}
+
+/* Task buttons */
+[data-theme="dark"] .task-btn.active {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  box-shadow: 0 0 16px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.15) !important;
+  border-color: rgba(59,130,246,0.6) !important; color: #fff !important;
+}
+[data-theme="dark"] .task-btn:hover:not(.active) {
+  border-color: rgba(59,130,246,0.4) !important; color: #93c5fd !important;
+  transform: translateY(-1px) !important; background: rgba(59,130,246,0.08) !important;
+}
+
+/* Run Episode button — blue gradient with glow */
+[data-theme="dark"] #start-btn:not(.running) {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  border: 1px solid rgba(59,130,246,0.5) !important; color: #fff !important;
+  box-shadow: 0 0 0 0 rgba(59,130,246,0); /* base for animation */
+  animation: run-idle-glow 2.6s ease-in-out infinite !important;
+}
+[data-theme="dark"] #start-btn:not(.running):hover {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
+  box-shadow: 0 0 40px rgba(59,130,246,0.8), 0 6px 24px rgba(59,130,246,0.5) !important;
+  transform: translateY(-2px) scale(1.02) !important; animation: none !important;
+}
+[data-theme="dark"] #start-btn:active { transform: scale(0.97) !important; animation: none !important; }
+
+/* Panels — Closeify-style glass cards: lit from above, layered depth */
+[data-theme="dark"] .panel {
+  background: linear-gradient(160deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.01) 40%, transparent 100%),
+              rgba(9,16,30,0.88) !important;
+  border-color: rgba(255,255,255,0.07) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 8px 32px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 1px 0 0 rgba(255,255,255,0.03) !important;
+  transition: box-shadow 300ms ease, border-color 300ms ease !important;
+}
+[data-theme="dark"] .panel:hover {
+  border-color: rgba(255,255,255,0.10) !important;
+  box-shadow:
+    0 0 0 1px rgba(59,130,246,0.08),
+    0 8px 40px rgba(0,0,0,0.55),
+    0 0 60px rgba(59,130,246,0.05),
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    inset 1px 0 0 rgba(255,255,255,0.04) !important;
+}
+[data-theme="dark"] .panel:first-child {
+  border-top: 1px solid rgba(59,130,246,0.45) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 8px 32px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(59,130,246,0.2),
+    inset 1px 0 0 rgba(255,255,255,0.03) !important;
+}
+[data-theme="dark"] .panel:nth-child(2) {
+  background: linear-gradient(160deg, rgba(59,130,246,0.06) 0%, rgba(255,255,255,0.02) 30%, transparent 70%),
+              rgba(10,18,36,0.96) !important;
+  border-color: rgba(59,130,246,0.15) !important;
+  box-shadow:
+    0 0 0 1px rgba(59,130,246,0.08),
+    0 8px 48px rgba(0,0,0,0.6),
+    0 0 80px rgba(59,130,246,0.04),
+    inset 0 1px 0 rgba(59,130,246,0.18),
+    inset 1px 0 0 rgba(255,255,255,0.04) !important;
+}
+[data-theme="dark"] .panel:last-child {
   border-top: 1px solid rgba(255,255,255,0.07) !important;
 }
 
-/* 16 ── Header running state: stronger glow */
-#header-top.running {
-  border-bottom-color: rgba(59,130,246,0.4) !important;
-  box-shadow: 0 1px 0 rgba(59,130,246,0.2), 0 4px 24px rgba(59,130,246,0.08) !important;
+/* Panel headers */
+[data-theme="dark"] .panel-header {
+  background: rgba(0,0,0,0.2) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+  padding: 11px 16px !important;
+  backdrop-filter: blur(8px) !important;
+}
+[data-theme="dark"] .panel-title { color: rgba(255,255,255,0.22) !important; }
+[data-theme="dark"] .panel-badge {
+  background: rgba(255,255,255,0.04) !important;
+  border-color: rgba(255,255,255,0.07) !important;
+  color: rgba(255,255,255,0.25) !important;
+}
+[data-theme="dark"] .panel-badge.active {
+  background: rgba(59,130,246,0.12) !important; border-color: rgba(59,130,246,0.35) !important; color: #93c5fd !important;
+}
+[data-theme="dark"] .panel-badge.complete {
+  background: rgba(34,197,94,0.10) !important; border-color: rgba(34,197,94,0.32) !important; color: #4ade80 !important;
+}
+[data-theme="dark"] .panel-badge.running {
+  background: rgba(59,130,246,0.12) !important; border-color: rgba(59,130,246,0.35) !important; color: #93c5fd !important;
 }
 
-/* 17 ── Confidence bar track: taller, rounded */
-.conf-track { height: 6px !important; background: rgba(255,255,255,0.07) !important; }
+/* Idle state */
+[data-theme="dark"] .idle-title {
+  background: linear-gradient(135deg, #e6edf3 0%, #60a5fa 100%) !important;
+  -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+[data-theme="dark"] .idle-sub    { color: rgba(159,176,195,0.5) !important; }
+[data-theme="dark"] .idle-stats  { color: rgba(107,122,144,0.7) !important; }
+[data-theme="dark"] .idle-cta    { color: rgba(96,165,250,0.7) !important; }
+[data-theme="dark"] .idle-status .status-text { color: #60a5fa !important; letter-spacing: 0.2em !important; font-size: 9px !important; }
+[data-theme="dark"] .status-dot  { background: #3b82f6 !important; box-shadow: 0 0 6px rgba(59,130,246,0.6) !important; }
 
-/* 18 ── Baseline table active row: more visible */
-.bl-row.bl-active {
-  background: rgba(59,130,246,0.1) !important;
-  border-left-color: var(--blue) !important;
+/* Stat cards — glass surface with inset shine (Closeify feature-card style) */
+[data-theme="dark"] .stat-cell {
+  background: linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.008) 100%) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 8px rgba(0,0,0,0.3) !important;
+}
+[data-theme="dark"] .stat-cell:hover {
+  border-color: rgba(59,130,246,0.28) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(59,130,246,0.15),
+    0 0 24px rgba(59,130,246,0.08),
+    0 2px 8px rgba(0,0,0,0.3) !important;
+}
+[data-theme="dark"] .stat-lbl { color: rgba(107,122,144,0.85) !important; }
+
+/* Counter tiles */
+[data-theme="dark"] .counter-cell {
+  background: linear-gradient(145deg, rgba(255,255,255,0.032) 0%, rgba(255,255,255,0.005) 100%) !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 4px rgba(0,0,0,0.2) !important;
+}
+[data-theme="dark"] .counter-cell:hover {
+  background: linear-gradient(145deg, rgba(59,130,246,0.1) 0%, rgba(59,130,246,0.02) 100%) !important;
+  border-color: rgba(59,130,246,0.25) !important;
+  box-shadow: inset 0 1px 0 rgba(59,130,246,0.12), 0 0 16px rgba(59,130,246,0.07) !important;
+}
+[data-theme="dark"] .counter-lbl { color: rgba(107,122,144,0.85) !important; }
+
+/* Risk track */
+[data-theme="dark"] .conf-track { background: rgba(255,255,255,0.05) !important; }
+[data-theme="dark"] .conf-lbl   { color: rgba(107,122,144,0.9) !important; }
+
+/* Feed rows */
+[data-theme="dark"] .feed-row { border-bottom-color: rgba(255,255,255,0.035) !important; }
+[data-theme="dark"] .feed-row:not(.in-progress):hover { background-color: rgba(59,130,246,0.04) !important; }
+[data-theme="dark"] .feed-row.correct { background: rgba(34,197,94,0.05) !important; }
+[data-theme="dark"] .feed-row.missed  { background: rgba(239,68,68,0.05) !important; }
+
+/* Agent comparison table */
+[data-theme="dark"] .bl-row:hover { background: rgba(59,130,246,0.06) !important; }
+[data-theme="dark"] .bl-row.bl-active {
+  background: rgba(59,130,246,0.08) !important;
+  border-left: 2px solid rgba(59,130,246,0.55) !important;
 }
 
-/* 19 ── Speed / model buttons: rounded */
-.speed-btn { border-radius: 5px !important; }
-.speed-btn.active { border-radius: 5px !important; }
-#model-select { border-radius: 5px !important; }
+/* Run Again button */
+[data-theme="dark"] #run-again-btn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+  box-shadow: 0 0 16px rgba(59,130,246,0.4), 0 4px 16px rgba(0,0,0,0.3) !important;
+}
+[data-theme="dark"] #run-again-btn:hover {
+  background: linear-gradient(135deg, #60a5fa, #3b82f6) !important;
+  box-shadow: 0 0 32px rgba(59,130,246,0.65), 0 4px 20px rgba(0,0,0,0.3) !important;
+  transform: translateY(-1px) !important;
+}
 
-/* 20 ── Toast: rounded corners, softer */
-.api-toast { border-radius: 8px !important; }
+/* Timeline — glass card matching panels */
+[data-theme="dark"] #timeline-panel {
+  background: linear-gradient(160deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.008) 40%, transparent 100%),
+              rgba(9,16,30,0.92) !important;
+  border-color: rgba(255,255,255,0.065) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.03),
+    0 4px 20px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.07) !important;
+}
+
+/* Speed buttons */
+[data-theme="dark"] .speed-btn.active {
+  background: rgba(59,130,246,0.12) !important; border-color: rgba(59,130,246,0.4) !important; color: #93c5fd !important;
+}
+
+/* Scrollbars */
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+[data-theme="dark"] * { scrollbar-color: rgba(255,255,255,0.08) transparent; }
+
+/* Toasts */
+[data-theme="dark"] .api-toast {
+  background: rgba(11,18,32,0.96) !important; border: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5) !important;
+}
+
+/* Terminal */
+[data-theme="dark"] .term-header {
+  background: rgba(4,8,18,0.7) !important;
+  border-bottom-color: rgba(255,255,255,0.05) !important;
+}
+
+/* Feed rows — more subtle in navy context */
+[data-theme="dark"] .feed-row { border-bottom-color: rgba(255,255,255,0.032) !important; }
+[data-theme="dark"] .feed-row:not(.in-progress):hover { background-color: rgba(59,130,246,0.05) !important; }
+
+/* Confidence track */
+[data-theme="dark"] .conf-track { background: rgba(255,255,255,0.06) !important; }
+
+/* API toast — deep glass */
+[data-theme="dark"] .api-toast {
+  background: rgba(9,16,30,0.97) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   ══════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: radial-gradient(circle, rgba(0,0,0,0.055) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none; z-index: 0;
+}
+
+[data-theme="light"] .panel:first-child  { border-top-color: rgba(37,99,235,0.5) !important; }
+[data-theme="light"] .panel:nth-child(2) { border-top-color: rgba(0,0,0,0.1) !important; }
+[data-theme="light"] .panel:last-child   { border-top-color: rgba(0,0,0,0.07) !important; }
+
+[data-theme="light"] .panel-header { padding: 11px 16px !important; }
+[data-theme="light"] .panel-title  { color: rgba(0,0,0,0.32) !important; }
+
+[data-theme="light"] .stat-cell {
+  background: rgba(255,255,255,0.92) !important;
+  border: 1px solid rgba(0,0,0,0.07) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+}
+[data-theme="light"] .stat-cell:hover { border-color: rgba(37,99,235,0.35) !important; }
+[data-theme="light"] .stat-lbl { color: rgba(0,0,0,0.4) !important; }
+
+[data-theme="light"] .counter-cell {
+  background: rgba(255,255,255,0.85) !important;
+  border: 1px solid rgba(0,0,0,0.07) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+}
+[data-theme="light"] .counter-cell:hover { background: #fff !important; border-color: rgba(37,99,235,0.3) !important; }
+[data-theme="light"] .counter-lbl { color: rgba(0,0,0,0.38) !important; }
+
+[data-theme="light"] .conf-track { background: rgba(0,0,0,0.07) !important; }
+[data-theme="light"] .conf-lbl   { color: rgba(0,0,0,0.4) !important; }
+
+[data-theme="light"] .feed-row:not(.in-progress):hover { background-color: rgba(59,130,246,0.04) !important; }
+
+[data-theme="light"] .bl-row:hover { background: rgba(59,130,246,0.04) !important; }
+[data-theme="light"] .bl-row.bl-active {
+  background: rgba(37,99,235,0.06) !important; border-left: 2px solid rgba(37,99,235,0.5) !important;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 2px; }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+[data-theme="light"] * { scrollbar-color: rgba(0,0,0,0.12) transparent; }
+
+[data-theme="light"] .api-toast { border: 1px solid rgba(0,0,0,0.1) !important; }
 </style>
 </head>
 <body>
@@ -1286,9 +1540,26 @@ html, body {
       </div>
       <div class="panel-body" style="padding:0; position:relative; display:flex; flex-direction:column;">
 
-        <!-- Idle placeholder -->
+        <!-- Idle placeholder — terminal style -->
         <div id="idle-placeholder">
-          <div class="idle-hero">
+          <div class="idle-terminal">
+            <div class="term-header">
+              <span class="term-dot red"></span>
+              <span class="term-dot yellow"></span>
+              <span class="term-dot green"></span>
+              <span class="term-label">sentinel &mdash; live-feed</span>
+            </div>
+            <div class="term-body">
+              <div class="term-line"><span class="term-prompt">$</span>sentinel connect --env localhost:7860</div>
+              <div class="term-line term-dim"><span class="term-prompt">&gt;</span>Initializing environment...</div>
+              <div class="term-line term-dim"><span class="term-prompt">&gt;</span>Session ready. Awaiting episode.</div>
+              <div class="term-line term-divider">─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─</div>
+              <div class="term-empty">No activity yet.</div>
+              <div class="term-hint">Press <kbd>RUN EPISODE</kbd> to start streaming.</div>
+              <div class="term-live"><span class="term-live-dot"></span>LIVE</div>
+            </div>
+          </div>
+          <div style="display:none;"><!-- legacy idle-hero kept for JS compat -->
             <div class="idle-status">
               <span class="status-dot"></span>
               <span class="status-text">READY</span>
@@ -1367,6 +1638,42 @@ html, body {
           <div class="stat-lbl">Risk Score</div>
           <div class="conf-track"><div id="confidence-fill"></div></div>
           <div id="confidence-val">0.50</div>
+        </div>
+
+        <!-- Agent Comparison Table — center panel primary content -->
+        <div id="baseline-table" style="margin-bottom:10px;">
+          <div class="bl-hdr">Agent Comparison</div>
+          <div class="bl-col-hdr">
+            <span></span>
+            <span>HEURIST</span>
+            <span id="bl-model-col">MODEL*</span>
+            <span>TRAINED</span>
+          </div>
+          <div class="bl-row bl-active" data-task="basic_threat_detection">
+            <span class="bl-task">T1 &nbsp;Easy</span>
+            <span class="bl-score-cell">0.4555</span>
+            <span class="bl-score-cell bl-model-score" data-task-key="task1">&mdash;</span>
+            <span class="bl-score-cell bl-trained">~0.73</span>
+          </div>
+          <div class="bl-row" data-task="context_aware_policy">
+            <span class="bl-task">T2 &nbsp;Medium</span>
+            <span class="bl-score-cell">0.4702</span>
+            <span class="bl-score-cell bl-model-score" data-task-key="task2">&mdash;</span>
+            <span class="bl-score-cell bl-trained">~0.68</span>
+          </div>
+          <div class="bl-row" data-task="multiturn_adversarial">
+            <span class="bl-task">T3 &nbsp;Hard</span>
+            <span class="bl-score-cell">0.2686</span>
+            <span class="bl-score-cell bl-model-score" data-task-key="task3">&mdash;</span>
+            <span class="bl-score-cell bl-trained">~0.61</span>
+          </div>
+          <div class="bl-row" data-task="adversarial_adaptation">
+            <span class="bl-task">T4 &nbsp;Expert</span>
+            <span class="bl-score-cell" style="color:var(--text-tertiary)">0.0000</span>
+            <span class="bl-score-cell bl-model-score" data-task-key="task4">&mdash;</span>
+            <span class="bl-score-cell bl-trained" style="color:var(--text-tertiary)">~0.32 ⚠</span>
+          </div>
+          <div class="bl-caption">* Live scores from selected model. Known scores shown for prior runs.</div>
         </div>
 
         <div class="p2-idle-hint" id="p2-idle-hint">Select a task above &amp; press RUN EPISODE</div>
@@ -1463,46 +1770,8 @@ html, body {
 
         <!-- Non-Task-4: attack breakdown -->
         <div id="attack-breakdown">
-          <!-- Idle content: agent comparison + action legend -->
+          <!-- Idle content: action legend -->
           <div id="breakdown-idle">
-
-            <!-- Agent comparison table (moved from Panel 2 for space) -->
-            <div id="baseline-table">
-              <div class="bl-hdr">Agent Comparison</div>
-              <div class="bl-col-hdr">
-                <span></span>
-                <span>HEURIST</span>
-                <span id="bl-model-col">MODEL*</span>
-                <span>TRAINED</span>
-              </div>
-              <div class="bl-row bl-active" data-task="basic_threat_detection">
-                <span class="bl-task">T1 &nbsp;Easy</span>
-                <span class="bl-score-cell">0.4555</span>
-                <span class="bl-score-cell bl-model-score" data-task-key="task1">&mdash;</span>
-                <span class="bl-score-cell bl-trained">~0.73</span>
-              </div>
-              <div class="bl-row" data-task="context_aware_policy">
-                <span class="bl-task">T2 &nbsp;Medium</span>
-                <span class="bl-score-cell">0.4702</span>
-                <span class="bl-score-cell bl-model-score" data-task-key="task2">&mdash;</span>
-                <span class="bl-score-cell bl-trained">~0.68</span>
-              </div>
-              <div class="bl-row" data-task="multiturn_adversarial">
-                <span class="bl-task">T3 &nbsp;Hard</span>
-                <span class="bl-score-cell">0.2686</span>
-                <span class="bl-score-cell bl-model-score" data-task-key="task3">&mdash;</span>
-                <span class="bl-score-cell bl-trained">~0.61</span>
-              </div>
-              <div class="bl-row" data-task="adversarial_adaptation">
-                <span class="bl-task">T4 &nbsp;Expert</span>
-                <span class="bl-score-cell" style="color:var(--text-tertiary)">0.0000</span>
-                <span class="bl-score-cell bl-model-score" data-task-key="task4">&mdash;</span>
-                <span class="bl-score-cell bl-trained" style="color:var(--text-tertiary)">~0.32 ⚠</span>
-              </div>
-              <div class="bl-caption">* Live scores from selected model. Known scores shown for prior runs.</div>
-            </div>
-
-            <div class="breakdown-idle-divider"></div>
 
             <div class="breakdown-idle-label">ACTION TYPES</div>
             <div class="action-legend-row">

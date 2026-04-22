@@ -966,7 +966,6 @@ sentinel/
 ├── pyproject.toml
 ├── baseline_oracle.py      # Oracle baseline — must score 1.0 on all 4 tasks
 ├── baseline.py             # LLM inference baseline (requires OPENAI_API_KEY)
-├── validate.py             # OpenEnv submission validator (3-step check)
 ├── inference.py            # Inference script
 ├── train_trl.py            # TRL PPO+SFT+DPO training script (Phase 1–3)
 ├── train_sft.py            # Standalone SFT baseline script
@@ -1120,4 +1119,4 @@ Critical rules for anyone editing the dataset or task files:
 - **Don't add new prompt_ids in ranges already used** — check the namespacing table above.
 - **Don't set `is_crossing=True` on `ConversationTurn`** — that field doesn't exist on `ConversationTurn`. Crossing is set by `task_config.py` when processing `BranchingConversation.crossing`.
 - **Don't edit `_build_task1/2/3()` in `task_config.py`** without checking that the flat prompt count stays deterministic.
-- **Don't push to HuggingFace** until `python validate.py <hf-url> .` passes 3/3.
+- **Don't push to HuggingFace** until you have verified the environment is live and `/health` returns OK.

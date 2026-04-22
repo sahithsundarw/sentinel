@@ -41,7 +41,7 @@ SFT on a combined multi-task dataset takes Llama-3.1-8B from **0.6097 → 0.9504
 
 Model scale does not help. Training does.
 
-![Reward Curves](PASTE_IMAGE_URL_HERE)
+![Reward Curves](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/reward_curves_combined.png)
 
 ## Why This Matters
 

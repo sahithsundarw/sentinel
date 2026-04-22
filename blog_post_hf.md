@@ -52,7 +52,7 @@ The 235B parameter Qwen model scores the same as "always refuse" on Task 4. A 60
 
 Model scale does not help. Policy learning does.
 
-![Task 4 Q-Learner Learning Curve](results/task4_learning_curve.png)
+![Task 4 Q-Learner Learning Curve](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/task4_learning_curve.png)
 
 ## Why This Matters
 

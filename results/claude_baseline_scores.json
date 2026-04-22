@@ -1,0 +1,10 @@
+{
+  "Claude Haiku 3.5": {
+    "basic_threat_detection": null,
+    "context_aware_policy": null
+  },
+  "Claude Sonnet 4.6": {
+    "basic_threat_detection": null,
+    "context_aware_policy": null
+  }
+}

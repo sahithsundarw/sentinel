@@ -1006,6 +1006,85 @@ button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 select:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 input:focus-visible  { outline: none; }
 
+/* ══ IMPROVEMENT 1: Live ticker bar ══ */
+#ticker-bar { display:flex; align-items:center; gap:8px; padding:4px 18px;
+  background:#050e1a; border-bottom:1px solid #1a2a3a; font-family:'JetBrains Mono',monospace;
+  font-size:11px; color:#00ff88; letter-spacing:0.04em; }
+.ticker-dot { width:8px; height:8px; border-radius:50%; background:#00ff88;
+  animation: tickerpulse 1.5s infinite; flex-shrink:0; }
+@keyframes tickerpulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+/* ══ IMPROVEMENT 2: Task difficulty badges ══ */
+.task-btn[data-task="basic_threat_detection"]::after { content:'EASY'; background:#22c55e; color:#000; padding:1px 5px; border-radius:3px; font-size:9px; margin-left:6px; }
+.task-btn[data-task="context_aware_policy"]::after { content:'MED'; background:#f59e0b; color:#000; padding:1px 5px; border-radius:3px; font-size:9px; margin-left:6px; }
+.task-btn[data-task="multiturn_adversarial"]::after { content:'HARD'; background:#f97316; color:#000; padding:1px 5px; border-radius:3px; font-size:9px; margin-left:6px; }
+.task-btn[data-task="adversarial_adaptation"]::after { content:'EXPERT'; background:#ef4444; color:#fff; padding:1px 5px; border-radius:3px; font-size:9px; margin-left:6px; }
+
+/* ══ IMPROVEMENT 3: Action color coding ══ */
+.action-allow    { color:#22c55e; }
+.action-refuse   { color:#ef4444; }
+.action-modify   { color:#f59e0b; }
+.action-escalate { color:#8b5cf6; }
+.action-pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700; }
+.action-pill.allow    { background:#052e16; color:#22c55e; border:1px solid #22c55e; }
+.action-pill.refuse   { background:#2d0a0a; color:#ef4444; border:1px solid #ef4444; }
+.action-pill.modify   { background:#2d1a00; color:#f59e0b; border:1px solid #f59e0b; }
+.action-pill.escalate { background:#1a0d2e; color:#8b5cf6; border:1px solid #8b5cf6; }
+
+/* ══ IMPROVEMENT 4: Model Leaderboard panel ══ */
+#leaderboard-table { width:100%; border-collapse:collapse; font-size:11px; margin-top:6px; }
+#leaderboard-table th { color:#888; font-size:10px; text-align:left; padding:2px 4px; border-bottom:1px solid #1a2a3a; }
+#leaderboard-table td { padding:3px 4px; color:#ccc; }
+.rank-gold td { color:#fbbf24; font-weight:700; }
+.rank-dead td { color:#555; }
+.score-green { color:#22c55e !important; font-weight:700; }
+.score-red { color:#ef4444 !important; font-weight:700; }
+.leaderboard-caption { font-size:9px; color:#555; margin-top:4px; font-style:italic; }
+.p2-section-title { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600;
+  text-transform:uppercase; letter-spacing:0.1em; color:var(--text-tertiary); margin-bottom:6px; margin-top:10px; }
+
+/* ══ IMPROVEMENT 5: Improved live feed items ══ */
+.turn-chip { background:#1a2a3a; color:#60a5fa; padding:1px 5px; border-radius:4px; font-size:10px; font-family:'JetBrains Mono',monospace; margin-right:4px; }
+.reward-delta { font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; }
+.reward-delta.pos { color:#22c55e; }
+.reward-delta.neg { color:#ef4444; }
+
+/* ══ IMPROVEMENT 6: Episode completion banner ══ */
+.completion-banner { padding:10px 16px; border-radius:6px; font-weight:700; font-size:13px; text-align:center; margin-bottom:8px; animation: fadeout 4s forwards; }
+.banner-good { background:#052e16; color:#22c55e; border:1px solid #22c55e; }
+.banner-bad  { background:#2d0a0a; color:#ef4444;  border:1px solid #ef4444; }
+@keyframes fadeout { 0%{opacity:1;} 75%{opacity:1;} 100%{opacity:0;} }
+
+/* ══ IMPROVEMENT 7: Copy results button ══ */
+#copy-results-btn { font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600;
+  background:var(--bg-surface-2); border:1px solid var(--border-strong); color:var(--text-secondary);
+  padding:4px 10px; border-radius:4px; cursor:pointer; margin-top:8px; }
+#copy-results-btn:hover { background:var(--bg-surface-3); color:var(--text-primary); }
+
+/* ══ IMPROVEMENT 8: Task 4 warning banner ══ */
+.task4-warning { border:1px solid #ef4444; background:#1a0000; color:#ff8080; padding:10px 14px; border-radius:6px; font-size:11px; line-height:1.5; margin-bottom:10px; font-family:'JetBrains Mono',monospace; }
+.task4-warning strong { color:#ef4444; }
+
+/* ══ IMPROVEMENT 9: Hotkey legend ══ */
+#hotkey-legend { position:fixed; bottom:12px; right:12px; background:rgba(10,10,10,0.7);
+  border:1px solid #1a2a3a; border-radius:6px; padding:6px 10px; font-size:9px;
+  color:#555; font-family:'JetBrains Mono',monospace; line-height:1.8; z-index:100; }
+
+/* ══ IMPROVEMENT 10: Wakeup message ══ */
+.wakeup-msg { background:#1a1a00; border:1px solid #f59e0b; color:#f59e0b; padding:10px 14px;
+  border-radius:6px; font-size:11px; margin-bottom:10px; font-family:'JetBrains Mono',monospace; }
+
+/* ══ IMPROVEMENT 11: Tab nav ══ */
+#tab-nav { display:flex; gap:4px; padding:8px 12px 0; border-bottom:1px solid #1a2a3a; background:#07101f; flex-shrink:0; }
+.tab-btn { background:none; border:none; border-bottom:2px solid transparent; padding:6px 12px;
+  color:#666; font-size:11px; cursor:pointer; font-family:'JetBrains Mono',monospace; transition:all 0.2s; }
+.tab-btn:hover { color:#aaa; }
+.tab-btn.active { color:#00ff88; border-bottom-color:#00ff88; }
+
+/* ══ IMPROVEMENT 12: Timeout warning ══ */
+.timeout-warning { background:#1a0000; border:1px solid #ef4444; color:#ff8080; padding:8px 12px;
+  border-radius:6px; font-size:11px; margin-bottom:8px; font-family:'JetBrains Mono',monospace; }
+
 /* ── Hidden state elements (updated by JS, not displayed directly) */
 #stat-steps, #stat-caught, #breakdown-status,
 #active-task-name, #active-task-meta,
@@ -1463,6 +1542,12 @@ input:focus-visible  { outline: none; }
 
 <div id="accent-line"></div>
 
+<!-- ── Improvement 1: Live ticker bar ──────────────────────────────── -->
+<div id="ticker-bar">
+  <span id="ticker-dot" class="ticker-dot"></span>
+  <span id="ticker-text">LIVE — Ready to start</span>
+</div>
+
 <!-- ── Header ─────────────────────────────────────────────────────── -->
 <header id="header-wrap">
 
@@ -1539,6 +1624,43 @@ input:focus-visible  { outline: none; }
         <span class="panel-badge" id="feed-badge">WAITING</span>
       </div>
       <div class="panel-body" style="padding:0; position:relative; display:flex; flex-direction:column;">
+
+        <!-- Improvement 11: Tab nav -->
+        <div id="tab-nav">
+          <button class="tab-btn active" data-tab="feed" onclick="switchTab('feed')">Live Feed</button>
+          <button class="tab-btn" data-tab="evidence" onclick="switchTab('evidence')">Training Evidence</button>
+        </div>
+
+        <!-- Improvement 10: Wakeup message -->
+        <div id="wakeup-msg" style="display:none;" class="wakeup-msg">
+          HF Space may be waking up — spaces sleep after inactivity.<br>
+          <button onclick="document.getElementById('wakeup-msg').style.display='none'">Dismiss</button>
+        </div>
+
+        <!-- Improvement 12: Timeout warning -->
+        <div id="timeout-warning" style="display:none;" class="timeout-warning">
+          &#9888; Request took &gt;10s — server may be overloaded.
+          <button onclick="this.parentElement.style.display='none'">Dismiss</button>
+        </div>
+
+        <!-- Improvement 8: Task 4 warning -->
+        <div id="task4-warning" style="display:none;" class="task4-warning">
+          <strong>EXPERT MODE</strong> — Adversary adapts based on your decisions.<br>
+          Zero-shot LLMs (including 235B models) score 0.0 on this task.
+        </div>
+
+        <!-- Improvement 11: Training Evidence tab content -->
+        <div id="tab-evidence" style="display:none; padding:16px; overflow-y:auto; flex:1;">
+          <h3 style="color:#00ff88; font-family:'JetBrains Mono',monospace; margin-bottom:12px;">Why This Environment Works</h3>
+          <img src="results/hero_learning_curve.png" style="width:100%; border-radius:6px; margin-bottom:8px;" onerror="this.style.display='none'">
+          <p style="color:#888; font-size:11px; font-family:'JetBrains Mono',monospace; margin-bottom:16px;">Q-Learner: 0.0 &rarr; 0.9540 in 20 episodes. A 235B model scores 0.0 on the same task.</p>
+          <img src="results/multi_model_comparison.png" style="width:100%; border-radius:6px; margin-bottom:8px;" onerror="this.style.display='none'">
+          <p style="color:#888; font-size:11px; font-family:'JetBrains Mono',monospace; margin-bottom:16px;">Multi-model before/after. Green = trained on this environment.</p>
+          <div style="text-align:center; margin-top:20px;">
+            <a href="https://varunventra-guardrail-arena.hf.space" target="_blank" style="color:#00ff88; font-size:11px; margin-right:16px;">HF Space</a>
+            <a href="https://github.com/sahithsundarw/sentinel" target="_blank" style="color:#00ff88; font-size:11px;">GitHub</a>
+          </div>
+        </div>
 
         <!-- Idle placeholder — terminal style -->
         <div id="idle-placeholder">
@@ -1674,6 +1796,30 @@ input:focus-visible  { outline: none; }
             <span class="bl-score-cell bl-trained" style="color:var(--text-tertiary)">~0.32 ⚠</span>
           </div>
           <div class="bl-caption">* Live scores from selected model. Known scores shown for prior runs.</div>
+        </div>
+
+        <!-- Improvement 4: Model Leaderboard -->
+        <div id="leaderboard-section">
+          <div class="p2-section-title">Task 4 Leaderboard</div>
+          <table id="leaderboard-table">
+            <thead><tr><th>Rank</th><th>Model</th><th>Task 4 Score</th></tr></thead>
+            <tbody>
+              <tr class="rank-gold"><td>&#x1F947;</td><td>Tabular Q-Learner (trained)</td><td class="score-green">0.9540</td></tr>
+              <tr><td>2</td><td>GPT-4o-mini</td><td>0.4820</td></tr>
+              <tr><td>3</td><td>Llama-3.3-70B</td><td>&#8212;</td></tr>
+              <tr><td>4</td><td>all-allow</td><td>0.1500</td></tr>
+              <tr class="rank-dead"><td>&#x1F480;</td><td>Llama-3.1-8B</td><td class="score-red">0.0000</td></tr>
+              <tr class="rank-dead"><td>&#x1F480;</td><td>Qwen-3-235B (235B params)</td><td class="score-red">0.0000</td></tr>
+            </tbody>
+          </table>
+          <div class="leaderboard-caption">Task 4 separates zero-shot capability from learned policy</div>
+        </div>
+
+        <!-- Improvement 7: Copy results button -->
+        <div style="margin-top:8px;">
+          <button id="copy-results-btn" onclick="copyResults()" title="Copy results to clipboard">&#x1F4CB; Copy</button>
+          <!-- Improvement 13: Replay button -->
+          <button id="replay-btn" style="display:none; margin-left:8px; font-family:'JetBrains Mono',monospace; font-size:11px; background:var(--bg-surface-2); border:1px solid var(--border-strong); color:var(--text-secondary); padding:4px 10px; border-radius:4px; cursor:pointer;" onclick="replayEpisode()">&#x25B6; Replay</button>
         </div>
 
         <div class="p2-idle-hint" id="p2-idle-hint">Select a task above &amp; press RUN EPISODE</div>
@@ -1852,6 +1998,13 @@ input:focus-visible  { outline: none; }
 <div id="error-banner"></div>
 <div id="api-toast-container"></div>
 
+<!-- Improvement 9: Hotkey legend -->
+<div id="hotkey-legend">
+  <div>Space: start/pause</div>
+  <div>R: reset/run again</div>
+  <div>1/2/3/4: switch task</div>
+</div>
+
 <!-- Hidden state elements -->
 <span id="stat-steps">67</span>
 <span id="stat-caught">0</span>
@@ -1969,6 +2122,7 @@ const S = {
   advTopic: null, advIntensity: 0, advTrail: [], topicHistory: [],
   consecutiveBlocks: 0, honeypotTriggered: false,
   lastConvId: null, crossingShownForConv: new Set(),
+  stepHistory: [], modelName: null, stepCount: 0, totalReward: 0,
 };
 
 let isPaused = false;
@@ -1987,6 +2141,9 @@ function selectTask(btn) {
   document.getElementById('attack-breakdown').style.display = isT4 ? 'none' : '';
   document.getElementById('adv-state').style.display        = isT4 ? '' : 'none';
   updateBaselineTable();
+  // Improvement 8: Task 4 warning banner
+  const warn = document.getElementById('task4-warning');
+  if (warn) warn.style.display = (S.task === 'adversarial_adaptation') ? 'block' : 'none';
 }
 
 // ── Speed selector ──────────────────────────────────────────────────────
@@ -2041,22 +2198,68 @@ updateBaselineTable();
   }
 })();
 
+// ── Improvement 10: Wakeup timer ────────────────────────────────────────
+let _wakeupTimer = null;
+function _startWakeupTimer(ms=5000) {
+  _wakeupTimer = setTimeout(() => {
+    const el = document.getElementById('wakeup-msg');
+    if (el) el.style.display = 'block';
+  }, ms);
+}
+function _clearWakeupTimer() {
+  if (_wakeupTimer) { clearTimeout(_wakeupTimer); _wakeupTimer = null; }
+  const el = document.getElementById('wakeup-msg');
+  if (el) el.style.display = 'none';
+}
+
+// ── Improvement 12: Fetch with timeout ──────────────────────────────────
+async function fetchWithTimeout(url, options={}, timeoutMs=10000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, {...options, signal: ctrl.signal});
+    clearTimeout(timer);
+    return resp;
+  } catch(e) {
+    clearTimeout(timer);
+    if (e.name === 'AbortError') {
+      const el = document.getElementById('timeout-warning');
+      if (el) { el.style.display = 'block'; setTimeout(() => el.style.display='none', 8000); }
+    }
+    throw e;
+  }
+}
+
 // ── API helpers ─────────────────────────────────────────────────────────
 async function apiPost(path, body = null, params = {}) {
   const url = new URL(ENV_URL() + path);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
-  const r = await fetch(url.toString(), opts);
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
+  _startWakeupTimer();
+  try {
+    const r = await fetchWithTimeout(url.toString(), opts);
+    _clearWakeupTimer();
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  } catch(e) {
+    _clearWakeupTimer();
+    throw e;
+  }
 }
 async function apiGet(path, params = {}) {
   const url = new URL(ENV_URL() + path);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const r = await fetch(url.toString());
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
+  _startWakeupTimer();
+  try {
+    const r = await fetchWithTimeout(url.toString());
+    _clearWakeupTimer();
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  } catch(e) {
+    _clearWakeupTimer();
+    throw e;
+  }
 }
 
 // ── Step with retry + session expiry handling ────────────────────────────
@@ -2450,7 +2653,6 @@ function addFeedRow(obs, action, reward, info, inferenceTime, stepCount) {
     : `<span style="color:var(--text-tertiary);font-family:'JetBrains Mono',monospace;font-size:9px;">safe prompt</span>`;
 
   const rwd    = reward >= 0 ? `+${reward.toFixed(3)}\u2191` : `${reward.toFixed(3)}\u2193`;
-  const rwdCls = reward >= 0 ? 'pos' : 'neg';
   const timeHtml = inferenceTime ? `<span class="feed-infer-time">${inferenceTime}</span>` : '';
   const turnNum  = stepCount || obs.turn_number || S.turn;
 
@@ -2458,14 +2660,15 @@ function addFeedRow(obs, action, reward, info, inferenceTime, stepCount) {
   row.className = rowClass;
   row.innerHTML = `
     <div class="feed-meta">
-      <span class="feed-turn">T&middot;${turnNum}</span>
+      <span class="turn-chip">T${turnNum}</span>
       <span class="feed-verdict ${badgeClass}">${escapeHtml(badgeText)}</span>
-      <span class="feed-verdict ${agentAction}" style="font-size:12px;font-weight:600;">${agentAction.toUpperCase()}</span>
+      <span class="action-pill ${agentAction}">${agentAction.toUpperCase()}</span>
       <div class="feed-tags">${tagsHtml}</div>
-      <span class="feed-reward ${rwdCls}" style="margin-left:auto">${rwd}</span>
+      <span class="reward-delta ${reward >= 0 ? 'pos' : 'neg'}" style="margin-left:auto">${reward >= 0 ? '+' : ''}${reward.toFixed(4)}</span>
+      ${outcome === 'correct' ? '<span style="margin-left:4px;">✅</span>' : outcome === 'missed_attack' ? '<span style="margin-left:4px;">❌</span>' : ''}
       ${timeHtml}
     </div>
-    <div class="feed-prompt">&ldquo;${escapeHtml(obs.user_prompt)}&rdquo;</div>
+    <div class="feed-prompt">&ldquo;${escapeHtml(obs.user_prompt.length > 60 ? obs.user_prompt.slice(0, 60) + '…' : obs.user_prompt)}&rdquo;</div>
     ${reasonHtml}
     <div class="feed-sub">
       <span>${obs.application_context || '\u2014'}</span>
@@ -2872,9 +3075,67 @@ function resetUI() {
     advTopic: null, advIntensity: 0, advTrail: [], topicHistory: [],
     consecutiveBlocks: 0, honeypotTriggered: false,
     lastConvId: null, crossingShownForConv: new Set(),
+    stepHistory: [], stepCount: 0, totalReward: 0,
+    modelName: getCurrentModel().label,
   });
+  // Reset replay button
+  const replayBtn = document.getElementById('replay-btn');
+  if (replayBtn) replayBtn.style.display = 'none';
+  // Reset ticker
+  const tickerEl = document.getElementById('ticker-text');
+  if (tickerEl) tickerEl.textContent = 'LIVE — Running episode...';
   isPaused = false;
   S.totalTurns = TASK_TOTAL_TURNS[S.task] || 67;
+}
+
+// ── Improvement 6: Episode completion banner ────────────────────────────
+function showCompletionBanner(finalReward) {
+  const banner = document.createElement('div');
+  banner.className = 'completion-banner ' + (finalReward > 0.5 ? 'banner-good' : 'banner-bad');
+  banner.textContent = `Episode Complete — Final Reward: ${finalReward.toFixed(4)}`;
+  document.getElementById('feed-list').prepend(banner);
+  setTimeout(() => { if (banner.parentElement) banner.remove(); }, 4000);
+}
+
+// ── Improvement 7: Copy results ─────────────────────────────────────────
+function copyResults() {
+  const model = S.modelName || 'unknown-model';
+  const task = S.task || 'unknown-task';
+  const score = (S.totalReward || 0).toFixed(4);
+  const steps = S.stepCount || 0;
+  const text = `Sentinel Guardrail Arena — ${model} on ${task}: ${score} (${steps} steps)`;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-results-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = '\u{1F4CB} Copy'; }, 2000);
+  });
+}
+
+// ── Improvement 11: Tab switching ──────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  const evEl = document.getElementById('tab-evidence');
+  if (tab === 'evidence') {
+    ['feed-container','idle-placeholder','loading-inner','cors-msg'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    if (evEl) evEl.style.display = 'block';
+  } else {
+    if (evEl) evEl.style.display = 'none';
+    if (S.running) showPanel1('feed');
+    else if (!S.done) showPanel1('idle');
+    else showPanel1('feed');
+  }
+}
+
+// ── Improvement 13: Session replay ─────────────────────────────────────
+function replayEpisode() {
+  if (!S.stepHistory || !S.stepHistory.length) return;
+  document.getElementById('feed-list').innerHTML = '';
+  S.stepHistory.forEach((step, i) => {
+    addFeedRow(step.obs, step.action, step.reward, step.info, step.inferenceTime, i+1);
+  });
 }
 
 // ── Main episode loop ───────────────────────────────────────────────────
@@ -2980,12 +3241,21 @@ async function startEpisode() {
 
     if (result.done === true) {
       S.done = true;
+      // Improvement 6: Show completion banner
+      showCompletionBanner(S.cumReward);
+      // Improvement 13: Show replay button
+      const replayBtn = document.getElementById('replay-btn');
+      if (replayBtn) replayBtn.style.display = 'inline-block';
+      // Improvement 1: Final ticker update
+      const tickerEl = document.getElementById('ticker-text');
+      if (tickerEl) tickerEl.textContent = `LIVE — Episode complete — Task: ${S.task} — Final reward: ${S.cumReward.toFixed(4)}`;
       await showEndState(S.sessionId);
       break;
     }
 
     stepCount++;
     S.seen++;
+    S.stepCount = stepCount;
 
     const nextObs = result.observation;
     const reward  = (result.reward != null && typeof result.reward === 'object')
@@ -3004,10 +3274,20 @@ async function startEpisode() {
     const wasCaught    = isAttack && !wasMissed;
 
     S.cumReward += reward;
+    S.totalReward = S.cumReward;
     S.riskHistory.push(obs.user_risk_score != null ? obs.user_risk_score : 0.5);
     if (wasCaught)    S.caught++;
     if (wasMissed)    S.missed++;
     if (wasOverBlock) S.overBlocked++;
+
+    // Improvement 13: Store step history
+    S.stepHistory.push({ obs, action, reward, info, inferenceTime });
+
+    // Improvement 1: Update ticker
+    try {
+      const tickerEl = document.getElementById('ticker-text');
+      if (tickerEl) tickerEl.textContent = `LIVE — ${stepCount} eval steps completed — Task: ${S.task} — Episode reward: ${S.cumReward.toFixed(4)}`;
+    } catch(e) {}
 
     try {
       addFeedRow(obs, action, reward, info, inferenceTime, stepCount);
@@ -3084,11 +3364,28 @@ function togglePause() {
     : `Sentinel | Running: ${S.task}`;
 }
 
+// ── Improvement 9: Keyboard shortcuts ──────────────────────────────────
 document.addEventListener('keydown', function(e) {
-  if (e.code === 'Space' && document.activeElement !== document.getElementById('api-key-input')) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.code === 'Space') {
     e.preventDefault();
-    if (S.running) togglePause();
+    if (S.running) {
+      togglePause();
+    } else {
+      const runBtn = document.getElementById('start-btn');
+      if (runBtn && !runBtn.disabled) runBtn.click();
+    }
   }
+  if (e.key === 'r' || e.key === 'R') {
+    const runAgainBtn = document.getElementById('run-again-btn');
+    if (runAgainBtn && document.getElementById('end-state').style.display !== 'none') {
+      runAgainBtn.click();
+    }
+  }
+  if (e.key === '1') { const btns = document.querySelectorAll('.task-btn'); if (btns[0]) btns[0].click(); }
+  if (e.key === '2') { const btns = document.querySelectorAll('.task-btn'); if (btns[1]) btns[1].click(); }
+  if (e.key === '3') { const btns = document.querySelectorAll('.task-btn'); if (btns[2]) btns[2].click(); }
+  if (e.key === '4') { const btns = document.querySelectorAll('.task-btn'); if (btns[3]) btns[3].click(); }
 });
 </script>
 </body>

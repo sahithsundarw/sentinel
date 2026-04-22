@@ -39,6 +39,12 @@ output/
 *.pt
 *.safetensors
 checkpoints/
+**/checkpoints/
+secrets.json
+
+# GPT fine-tuning job artifacts (contain model IDs and job info)
+data/finetune_job.json
+data/finetuned_model_id.txt
 
 # Claude local settings
 .claude/

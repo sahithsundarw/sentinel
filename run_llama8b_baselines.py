@@ -1,8 +1,8 @@
 import os, sys, time, json
-os.environ["API_BASE_URL"] = "https://api.cerebras.ai/v1"
-os.environ["MODEL_NAME"]   = "llama3.1-8b"
-os.environ["HF_TOKEN"]     = "csk-mdmhtmrxk49ykcmv3pd963m3yd5nffd4mwj9rkrpmwj962md"
-os.environ["ENV_URL"]      = "http://localhost:7860"
+os.environ.setdefault("API_BASE_URL", "https://api.cerebras.ai/v1")
+os.environ.setdefault("MODEL_NAME",   "llama3.1-8b")
+os.environ.setdefault("ENV_URL",      "http://localhost:7860")
+# HF_TOKEN / CEREBRAS_API_KEY must be set in your environment or .env file
 
 import inference
 from openai import OpenAI

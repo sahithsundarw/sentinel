@@ -57,6 +57,52 @@ _step_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
 _step_logger.addHandler(_step_handler)
 
 _LEADERBOARD_PATH = "leaderboard.json"
+
+
+def _json_page(title: str, data: dict) -> str:
+    """Return a dark-themed HTML page that pretty-prints JSON with syntax highlighting."""
+    payload = json.dumps(data, indent=2)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{title} — Sentinel</title>
+<style>
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  body{{background:#0a0a0a;color:#e2e8f0;font-family:"SF Mono","Fira Code",monospace;padding:2rem}}
+  h1{{font-size:1.1rem;font-weight:600;color:#00ff88;margin-bottom:.4rem;letter-spacing:.04em}}
+  .sub{{font-size:.78rem;color:#555;margin-bottom:1.4rem}}
+  pre{{background:#111;border:1px solid #1e1e1e;border-radius:8px;padding:1.5rem;
+       font-size:.82rem;line-height:1.6;overflow-x:auto;white-space:pre-wrap;word-break:break-word}}
+  .k{{color:#7dd3fc}}.s{{color:#86efac}}.n{{color:#fbbf24}}.b{{color:#f472b6}}
+  a{{color:#00ff88;font-size:.78rem;text-decoration:none;opacity:.7}}
+  a:hover{{opacity:1}}
+</style>
+</head>
+<body>
+<h1>{title}</h1>
+<div class="sub"><a href="/">← Sentinel</a> &nbsp;·&nbsp; raw: append <code>?format=json</code></div>
+<pre id="out"></pre>
+<script>
+const raw = {payload};
+function hl(v, d=0) {{
+  if (v === null) return '<span class="b">null</span>';
+  if (typeof v === 'boolean') return '<span class="b">'+v+'</span>';
+  if (typeof v === 'number') return '<span class="n">'+v+'</span>';
+  if (typeof v === 'string') return '<span class="s">"'+v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')+'\"</span>';
+  const pad = '  '.repeat(d), ipad = '  '.repeat(d+1);
+  if (Array.isArray(v)) {{
+    if (!v.length) return '[]';
+    return '[\\n'+v.map(x=>ipad+hl(x,d+1)).join(',\\n')+'\\n'+pad+']';
+  }}
+  const keys = Object.keys(v);
+  if (!keys.length) return '{{}}';
+  return '{{\\n'+keys.map(k=>ipad+'<span class="k">"'+k+'"</span>: '+hl(v[k],d+1)).join(',\\n')+'\\n'+pad+'}}';
+}}
+document.getElementById('out').innerHTML = hl(raw);
+</script>
+</body>
+</html>"""
 _leaderboard_lock = threading.Lock()
 _computed_baselines_lock = threading.Lock()
 
@@ -966,9 +1012,8 @@ async def training_data(
 
 
 @app.get("/baseline")
-async def baseline():
+async def baseline(request: Request, format: Optional[str] = Query(default=None)):
     """Return named-agent baseline scores from _BASELINE_ENTRIES."""
-    # Build per-task dict keyed by agent name from the in-memory baseline entries.
     scores: dict[str, dict[str, float | None]] = {}
     _name_map = {
         "Oracle-Agent":            "oracle",
@@ -979,10 +1024,13 @@ async def baseline():
     }
     for task_id, entries in _BASELINE_ENTRIES.items():
         scores[task_id] = {_name_map.get(e["agent"], e["agent"]): e["score"] for e in entries}
-    return {
+    data = {
         "scores": scores,
         "note": "Scores from named agent runs. Oracle uses ground-truth labels. LLM scores measured against live HF Space.",
     }
+    if format == "json" or "text/html" not in request.headers.get("accept", ""):
+        return data
+    return HTMLResponse(_json_page("Baseline Scores", data))
 
 
 @app.get("/grader", response_model=GraderResponse)
@@ -1314,7 +1362,7 @@ async def replay(req: ReplayRequest):
 # ── /curriculum ───────────────────────────────────────────────────────────────
 
 @app.get("/curriculum")
-async def curriculum():
+async def curriculum(request: Request, format: Optional[str] = Query(default=None)):
     """Return a recommended training curriculum in progressive difficulty order.
 
     Phases progress from easy single-turn classification (Task 1) through
@@ -1326,7 +1374,7 @@ async def curriculum():
     Episode counts are conservative estimates based on tabular-agent convergence;
     neural policies typically need fewer episodes per phase.
     """
-    return {
+    data = {
         "phases": [
             {
                 "phase": 1,
@@ -1412,14 +1460,17 @@ async def curriculum():
             "        if score >= phase['target_score']: break  # phase saturated"
         ),
     }
+    if format == "json" or "text/html" not in request.headers.get("accept", ""):
+        return data
+    return HTMLResponse(_json_page("Training Curriculum", data))
 
 
 # ── /multi_agent_info ─────────────────────────────────────────────────────────
 
 @app.get("/multi_agent_info")
-async def multi_agent_info():
+async def multi_agent_info(request: Request, format: Optional[str] = Query(default=None)):
     """Return structured multi-agent framing for Sentinel (Theme #1: Multi-Agent Interactions)."""
-    return {
+    data = {
         "theme": "multi_agent_interactions",
         "sub_theme": "scalable_oversight",
         "agents": {
@@ -1474,6 +1525,9 @@ async def multi_agent_info():
             "interpretation": "Model scale does not help. Policy learning does.",
         },
     }
+    if format == "json" or "text/html" not in request.headers.get("accept", ""):
+        return data
+    return HTMLResponse(_json_page("Multi-Agent Info", data))
 
 
 # ── /training_log ─────────────────────────────────────────────────────────────

@@ -63,27 +63,26 @@ def get_gpt_action(model: str, observation: dict) -> tuple[str, str]:
     return action, f"Content safety decision: {action}"
 
 
-def eval_on_task(model: str, task_id: str) -> float:
+def eval_on_task(model: str, task_id: str, max_steps: int = 100) -> float:
     reset_resp = requests.post(
         f"{ENV_URL}/reset", json={"task_id": task_id}, timeout=30
     )
     reset_resp.raise_for_status()
     state = reset_resp.json()
-    session_id = state["session_id"]
-    prompt_id = state["prompt_id"]
+    obs = state.get("observation", state)
+    prompt_id = state.get("prompt_id", obs.get("prompt_id", ""))
 
     total_reward, steps, done = 0.0, 0, False
 
-    while not done:
-        action, reason = get_gpt_action(model, state)
+    while not done and steps < max_steps:
+        action, reason = get_gpt_action(model, obs)
         step_data = requests.post(
             f"{ENV_URL}/step",
-            params={"session_id": session_id},
-            json={"prompt_id": prompt_id, "action_type": action, "reason": reason},
+            json={"prompt_id": prompt_id, "action": action, "reason": reason},
             timeout=30,
         ).json()
 
-        reward_raw = step_data.get("reward", {})
+        reward_raw = step_data.get("reward", 0)
         if isinstance(reward_raw, dict):
             total_reward += reward_raw.get("score", 0.0)
         else:
@@ -91,11 +90,9 @@ def eval_on_task(model: str, task_id: str) -> float:
 
         steps += 1
         done = step_data.get("done", False)
-        if not done:
-            obs_next = step_data.get("observation") or {}
-            state = obs_next
-            prompt_id = obs_next.get("prompt_id", prompt_id)
-        time.sleep(0.2)
+        obs = step_data.get("observation") or obs
+        prompt_id = obs.get("prompt_id", prompt_id)
+        time.sleep(0.1)
 
     return round(total_reward / max(steps, 1), 4)
 

@@ -1,6 +1,7 @@
 {
   "task_id": "basic_threat_detection",
-  "method": "mock",
+  "method": "simulation",
+  "_note": "Synthetic training curve for chart testing. Real results in llama_sft_scores.json and llama_ppo_scores.json.",
   "zero_shot_score": 0.5428,
   "final_score": 0.7334,
   "best_score": 0.7377,

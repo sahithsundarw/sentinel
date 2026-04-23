@@ -74,7 +74,7 @@ def eval_on_task(model: str, task_id: str) -> float:
 
     total_reward, steps, done = 0.0, 0, False
 
-    while not done:
+    while not done and steps < 150:
         action, reason = get_gpt_action(model, state)
         step_data = requests.post(
             f"{ENV_URL}/step",

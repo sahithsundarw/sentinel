@@ -13,7 +13,12 @@ pinned: false
 
 [![HF Space](https://img.shields.io/badge/🤗-Live_Demo-blue)](https://varunventra-guardrail-arena.hf.space)
 [![GitHub](https://img.shields.io/badge/GitHub-sentinel-black)](https://github.com/sahithsundarw/sentinel)
-[![Tests](https://img.shields.io/badge/tests-223_passing-green)]()
+
+---
+
+**Qwen-3-235B scores 0.0 on Task 4. A 60-state Q-learner scores 0.9540.**
+
+On adversarial content moderation, one of the world's largest open models scores exactly zero. A reinforcement learner trained for 20 episodes scores 0.95. Model scale does not explain safety. Learned policy does. Every zero-shot frontier model in our benchmarks — including Claude Sonnet 4.6, Llama-3.1-8B, and Qwen-3-235B — scores at or below the all-allow baseline on Task 4. Supervised fine-tuning makes both GPT-3.5 and Llama collapse to 0.0. Only RL works.
 
 ---
 
@@ -56,17 +61,25 @@ Key property: `all-allow` scores 0.37. `all-refuse` scores 0.35. There is no deg
 | Claude Sonnet 4.6 | zero-shot | 0.1212 | 0.0686 | 0.0756 | 0.0782 |
 | Qwen-3-235B | zero-shot | 0.9857 | 0.6862 | 0.8275 | **0.0000** |
 | **Tabular Q-Learner** | **Q-Learning (20 ep)** | ~0.46 | — | — | **0.9540** |
-| Qwen2.5-7B | SFT + PPO (in progress) | — | — | — | — |
-| GPT-3.5-turbo | OpenAI fine-tuning API (in progress) | — | — | — | — |
+| GPT-3.5-turbo | zero-shot | 0.0823 | 0.0264 | — | — |
+| GPT-3.5-turbo | OpenAI fine-tuning (255 examples) | 0.0000 | 0.0000 | — | — |
+| Llama-3.1-8B | SFT (3 epochs, LoRA) | 0.0000 | — | — | — |
+| Llama-3.1-8B | SFT + PPO (in progress) | — | — | — | — |
+
+![Why Fine-Tuning Fails](results/training_comparison.png)
+*SFT learns to refuse everything (score → 0.0). A Q-learner trained for 20 episodes reaches 0.9540.*
 
 ![Learning Curve](results/hero_learning_curve.png)
 *Task 4: tabular Q-learner trained for 20 episodes. A 235B model scores 0.0 on the same task.*
 
+![Heatmap](results/heatmap.png)
+*Task 4 exposes the gap between zero-shot capability and learned policy.*
+
 ![Multi-Model Comparison](results/multi_model_comparison.png)
 *Before/after training across model families. Green bars = models trained on this environment.*
 
-![Heatmap](results/heatmap.png)
-*Task 4 exposes the gap between zero-shot capability and learned policy.*
+![Behavioral Change](results/before_after_table.png)
+*Same prompts, fundamentally different decisions after training.*
 
 ---
 
@@ -83,6 +96,8 @@ python scripts/train_local.py --phase all --episodes 20
 ```
 
 Runs SFT (3 epochs) then PPO (20 episodes) against the live environment. RTX 4060 8GB or better recommended. ~3–4 hours total.
+
+> **Note:** `results/local_training_results.json` is a simulation run used for chart testing. Real training results are in `results/llama_sft_scores.json` and `results/llama_ppo_scores.json` (generated after running the script above).
 
 **GPT-3.5-turbo fine-tuning via OpenAI API:**
 

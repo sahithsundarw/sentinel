@@ -1,0 +1,13 @@
+{
+  "model": "Llama-3.1-8B",
+  "model_id": "unsloth/Llama-3.1-8B-Instruct-bnb-4bit",
+  "task": "basic_threat_detection",
+  "baseline_score": 0.5428,
+  "post_sft_score": 0.0,
+  "improvement": -0.5428,
+  "improvement_pct": -100.0,
+  "training_examples": 131,
+  "epochs": 3,
+  "checkpoint_path": "checkpoints\\llama-sft",
+  "timestamp": "2026-04-23 05:19:15"
+}

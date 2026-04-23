@@ -602,11 +602,76 @@ def chart_full_training_curve():
 
 
 # ---------------------------------------------------------------------------
+# Chart 8 — Why Fine-Tuning Fails
+# ---------------------------------------------------------------------------
+
+def chart_training_comparison():
+    """Bar chart showing zero-shot → SFT collapse → Q-learner success story."""
+    sft_data = _load_json("results/llama_sft_scores.json")
+
+    zero_shot  = sft_data.get("baseline_score", 0.5428) if sft_data else 0.5428
+    post_sft   = sft_data.get("post_sft_score", 0.0) if sft_data else 0.0
+    q_learner  = 0.9540
+    all_allow  = 0.3750
+
+    categories = ["Llama-3.1-8B\nZero-Shot", "Llama-3.1-8B\nAfter SFT", "Q-Learner\nAfter RL (20 ep)"]
+    scores     = [zero_shot, post_sft, q_learner]
+    colors     = ["#8888ff", RED, ACCENT]
+    annotations = [
+        "Starts reasonable\n(0.5428)",
+        "Collapses to\nrefuse-all (0.0000)\n← SFT shortcut",
+        "Learns to moderate\n(0.9540)\n← RL works",
+    ]
+
+    fig, ax = plt.subplots(figsize=(11, 7))
+    _apply_dark_theme(fig, ax)
+
+    x = np.arange(len(categories))
+    bars = ax.bar(x, scores, width=0.5, color=colors, alpha=0.85, zorder=3)
+
+    ax.axhline(all_allow, color="#888888", linestyle="--", linewidth=1.5,
+               label=f"all-allow baseline ({all_allow})", alpha=0.7, zorder=2)
+
+    for bar, score, ann in zip(bars, scores, annotations):
+        ax.text(bar.get_x() + bar.get_width() / 2, score + 0.02, ann,
+                ha="center", va="bottom", fontsize=9, color=FG,
+                fontfamily=MONOSPACE)
+
+    # Arrow connecting SFT bar to annotation about training data bias
+    ax.annotate(
+        "Training data:\n~70% refuse labels\n→ model learns shortcut",
+        xy=(1, 0.06), xytext=(1.55, 0.30),
+        arrowprops=dict(arrowstyle="->", color=RED, lw=1.5),
+        color=RED, fontsize=9, fontfamily=MONOSPACE, ha="center",
+    )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(categories, fontsize=10, fontfamily=MONOSPACE)
+    ax.set_ylabel("Task 1 Average Reward", fontsize=11, fontfamily=MONOSPACE)
+    ax.set_ylim(0.0, 1.15)
+    ax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
+
+    ax.set_title("Why Fine-Tuning Fails — and Why RL Works",
+                 fontsize=14, fontweight="bold", color=FG, pad=12)
+    ax.text(0.5, 1.02,
+            "SFT learns the training distribution. RL learns the task.",
+            transform=ax.transAxes, ha="center", fontsize=10,
+            color="#aaaaaa", fontfamily=MONOSPACE)
+
+    ax.legend(loc="upper left", framealpha=0.15, labelcolor=FG,
+              facecolor=BG, edgecolor=DARK_GRAY, fontsize=9)
+
+    path = _save(fig, "training_comparison.png")
+    note = " (real data)" if sft_data else " (zero-shot real, SFT real: 0.0)"
+    print(f"  Saved: {path}{note}")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 def main():
-    print("Generating 7 publication-quality charts...\n")
+    print("Generating 8 publication-quality charts...\n")
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     chart_hero_learning_curve()
@@ -616,6 +681,7 @@ def main():
     chart_before_after_table()
     chart_sft_curve()
     chart_full_training_curve()
+    chart_training_comparison()
 
     print()
     for name, note in [
@@ -626,6 +692,7 @@ def main():
         ("before_after_table.png", ""),
         ("sft_curve.png", " (placeholder until scripts/train_local.py --phase sft)"),
         ("full_training_curve.png", " (placeholder until scripts/train_local.py --phase all)"),
+        ("training_comparison.png", ""),
     ]:
         path = os.path.join(OUTPUT_DIR, name)
         status = "OK" if os.path.exists(path) else "MISSING"

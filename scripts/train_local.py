@@ -7,9 +7,14 @@ Usage:
   python scripts/train_local.py --phase all   <- runs SFT then PPO back to back
 """
 import argparse
+import gc
 import json
 import os
+import random
+import subprocess
+import sys
 import time
+import warnings
 from pathlib import Path
 
 import requests
@@ -100,7 +105,7 @@ def load_model_4bit(model_name):
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         quantization_config=bnb_config,
-        device_map="auto",
+        device_map={"": 0},
         token=os.environ.get("HF_TOKEN"),
     )
     return model, tokenizer
@@ -134,14 +139,18 @@ def generate_synthetic_data(env_url, n_examples=150):
         if reset_resp.status_code != 200:
             print(f"  WARNING: could not reset {task_id}: {reset_resp.status_code}")
             continue
-        state = reset_resp.json()
+        reset_data = reset_resp.json()
+        session_id = reset_data.get("session_id", "")
+        obs = reset_data.get("observation", reset_data)
         done = False
 
         while not done and len(examples) < n_examples:
-            obs = state.get("observation", state)
             step_resp = requests.post(
                 f"{env_url}/step",
-                json={"action": "allow", "prompt_id": obs.get("prompt_id", "")},
+                params={"session_id": session_id},
+                json={"prompt_id": obs.get("prompt_id", ""),
+                      "action_type": "allow",
+                      "reason": "collecting training data"},
             )
             step_data = step_resp.json()
             info = step_data.get("info", {})
@@ -149,7 +158,7 @@ def generate_synthetic_data(env_url, n_examples=150):
 
             examples.append({"observation": obs, "correct_action": correct_action})
             done = step_data.get("done", False)
-            state = step_data
+            obs = step_data.get("observation") or obs
             time.sleep(0.05)
 
     print(f"Generated {len(examples)} synthetic training examples")
@@ -162,13 +171,25 @@ def fetch_training_data(env_url):
         params={"format": "sft", "task_id": "basic_threat_detection"},
     )
     resp.raise_for_status()
-    data = resp.json()
+    raw = resp.json()
 
-    # Debug: show what came back
-    print(f"Raw response type: {type(data)}")
-    if data:
-        print(f"First item type: {type(data[0])}")
-        print(f"First item: {str(data[0])[:200]}")
+    # Endpoint may return a list or a dict wrapping a list
+    print(f"Raw response type: {type(raw)}")
+    if isinstance(raw, dict):
+        print(f"Dict keys: {list(raw.keys())}")
+        # Try common wrapper keys, then flatten all list values
+        data = (raw.get("data") or raw.get("prompts") or raw.get("examples")
+                or raw.get("items") or raw.get("training_data") or [])
+        if not data:
+            # Fall back: concatenate all list values in the dict
+            for v in raw.values():
+                if isinstance(v, list):
+                    data = v
+                    break
+    else:
+        data = raw
+
+    print(f"First item: {str(data[0])[:200]}" if data else "No items found")
     print(f"Total items fetched: {len(data)}")
 
     if len(data) < 20:
@@ -246,18 +267,19 @@ def evaluate_model(model, tokenizer, env_url, max_steps=67):
     reset_resp = requests.post(f"{env_url}/reset",
                                json={"task_id": "basic_threat_detection"})
     reset_resp.raise_for_status()
-    state = reset_resp.json()
+    reset_data = reset_resp.json()
+    session_id = reset_data.get("session_id", "")
+    obs = reset_data.get("observation", reset_data)
 
     total_reward = 0.0
     steps = 0
     done = False
 
     while not done and steps < max_steps:
-        obs = state.get("observation", state)
         prompt = INFERENCE_TEMPLATE.format(
             application_context=obs.get("application_context", "general"),
             risk_level=obs.get("risk_level", "medium"),
-            user_prompt=obs.get("prompt", obs.get("user_prompt", "")),
+            user_prompt=obs.get("user_prompt", obs.get("prompt", "")),
         )
 
         inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
@@ -272,18 +294,25 @@ def evaluate_model(model, tokenizer, env_url, max_steps=67):
             outputs[0][inputs["input_ids"].shape[1]:],
             skip_special_tokens=True,
         )
+        del inputs, outputs
         action = _extract_action(raw_response)
 
         step_resp = requests.post(
             f"{env_url}/step",
-            json={"action": action, "prompt_id": obs.get("prompt_id", "")},
+            params={"session_id": session_id},
+            json={
+                "prompt_id": obs.get("prompt_id", ""),
+                "action_type": action,
+                "reason": f"content safety decision: {action}",
+            },
         )
         step_data = step_resp.json()
-        reward = step_data.get("reward", 0)
+        reward_raw = step_data.get("reward", 0)
+        reward = reward_raw.get("score", 0) if isinstance(reward_raw, dict) else float(reward_raw or 0)
         total_reward += reward
         steps += 1
         done = step_data.get("done", False)
-        state = step_data
+        obs = step_data.get("observation") or obs
 
         if steps % 10 == 0:
             print(f"  Step {steps}: '{raw_response.strip()[:40]}' → {action} | reward: {reward:.3f}")
@@ -296,8 +325,7 @@ def evaluate_model(model, tokenizer, env_url, max_steps=67):
 
 
 def run_sft_phase(config, env_url):
-    from transformers import TrainingArguments
-    from trl import SFTTrainer
+    from trl import SFTTrainer, SFTConfig
 
     baseline_score = ZERO_SHOT_BASELINES.get(config["label"])
 
@@ -317,11 +345,10 @@ def run_sft_phase(config, env_url):
 
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         train_dataset=dataset,
-        dataset_text_field="text",
-        max_seq_length=config["max_seq_length"],
-        args=TrainingArguments(
+        args=SFTConfig(
+            dataset_text_field="text",
             per_device_train_batch_size=2,
             gradient_accumulation_steps=4,
             warmup_steps=10,
@@ -373,105 +400,214 @@ def run_sft_phase(config, env_url):
     return sft_results
 
 
+def _post_with_retry(url, data, retries=4, delay=10, params=None):
+    for attempt in range(retries):
+        try:
+            resp = requests.post(url, json=data, params=params, timeout=30)
+            resp.raise_for_status()
+            return resp
+        except Exception as e:
+            if attempt == retries - 1:
+                raise
+            print(f"  Network retry {attempt+1}/{retries}: {e}")
+            time.sleep(delay)
+
+
 def run_ppo_phase(config, checkpoint_dir, env_url, episodes=20):
-    from peft import PeftModel
+    import torch.nn.functional as F
+    from peft import PeftModel, prepare_model_for_kbit_training
+    import bitsandbytes as bnb
+
+    gc.collect()
+    torch.cuda.empty_cache()
 
     print(f"\nLoading SFT checkpoint from {checkpoint_dir}...")
     base_model, tokenizer = load_model_4bit(config["name"])
-    model = PeftModel.from_pretrained(base_model, str(checkpoint_dir))
-    model = model.merge_and_unload()
-    model = attach_lora(model)
+
+    # prepare_model_for_kbit_training must run before PeftModel.from_pretrained
+    # so gradient checkpointing hooks are installed on the base model first.
+    base_model = prepare_model_for_kbit_training(
+        base_model, use_gradient_checkpointing=True)
+
+    model = PeftModel.from_pretrained(
+        base_model, str(checkpoint_dir), is_trainable=True)
+
+    # Belt-and-suspenders: explicitly unfreeze every LoRA parameter.
+    for name, param in model.named_parameters():
+        param.requires_grad_(True if "lora_" in name else False)
+
+    # Diagnosis — fail fast rather than silently train nothing.
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    total     = sum(p.numel() for p in model.parameters())
+    print(f"Trainable params: {trainable:,} / {total:,} "
+          f"({100 * trainable / total:.2f}%)")
+    if trainable == 0:
+        raise RuntimeError(
+            "No trainable parameters — LoRA weights are all frozen. "
+            "Verify the SFT checkpoint at " + str(checkpoint_dir))
+
+    optimizer = bnb.optim.AdamW8bit(
+        [p for p in model.parameters() if p.requires_grad],
+        lr=5e-5,
+        weight_decay=0.01,
+    )
+
+    ACTIONS = list(VALID_ACTIONS)  # allow, refuse, modify, escalate
+
+    # Pre-compute first token id for each action word once.
+    action_token_ids = [
+        tokenizer.encode(" " + a, add_special_tokens=False)[0]
+        for a in ACTIONS
+    ]
+
+    def get_action_and_logprob(obs):
+        """Single forward pass with grad enabled; sample from action-token logits."""
+        prompt = INFERENCE_TEMPLATE.format(
+            application_context=obs.get("application_context", "general"),
+            risk_level=obs.get("risk_level", "medium"),
+            user_prompt=obs.get("user_prompt", obs.get("prompt", "")),
+        )
+        enc = tokenizer(prompt, return_tensors="pt",
+                        truncation=True, max_length=256).to("cuda")
+        with torch.enable_grad():
+            logits = model(**enc).logits[0, -1, :]  # next-token logits
+        del enc
+
+        action_logits  = logits[action_token_ids]
+        action_logprobs = F.log_softmax(action_logits, dim=0)
+        action_probs    = F.softmax(action_logits, dim=0).detach()
+
+        action_idx    = torch.multinomial(action_probs, 1).item()
+        chosen_action = ACTIONS[action_idx]
+        chosen_logprob = action_logprobs[action_idx]  # retains grad graph
+        return chosen_action, chosen_logprob
 
     episode_rewards = []
+    ema_baseline = 0.0  # exponential moving average reward for variance reduction
 
     for episode in range(episodes):
-        print(f"\nPPO Episode {episode+1}/{episodes}")
-        reset_resp = requests.post(f"{env_url}/reset",
-                                   json={"task_id": "basic_threat_detection"})
-        state = reset_resp.json()
+        model.train()  # train mode — dropout active, grad graph built in forward pass
+        print(f"\nRL Episode {episode+1}/{episodes}")
 
+        reset_resp = _post_with_retry(f"{env_url}/reset",
+                                      {"task_id": "basic_threat_detection"})
+        reset_data = reset_resp.json()
+        session_id = reset_data.get("session_id", "")
+        obs        = reset_data.get("observation", reset_data)
+
+        trajectory   = []  # (logprob_tensor, reward_float)
         episode_reward = 0.0
         steps = 0
-        done = False
+        done  = False
+        action_counts = {a: 0 for a in ACTIONS}
 
-        while not done:
-            obs = state.get("observation", state)
-            prompt = INFERENCE_TEMPLATE.format(
-                application_context=obs.get("application_context", "general"),
-                risk_level=obs.get("risk_level", "medium"),
-                user_prompt=obs.get("prompt", obs.get("user_prompt", "")),
-            )
-            inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
-            with torch.no_grad():
-                output = model.generate(
-                    **inputs, max_new_tokens=5,
-                    do_sample=True, temperature=0.7,
-                    pad_token_id=tokenizer.eos_token_id,
-                )
-            raw_response = tokenizer.decode(
-                output[0][inputs["input_ids"].shape[1]:],
-                skip_special_tokens=True,
-            )
-            action = _extract_action(raw_response)
+        while not done and steps < 100:
+            action, logprob = get_action_and_logprob(obs)
+            action_counts[action] += 1
 
-            step_resp = requests.post(
+            step_resp = _post_with_retry(
                 f"{env_url}/step",
-                json={"action": action, "prompt_id": obs.get("prompt_id", "")},
+                {"prompt_id": obs.get("prompt_id", ""),
+                 "action_type": action,
+                 "reason": f"content safety decision: {action}"},
+                params={"session_id": session_id},
             )
-            step_data = step_resp.json()
-            episode_reward += step_data.get("reward", 0)
+            step_data  = step_resp.json()
+            reward_raw = step_data.get("reward", 0)
+            reward     = (reward_raw.get("score", 0)
+                          if isinstance(reward_raw, dict)
+                          else float(reward_raw or 0))
+
+            trajectory.append((logprob, reward))
+            episode_reward += reward
             steps += 1
             done = step_data.get("done", False)
-            state = step_data
+            obs  = step_data.get("observation") or obs
 
-        avg_reward = episode_reward / max(steps, 1)
+        avg_reward   = episode_reward / max(steps, 1)
         episode_rewards.append(round(avg_reward, 4))
-        print(f"  Episode {episode+1} reward: {avg_reward:.4f}")
 
-        requests.post(f"{env_url}/training_log", json={
-            "episode": episode + 1,
-            "task": "basic_threat_detection",
-            "agent_type": f"ppo_{config['label']}",
-            "reward": avg_reward,
-            "phase": "ppo",
-        })
+        # REINFORCE update: loss = -logprob * advantage, averaged over trajectory.
+        ema_baseline = 0.9 * ema_baseline + 0.1 * avg_reward
+        optimizer.zero_grad()
+        total_loss = sum(
+            -lp * (r - ema_baseline) for lp, r in trajectory
+        ) / len(trajectory)
+        total_loss.backward()
+        torch.nn.utils.clip_grad_norm_(
+            [p for p in model.parameters() if p.requires_grad], 1.0)
+        optimizer.step()
+
+        grad_norms = [
+            p.grad.norm().item()
+            for p in model.parameters()
+            if p.requires_grad and p.grad is not None
+        ]
+        avg_grad = sum(grad_norms) / len(grad_norms) if grad_norms else 0.0
+
+        dist_str = "  ".join(f"{k}:{v}" for k, v in sorted(action_counts.items()))
+        print(f"  Reward: {avg_reward:.4f}  [{dist_str}]  "
+              f"Loss: {total_loss.item():.4f}  Grad norm: {avg_grad:.6f}")
+        if avg_grad == 0.0:
+            print("  WARNING: Zero gradients — weights not updating")
+
+        try:
+            requests.post(f"{env_url}/training_log", json={
+                "episode": episode + 1,
+                "task": "basic_threat_detection",
+                "agent_type": f"reinforce_{config['label']}",
+                "reward": avg_reward,
+                "phase": "reinforce",
+            }, timeout=10)
+        except Exception:
+            pass
+
+        gc.collect()
+        torch.cuda.empty_cache()
 
     PPO_CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(str(PPO_CHECKPOINT_DIR))
+    tokenizer.save_pretrained(str(PPO_CHECKPOINT_DIR))
 
-    print("Evaluating post-PPO model...")
-    post_ppo_score, _ = evaluate_model(model, tokenizer, env_url)
+    print("Evaluating post-RL model...")
+    model.eval()
+    post_rl_score, _ = evaluate_model(model, tokenizer, env_url)
 
-    ppo_results = {
+    sft_path = RESULTS_DIR / "llama_sft_scores.json"
+    baseline_score = ZERO_SHOT_BASELINES.get(config["label"], 0.5428)
+    post_sft_score = None
+    if sft_path.exists():
+        with open(sft_path) as f:
+            sft_data = json.load(f)
+        baseline_score = sft_data.get("baseline_score", baseline_score)
+        post_sft_score = sft_data.get("post_sft_score")
+
+    results = {
         "model": config["label"],
+        "algorithm": "REINFORCE",
         "task": "basic_threat_detection",
         "episodes": episodes,
         "episode_rewards": episode_rewards,
-        "post_ppo_score": post_ppo_score,
+        "baseline_score": baseline_score,
+        "post_sft_score": post_sft_score,
+        "post_ppo_score": post_rl_score,  # key kept for chart compatibility
+        "improvement_over_baseline": round(post_rl_score - baseline_score, 4),
         "checkpoint_path": str(PPO_CHECKPOINT_DIR),
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
 
-    sft_path = RESULTS_DIR / "llama_sft_scores.json"
-    if sft_path.exists():
-        with open(sft_path) as f:
-            sft_data = json.load(f)
-        ppo_results["baseline_score"] = sft_data.get("baseline_score")
-        ppo_results["post_sft_score"] = sft_data.get("post_sft_score")
-        ppo_results["improvement_over_baseline"] = round(
-            post_ppo_score - (sft_data.get("baseline_score") or 0), 4)
-
     with open(RESULTS_DIR / "llama_ppo_scores.json", "w") as f:
-        json.dump(ppo_results, f, indent=2)
+        json.dump(results, f, indent=2)
 
-    post_sft = ppo_results.get("post_sft_score")
     print(f"\n{'='*50}")
-    print(f"PPO RESULTS")
-    if post_sft:
-        print(f"Post-SFT:  {post_sft:.4f}")
-    print(f"Post-PPO:  {post_ppo_score:.4f}")
+    print(f"REINFORCE RESULTS — {config['label']}")
+    print(f"Zero-shot baseline:  {baseline_score:.4f}")
+    if post_sft_score is not None:
+        print(f"After SFT:           {post_sft_score:.4f}")
+    print(f"After RL:            {post_rl_score:.4f}")
+    print(f"Improvement:         +{results['improvement_over_baseline']:.4f}")
     print(f"{'='*50}")
-    return ppo_results
+    return results
 
 
 if __name__ == "__main__":
@@ -483,6 +619,10 @@ if __name__ == "__main__":
 
     if not torch.cuda.is_available():
         raise SystemExit("No CUDA GPU detected. This script requires a CUDA GPU.")
+
+    import transformers
+    transformers.logging.set_verbosity_error()
+    warnings.filterwarnings("ignore")
 
     # Load .env if present
     env_file = Path(".env")
@@ -496,10 +636,10 @@ if __name__ == "__main__":
 
     if args.phase in ("sft", "all"):
         run_sft_phase(config, args.env_url)
-        os.system("python generate_charts.py")
+        subprocess.run([sys.executable, "generate_charts.py"], check=False)
 
     if args.phase in ("ppo", "all"):
         run_ppo_phase(config, CHECKPOINT_DIR, args.env_url, args.episodes)
-        os.system("python generate_charts.py")
+        subprocess.run([sys.executable, "generate_charts.py"], check=False)
 
     print("\nAll training complete. Charts updated.")

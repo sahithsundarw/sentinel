@@ -35,6 +35,7 @@ Task 4 is the interesting one. The adversary is a finite-state machine with 180 
 | Qwen-3-235B | zero-shot | 0.9857 | 0.6862 | 0.8275 | **0.0000** |
 | GPT-3.5-turbo | OpenAI fine-tuning | 0.0000 | 0.0000 | — | — |
 | Llama-3.1-8B | SFT (LoRA, 3 epochs) | 0.0000 | — | — | — |
+| Llama-3.1-8B | REINFORCE (20 ep, LoRA) | 0.0929 | — | — | — |
 | **Tabular Q-Learner** | Q-Learning (20 ep) | — | — | — | **0.9540** |
 
 ![Performance Heatmap](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/heatmap.png)

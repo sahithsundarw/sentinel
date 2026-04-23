@@ -527,8 +527,12 @@ def run_ppo_phase(config, checkpoint_dir, env_url, episodes=20):
         model.train()  # train mode — dropout active, grad graph built in forward pass
         print(f"\nRL Episode {episode+1}/{episodes}")
 
-        reset_resp = _post_with_retry(f"{env_url}/reset",
-                                      {"task_id": "basic_threat_detection"})
+        try:
+            reset_resp = _post_with_retry(f"{env_url}/reset",
+                                          {"task_id": "basic_threat_detection"})
+        except requests.exceptions.ConnectionError as e:
+            print(f"  Network lost at reset — stopping training early: {e}")
+            break
         reset_data = reset_resp.json()
         session_id = reset_data.get("session_id", "")
         obs        = reset_data.get("observation", reset_data)
@@ -553,6 +557,9 @@ def run_ppo_phase(config, checkpoint_dir, env_url, episodes=20):
                 )
             except _SessionExpired as e:
                 print(f"  {e} — skipping to next episode")
+                break
+            except requests.exceptions.ConnectionError as e:
+                print(f"  Network lost during episode — skipping to next episode: {e}")
                 break
 
             step_data  = step_resp.json()
@@ -621,10 +628,6 @@ def run_ppo_phase(config, checkpoint_dir, env_url, episodes=20):
     model.save_pretrained(str(PPO_CHECKPOINT_DIR))
     tokenizer.save_pretrained(str(PPO_CHECKPOINT_DIR))
 
-    print("Evaluating post-RL model...")
-    model.eval()
-    post_rl_score, _ = evaluate_model(model, tokenizer, env_url)
-
     sft_path = RESULTS_DIR / "llama_sft_scores.json"
     baseline_score = ZERO_SHOT_BASELINES.get(config["label"], 0.5428)
     post_sft_score = None
@@ -634,11 +637,19 @@ def run_ppo_phase(config, checkpoint_dir, env_url, episodes=20):
         baseline_score = sft_data.get("baseline_score", baseline_score)
         post_sft_score = sft_data.get("post_sft_score")
 
+    try:
+        print("Evaluating post-RL model...")
+        model.eval()
+        post_rl_score, _ = evaluate_model(model, tokenizer, env_url)
+    except requests.exceptions.ConnectionError:
+        print("  Network lost during evaluation — using last episode reward as score")
+        post_rl_score = episode_rewards[-1] if episode_rewards else 0.0
+
     results = {
         "model": config["label"],
         "algorithm": "REINFORCE",
         "task": "basic_threat_detection",
-        "episodes": episodes,
+        "episodes": len(episode_rewards),
         "episode_rewards": episode_rewards,
         "baseline_score": baseline_score,
         "post_sft_score": post_sft_score,

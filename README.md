@@ -65,7 +65,7 @@ Key property: `all-allow` scores 0.37. `all-refuse` scores 0.35. There is no deg
 | GPT-3.5-turbo | zero-shot | 0.0823 | 0.0264 | — | — |
 | GPT-3.5-turbo | OpenAI fine-tuning (255 examples) | 0.0000 | 0.0000 | — | — |
 | Llama-3.1-8B | SFT (3 epochs, LoRA) | 0.0000 | — | — | — |
-| Llama-3.1-8B | SFT + PPO (in progress) | — | — | — | — |
+| Llama-3.1-8B | REINFORCE (20 ep, LoRA) | 0.0929 | — | — | — |
 
 ![Why Fine-Tuning Fails](results/training_comparison.png)
 *SFT learns to refuse everything (score → 0.0). A Q-learner trained for 20 episodes reaches 0.9540.*

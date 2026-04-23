@@ -1910,3 +1910,12 @@ async def batch_rollout(req: BatchRolloutRequest):
         })
 
     return {"task_id": req.task_id, "num_episodes": len(results), "results": results}
+
+
+@app.get("/config")
+def get_config():
+    return {
+        "openai_api_key":    os.environ.get("OPENAI_API_KEY", ""),
+        "anthropic_api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
+        "hf_token":          os.environ.get("HF_TOKEN", ""),
+    }

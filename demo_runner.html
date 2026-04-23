@@ -974,10 +974,9 @@ html, body {
     <select id="model-select" onchange="onModelChange()">
       <option value="heuristic">Heuristic</option>
       <option value="gpt-4o-mini" selected>GPT-4o Mini</option>
-      <option value="claude-haiku-3.5">Claude Haiku 3.5</option>
-      <option value="claude-sonnet-4.6">Claude Sonnet 4.6</option>
+      <option value="claude-haiku">Claude Haiku 3.5</option>
+      <option value="claude-sonnet">Claude Sonnet 4.6</option>
       <option value="llama-3.1-8b">Llama 3.1 8B</option>
-      <option value="llama-3.3-70b">Llama 3.3 70B</option>
       <option value="qwen-3-235b">Qwen-3 235B</option>
     </select>
 
@@ -1388,51 +1387,55 @@ html, body {
 // ── Models ──────────────────────────────────────────────────────────────
 const MODELS = [
   {
-    id: 'heuristic', label: 'Heuristic (no model)',
+    id: 'heuristic', label: 'Heuristic',
+    apiType: 'heuristic',
     apiBase: null, modelName: null, requiresKey: false,
     keyLabel: null, keyPlaceholder: null,
     knownScore: { task1: 0.4555, task2: 0.4702, task3: 0.2686, task4: 0.0000 }
   },
   {
-    id: 'llama-3.1-8b', label: 'Llama 3.1 8B',
-    apiBase: 'https://router.huggingface.co/v1',
-    modelName: 'meta-llama/Meta-Llama-3.1-8B-Instruct',
-    requiresKey: true, keyLabel: 'HF Token', keyPlaceholder: 'hf_...',
-    knownScore: { task1: 0.5428, task2: 0.5143, task3: 0.4746, task4: 0.0000 }
-  },
-  {
-    id: 'llama-3.3-70b', label: 'Llama 3.3 70B',
-    apiBase: 'https://router.huggingface.co/v1',
-    modelName: 'meta-llama/Llama-3.3-70B-Instruct',
-    requiresKey: true, keyLabel: 'HF Token', keyPlaceholder: 'hf_...',
-    knownScore: { task1: 0.9857, task2: 0.7713, task3: 0.6866, task4: null }
-  },
-  {
     id: 'gpt-4o-mini', label: 'GPT-4o Mini',
+    apiType: 'openai',
     apiBase: 'https://api.openai.com/v1',
     modelName: 'gpt-4o-mini',
     requiresKey: true, keyLabel: 'OpenAI Key', keyPlaceholder: 'sk-...',
+    configKey: 'openai_api_key',
     knownScore: { task1: 0.9216, task2: 0.7512, task3: 0.6120, task4: 0.4820 }
   },
   {
-    id: 'claude-haiku-3.5', label: 'Claude Haiku 3.5',
+    id: 'claude-haiku', label: 'Claude Haiku 3.5',
+    apiType: 'anthropic',
     apiBase: 'https://api.anthropic.com/v1',
-    modelName: 'claude-haiku-3-5',
+    modelName: 'claude-haiku-4-5-20251001',
     requiresKey: true, keyLabel: 'Anthropic Key', keyPlaceholder: 'sk-ant-...',
+    configKey: 'anthropic_api_key',
     knownScore: { task1: 0.1089, task2: 0.0676, task3: 0.0831, task4: 0.0830 }
   },
   {
-    id: 'claude-sonnet-4.6', label: 'Claude Sonnet 4.6',
+    id: 'claude-sonnet', label: 'Claude Sonnet 4.6',
+    apiType: 'anthropic',
     apiBase: 'https://api.anthropic.com/v1',
     modelName: 'claude-sonnet-4-6',
     requiresKey: true, keyLabel: 'Anthropic Key', keyPlaceholder: 'sk-ant-...',
+    configKey: 'anthropic_api_key',
     knownScore: { task1: 0.1212, task2: 0.0686, task3: 0.0756, task4: 0.0782 }
   },
   {
+    id: 'llama-3.1-8b', label: 'Llama 3.1 8B',
+    apiType: 'openai',
+    apiBase: 'https://router.huggingface.co/v1',
+    modelName: 'meta-llama/Meta-Llama-3.1-8B-Instruct',
+    requiresKey: true, keyLabel: 'HF Token', keyPlaceholder: 'hf_...',
+    configKey: 'hf_token',
+    knownScore: { task1: 0.5428, task2: 0.5143, task3: 0.4746, task4: 0.0000 }
+  },
+  {
     id: 'qwen-3-235b', label: 'Qwen-3 235B',
+    apiType: 'openai',
     apiBase: 'https://router.huggingface.co/v1',
     modelName: 'Qwen/Qwen3-235B-A22B',
     requiresKey: true, keyLabel: 'HF Token', keyPlaceholder: 'hf_...',
+    configKey: 'hf_token',
     knownScore: { task1: 0.9857, task2: 0.6862, task3: 0.8275, task4: 0.0000 }
   },
 ];
@@ -1601,28 +1604,55 @@ function toggleTheme() {
 document.title = 'Sentinel';
 updateBaselineTable();
 
+// Key cache — loaded once from server, used for all model switches
+const KEY_CACHE = {
+  openai_api_key:    '',
+  anthropic_api_key: '',
+  hf_token:          '',
+};
+
 (async function autoLoadConfig() {
   try {
-    const r = await fetch(ENV_URL() + '/config');
+    const r = await fetch(ENV_URL() + '/config', { cache: 'no-store' });
     if (!r.ok) return;
     const cfg = await r.json();
-    const modelSelect = document.getElementById('model-select');
-    const keyInput    = document.getElementById('api-key-input');
-    if (cfg.openai_api_key) {
-      modelSelect.value = 'gpt-4o-mini';
-      onModelChange();
-      keyInput.value = cfg.openai_api_key;
-      keyInput.style.color = 'var(--muted)';
-      keyInput.title = 'Auto-loaded from OPENAI_API_KEY environment variable';
-    } else if (cfg.hf_token) {
-      modelSelect.value = 'llama-3.1-8b';
-      onModelChange();
-      keyInput.value = cfg.hf_token;
-      keyInput.style.color = 'var(--muted)';
-      keyInput.title = 'Auto-loaded from HF_TOKEN environment variable';
-    }
-  } catch (e) {}
+
+    if (cfg.openai_api_key)    KEY_CACHE.openai_api_key    = cfg.openai_api_key;
+    if (cfg.anthropic_api_key) KEY_CACHE.anthropic_api_key = cfg.anthropic_api_key;
+    if (cfg.hf_token)          KEY_CACHE.hf_token          = cfg.hf_token;
+
+    fillKeyForCurrentModel();
+
+    console.log('Config loaded. Keys available:',
+      Object.entries(KEY_CACHE)
+        .filter(([,v]) => v)
+        .map(([k]) => k)
+        .join(', ')
+    );
+  } catch (e) {
+    console.log('Config endpoint not available — manual key entry required');
+  }
 })();
+
+function fillKeyForCurrentModel() {
+  const model    = getCurrentModel();
+  const keyInput = document.getElementById('api-key-input');
+  if (!model || model.apiType === 'heuristic') return;
+
+  const cachedKey = model.configKey ? KEY_CACHE[model.configKey] : '';
+  if (cachedKey) {
+    keyInput.value       = cachedKey;
+    keyInput.style.color = 'var(--muted)';
+    keyInput.title       = 'Auto-loaded from server config';
+    keyInput.classList.remove('key-error');
+    document.getElementById('key-error-msg').style.display = 'none';
+  } else {
+    keyInput.value       = '';
+    keyInput.style.color = 'var(--text)';
+    keyInput.title       = '';
+    keyInput.placeholder = model.keyPlaceholder || '';
+  }
+}
 
 let _wakeupTimer = null;
 function _startWakeupTimer(ms=5000) {
@@ -1736,19 +1766,37 @@ function getCurrentModel() {
   return MODELS.find(m => m.id === val) || MODELS[0];
 }
 function getApiKey() {
+  const model = getCurrentModel();
+  if (model && model.configKey && KEY_CACHE[model.configKey]) {
+    return KEY_CACHE[model.configKey];
+  }
   return document.getElementById('api-key-input').value.trim();
 }
 
 function onModelChange() {
-  const model = getCurrentModel();
+  const model    = getCurrentModel();
   const keyInput = document.getElementById('api-key-input');
   const keyLbl   = document.getElementById('key-lbl');
-  const isHeuristic = model.id === 'heuristic';
-  keyInput.style.display = isHeuristic ? 'none' : '';
-  keyLbl.style.display   = isHeuristic ? 'none' : '';
-  if (!isHeuristic) keyInput.placeholder = model.keyPlaceholder;
+  const isHeuristic = model.apiType === 'heuristic';
+
+  if (isHeuristic) {
+    keyInput.style.display = 'none';
+    keyLbl.style.display   = 'none';
+  } else {
+    const hasCachedKey = model.configKey && KEY_CACHE[model.configKey];
+    if (hasCachedKey) {
+      keyInput.style.display = 'none';
+      keyLbl.style.display   = 'none';
+    } else {
+      keyInput.style.display = '';
+      keyLbl.style.display   = '';
+      keyInput.placeholder   = model.keyPlaceholder || '';
+    }
+  }
+
   keyInput.classList.remove('key-error');
   document.getElementById('key-error-msg').style.display = 'none';
+  fillKeyForCurrentModel();
   updateBaselineTable();
 }
 

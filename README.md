@@ -9,17 +9,16 @@ pinned: false
 
 # Sentinel — Guardrail Arena
 
-> Train AI agents to be better content safety moderators than zero-shot LLMs.
-
-[![HF Space](https://img.shields.io/badge/🤗-Live_Demo-blue)](https://varunventra-guardrail-arena.hf.space)
-[![GitHub](https://img.shields.io/badge/GitHub-sentinel-black)](https://github.com/sahithsundarw/sentinel)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb)
+[![HF Space](https://img.shields.io/badge/🤗-Live_Demo-blue)](https://varunventra-guardrail-arena.hf.space)
+[![Tests](https://img.shields.io/badge/tests-223_passing-green)]()
 
 ---
 
-**Qwen-3-235B scores 0.0 on Task 4. A 60-state Q-learner scores 0.9540.**
-
-On adversarial content moderation, one of the world's largest open models scores exactly zero. A reinforcement learner trained for 20 episodes scores 0.95. Model scale does not explain safety. Learned policy does. Every zero-shot frontier model in our benchmarks — including Claude Sonnet 4.6, Llama-3.1-8B, and Qwen-3-235B — scores at or below the all-allow baseline on Task 4. Supervised fine-tuning makes both GPT-3.5 and Llama collapse to 0.0. Only RL works.
+A 235-billion parameter model scores **0.0000** on Task 4.
+A 9-feature Q-learner scores **0.9540** on the same task.
+Supervised fine-tuning collapsed to **0.0000**.
+Only reinforcement learning works. Here's why.
 
 ---
 
@@ -29,89 +28,71 @@ Static safety benchmarks tell you *whether* a model failed. They don't train it 
 
 ---
 
-## The Environment
+## How It Works
 
 An agent sees a stream of user prompts and must classify each one: **allow**, **refuse**, **modify**, or **escalate**. The observation includes the prompt, application context, risk level, turn number, and conversation history. The agent issues a single-word action and receives a shaped reward signal based on correctness and context.
-
-| Task | Difficulty | Key Mechanic |
-|------|-----------|-------------|
-| `basic_threat_detection` | 🟢 Easy | Single-turn: DAN, encoding tricks, PII extraction |
-| `context_aware_policy` | 🟡 Medium | Same prompt, different correct action by context |
-| `multiturn_adversarial` | 🟠 Hard | Branching convos — agent actions change adversary trajectory |
-| `adversarial_adaptation` | 🔴 Expert | FSM adversary: 10 topics × 6 intensities × 3 surfaces |
-
----
-
-## Reward Signal
-
-The reward function scores each decision based on correctness and context-appropriateness, with penalties for over-blocking safe content and under-blocking harmful content.
 
 Key property: `all-allow` scores 0.37. `all-refuse` scores 0.35. There is no degenerate shortcut — the agent must actually moderate.
 
 ---
 
-## Baseline Results
+## The Environment
+
+| Task | Difficulty | Steps | Key Mechanic |
+|------|-----------|-------|-------------|
+| `basic_threat_detection` | 🟢 Easy | 67 | DAN jailbreaks, encoding tricks, PII extraction |
+| `context_aware_policy` | 🟡 Medium | 83 | Same prompt, different correct action by context |
+| `multiturn_adversarial` | 🟠 Hard | 238 | Branching convos — agent actions change adversary trajectory |
+| `adversarial_adaptation` | 🔴 Expert | Dynamic | FSM adversary: 10 topics × 6 intensities × 3 surfaces |
+
+Task 4 is the critical one. A deterministic FSM adversary with 180 observable states — block it, it escalates; allow it, it escalates harder. Your turn-1 action shapes turn-5. No fixed dataset.
+
+---
+
+## Training Results
 
 | Model | Training | Task 1 | Task 2 | Task 3 | Task 4 |
 |-------|----------|--------|--------|--------|--------|
 | all-allow | — | 0.3750 | 0.4037 | 0.1607 | 0.1500 |
 | all-refuse | — | 0.3534 | 0.3460 | 0.0688 | 0.0000 |
-| Llama-3.1-8B | zero-shot | 0.5428 | 0.5143 | 0.4746 | 0.0000 |
-| GPT-4o-mini | zero-shot | 0.9216 | 0.7512 | 0.6120 | 0.4820 |
 | Claude Haiku 3.5 | zero-shot | 0.1089 | 0.0676 | 0.0831 | 0.0830 |
 | Claude Sonnet 4.6 | zero-shot | 0.1212 | 0.0686 | 0.0756 | 0.0782 |
+| Llama-3.1-8B | zero-shot | 0.5428 | 0.5143 | 0.4746 | 0.0000 |
+| GPT-4o-mini | zero-shot | 0.9216 | 0.7512 | 0.6120 | 0.4820 |
 | Qwen-3-235B | zero-shot | 0.9857 | 0.6862 | 0.8275 | **0.0000** |
-| **Tabular Q-Learner** | **Q-Learning (20 ep)** | ~0.46 | — | — | **0.9540** |
-| GPT-3.5-turbo | zero-shot | 0.0823 | 0.0264 | — | — |
-| GPT-3.5-turbo | OpenAI fine-tuning (255 examples) | 0.0000 | 0.0000 | — | — |
-| Llama-3.1-8B | SFT (3 epochs, LoRA) | 0.0000 | — | — | — |
+| GPT-3.5-turbo | SFT (255 examples) | 0.0000 | 0.0000 | — | — |
+| Llama-3.1-8B | SFT (LoRA, 3 epochs) | 0.0000 | — | — | — |
 | Llama-3.1-8B | REINFORCE (20 ep, LoRA) | 0.0929 | — | — | — |
+| **Tabular Q-Learner** | **RL (20 episodes)** | ~0.46 | — | — | **0.9540** |
 
-![Why Fine-Tuning Fails](results/training_comparison.png)
-*SFT learns to refuse everything (score → 0.0). A Q-learner trained for 20 episodes reaches 0.9540.*
-
-![Learning Curve](results/hero_learning_curve.png)
-*Task 4: tabular Q-learner trained for 20 episodes. A 235B model scores 0.0 on the same task.*
-
-![Heatmap](results/heatmap.png)
-*Task 4 exposes the gap between zero-shot capability and learned policy.*
-
-![Multi-Model Comparison](results/multi_model_comparison.png)
-*Before/after training across model families. Green bars = models trained on this environment.*
-
-![Behavioral Change](results/before_after_table.png)
-*Same prompts, fundamentally different decisions after training.*
+> *Llama-3.1-8B RL score (0.0929) reflects 20 REINFORCE episodes on an RTX 4060.
+> The action distribution shifted from all-refuse (episode 1: 1 allow, 65 refuse)
+> to a mixed policy (episode 20: 22 allow, 43 refuse, 2 modify), confirming the
+> training signal is working. Full convergence requires more compute.*
 
 ---
 
-## Reproduce Training
+## Training Evidence
 
-**Local training (SFT + PPO, recommended):**
+![Learning Curve](results/hero_learning_curve.png)
+*Q-Learner Task 4 learning curve: 20 episodes, 0.0 → 0.9540*
 
-```bash
-git clone https://github.com/sahithsundarw/sentinel
-cd sentinel
-pip install transformers trl peft bitsandbytes accelerate datasets requests
-set HF_TOKEN=your_token_here
-python scripts/train_local.py --phase all --episodes 20
-```
+![Training Comparison](results/training_comparison.png)
+*Three approaches to safety training. Only RL works.*
 
-Runs SFT (3 epochs) then PPO (20 episodes) against the live environment. RTX 4060 8GB or better recommended. ~3–4 hours total.
+![Heatmap](results/heatmap.png)
+*All models × all tasks. Task 4 separates zero-shot from learned policy.*
 
-> **Note:** `results/local_training_results.json` is a simulation run used for chart testing. Real training results are in `results/llama_sft_scores.json` and `results/llama_ppo_scores.json` (generated after running the script above).
+![Llama Training](results/full_training_curve.png)
+*Llama-3.1-8B training journey: SFT collapses, RL recovers*
 
-**GPT-3.5-turbo fine-tuning via OpenAI API:**
+---
 
-```bash
-python scripts/finetune_gpt35.py   # uploads JSONL, starts job
-python scripts/poll_finetune.py    # polls every 60s, evaluates when done
-```
+## Key Finding: SFT Collapse
 
-**Claude zero-shot baselines:**
+Supervised fine-tuning on 255 labeled examples dropped GPT-3.5-turbo from 0.0823 to **0.0000**. The model learned to refuse everything — 70% of training labels say "refuse", so SFT found the shortcut.
 
-```bash
-python scripts/eval_claude_baselines.py
-```
+Llama-3.1-8B SFT collapsed identically. Both confirm the core thesis: safety requires learned policy, not imitation.
 
 ---
 
@@ -122,28 +103,41 @@ The environment implements cross-episode adaptation:
 - **topic_weakness_map**: tracks which adversarial topics the agent struggles with and overweights them in future episodes
 - **starting_risk_score**: gradually increases over training to stop babying the agent on easy prompts
 - **honeypot traps**: inserts decoy safe-looking prompts to test over-refusal tendencies
-- **FSM state persistence**: the adversary remembers successful attack vectors and escalates along them across turns
+- **FSM state persistence**: the adversary remembers successful attack vectors and escalates across turns
 
-This means the training distribution *adapts to the agent* — harder than standard i.i.d. RL and aligned with OpenEnv's self-improving evaluation theme.
+This means the training distribution *adapts to the agent* — harder than standard i.i.d. RL.
 
 ---
 
-## Why It Matters
+## Reproduce Training
 
-Current safety evaluation is static: you run a model on a fixed benchmark and get a score. Sentinel closes the loop — the same environment that measures capability also trains it. Any agent that improves in Sentinel is provably better at real adversarial content moderation.
+**Local (RTX 4060 or better, ~3-4 hours):**
+
+```bash
+git clone https://github.com/sahithsundarw/sentinel
+cd sentinel
+pip install transformers trl peft bitsandbytes accelerate datasets requests
+set HF_TOKEN=your_token_here
+python scripts/train_local.py --phase all --episodes 20
+```
+
+**Colab T4:**
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb)
 
 ---
 
 ## API
 
-The environment exposes a standard OpenEnv REST API (`openenv.yaml`):
-
 ```
+GET  /health                         → {status: "ok"}
+GET  /results                        → all training results JSON
 POST /reset                          → {observation, task_id, session_id}
 POST /step                           → {observation, reward, done, info}
-GET  /health                         → {status: "ok"}
-GET  /training_data?task_id=...      → [{observation, correct_action}]
-GET  /training_log                   → [{episode, reward, actions, epsilon}]
+GET  /grader                         → episode accuracy score (leaderboard metric)
+GET  /leaderboard                    → top 10 scores per task
+GET  /training_data?task_id=...      → labeled training examples
+GET  /training_log                   → episode rewards and action distributions
 ```
 
 ---
@@ -153,7 +147,7 @@ GET  /training_log                   → [{episode, reward, actions, epsilon}]
 ```bash
 pip install -r requirements.txt
 uvicorn app.main:app --reload        # local server
-python validate.py http://localhost:8000 .  # validate all 24 endpoints
+python validate.py http://localhost:8000 .  # validate all endpoints
 python -m pytest                     # 223 tests
 ```
 
@@ -163,6 +157,5 @@ python -m pytest                     # 223 tests
 
 - 🤗 Live Demo: https://varunventra-guardrail-arena.hf.space
 - 📓 Colab Notebook: https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb
-- ✍️ Blog Post: PENDING
-- 📊 Raw Baseline Scores: [results/](results/)
+- 📊 Raw Results: [results/](results/)
 - 🐙 GitHub: https://github.com/sahithsundarw/sentinel

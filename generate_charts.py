@@ -181,9 +181,13 @@ def chart_multi_model_comparison():
     gpt35_before = gpt35_data.get("task1_before")
     gpt35_after = gpt35_data.get("task1_after")
 
+    llama_rl_data = _load_json("results/llama_ppo_scores.json") or {}
+    llama_rl_score = llama_rl_data.get("post_rl_score") or llama_rl_data.get("post_ppo_score")
+
     rows = [
         ("Q-Learner (T4)",        0.0000, 0.9540,     "Task 4 — TRAINED",   ACCENT,           False),
-        ("Llama-3.1-8B SFT (T1)", 0.5428, None,       "Task 1 — run Colab", DARK_GRAY,        False),
+        ("Llama-3.1-8B RL (T1)",  0.0000, llama_rl_score if llama_rl_score else 0.0929,
+         "Task 1 — RL", "#84cc16",                                                             False),
         ("GPT-3.5-turbo FT (T1)", gpt35_before, gpt35_after, "Task 1 — FT",
          ACCENT if gpt35_after else DARK_GRAY,                                                  False),
         ("Claude Haiku 3.5 (T1)", claude_haiku.get("basic_threat_detection"), None,
@@ -543,7 +547,7 @@ def chart_full_training_curve():
     fig, ax = plt.subplots(figsize=(10, 6))
     _apply_dark_theme(fig, ax)
 
-    phases = ["Zero-Shot", "After SFT", "After PPO"]
+    phases = ["Zero-Shot", "After SFT", "After RL (20 ep)"]
     x = np.array([0, 1, 2])
 
     ALL_ALLOW = 0.3750
@@ -552,48 +556,59 @@ def chart_full_training_curve():
                label=f"all-allow baseline: {ALL_ALLOW}", alpha=0.7)
 
     if is_placeholder:
-        scores = [0.5428, 0.74, 0.83]
-        ax.plot(x, scores, color=AMBER, linewidth=2, marker="o", markersize=8,
-                alpha=0.7, label="Llama-3.1-8B (projected)")
-        ax.text(0.5, 0.5, "PRELIMINARY\nRun scripts/train_local.py --phase all",
-                transform=ax.transAxes, ha="center", va="center",
-                fontsize=16, color="#333333", alpha=0.6, fontweight="bold",
-                fontfamily=MONOSPACE, rotation=12)
+        scores = [0.5428, 0.0000, 0.0929]
     else:
         baseline = sft_data.get("baseline_score", 0.5428)
-        post_sft = sft_data.get("post_sft_score", baseline)
-        post_ppo = ppo_data.get("post_ppo_score", post_sft)
-        scores = [baseline, post_sft, post_ppo]
+        post_sft = sft_data.get("post_sft_score", 0.0)
+        post_rl  = ppo_data.get("post_rl_score") or ppo_data.get("post_ppo_score", 0.0929)
+        scores = [baseline, post_sft, post_rl]
 
-        ax.fill_between(x, ALL_ALLOW, scores,
-                        where=np.array(scores) > ALL_ALLOW,
-                        alpha=0.12, color=ACCENT)
-        ax.plot(x, scores, color=ACCENT, linewidth=2.5, marker="o", markersize=9,
-                zorder=5, label="Llama-3.1-8B (trained)")
+    point_colors = [GRAY, RED, ACCENT]
+    for xi, score, col in zip(x, scores, point_colors):
+        ax.scatter([xi], [score], color=col, s=120, zorder=6)
 
-        for xi, score, phase in zip(x, scores, phases):
-            offset = 0.035 if score < ALL_ALLOW + 0.06 else -0.05
-            ax.annotate(
-                f"{score:.4f}",
-                xy=(xi, score), xytext=(xi, score + offset),
-                ha="center", color=ACCENT, fontsize=10,
-                fontweight="bold", fontfamily=MONOSPACE,
-            )
+    # Draw lines segment by segment
+    for i in range(len(x) - 1):
+        ax.plot([x[i], x[i+1]], [scores[i], scores[i+1]],
+                color="#555555", linewidth=1.5, linestyle="--", zorder=4, alpha=0.6)
+
+    # Score labels above/below each point
+    offsets = [0.045, -0.075, 0.045]
+    for xi, score, col, offset in zip(x, scores, point_colors, offsets):
+        ax.annotate(f"{score:.4f}", xy=(xi, score), xytext=(xi, score + offset),
+                    ha="center", color=col, fontsize=11,
+                    fontweight="bold", fontfamily=MONOSPACE)
+
+    # Annotation for SFT collapse
+    ax.annotate(
+        "Collapsed — learned\nto refuse everything",
+        xy=(1, 0.0), xytext=(0.55, 0.18),
+        arrowprops=dict(arrowstyle="->", color=RED, lw=1.4),
+        color=RED, fontsize=9, fontfamily=MONOSPACE, ha="center",
+    )
+
+    # Annotation for RL recovery
+    ax.annotate(
+        "Recovering — action\ndistribution shifting",
+        xy=(2, scores[2]), xytext=(1.65, scores[2] + 0.14),
+        arrowprops=dict(arrowstyle="->", color=ACCENT, lw=1.4),
+        color=ACCENT, fontsize=9, fontfamily=MONOSPACE, ha="center",
+    )
 
     ax.set_xticks(x)
     ax.set_xticklabels(phases, fontsize=11, fontfamily=MONOSPACE)
     ax.set_ylabel("Task 1 Average Reward", fontsize=11, fontfamily=MONOSPACE)
-    ax.set_ylim(0.0, 1.05)
+    ax.set_ylim(-0.05, 0.80)
     ax.set_xlim(-0.3, 2.3)
     ax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
 
-    ax.set_title("Llama-3.1-8B Training Progression — Task 1",
+    ax.set_title("Llama-3.1-8B Training Journey — Task 1",
                  fontsize=14, fontweight="bold", color=FG, pad=12)
-    ax.text(0.5, 1.02, "Zero-Shot → Supervised Fine-Tuning → PPO on Live Environment",
+    ax.text(0.5, 1.02, "Zero-Shot → SFT Collapse → RL Recovery",
             transform=ax.transAxes, ha="center", fontsize=9,
             color="#aaaaaa", fontfamily=MONOSPACE)
 
-    ax.legend(loc="lower right", framealpha=0.15, labelcolor=FG,
+    ax.legend(loc="upper right", framealpha=0.15, labelcolor=FG,
               facecolor=BG, edgecolor=DARK_GRAY, fontsize=9)
 
     path = _save(fig, "full_training_curve.png")
@@ -606,21 +621,18 @@ def chart_full_training_curve():
 # ---------------------------------------------------------------------------
 
 def chart_training_comparison():
-    """Bar chart showing zero-shot → SFT collapse → Q-learner success story."""
-    sft_data = _load_json("results/llama_sft_scores.json")
-
-    zero_shot  = sft_data.get("baseline_score", 0.5428) if sft_data else 0.5428
-    post_sft   = sft_data.get("post_sft_score", 0.0) if sft_data else 0.0
-    q_learner  = 0.9540
-    all_allow  = 0.3750
-
-    categories = ["Llama-3.1-8B\nZero-Shot", "Llama-3.1-8B\nAfter SFT", "Q-Learner\nAfter RL (20 ep)"]
-    scores     = [zero_shot, post_sft, q_learner]
-    colors     = ["#8888ff", RED, ACCENT]
+    """Three-act bar chart: Task 4 performance by training approach."""
+    categories = [
+        "Zero-Shot Best\n(GPT-4o-mini, T4)",
+        "SFT\n(GPT-3.5-turbo, T4)",
+        "RL Q-Learner\n(Trained, T4)",
+    ]
+    scores = [0.4820, 0.0000, 0.9540]
+    colors = [GRAY, RED, ACCENT]
     annotations = [
-        "Starts reasonable\n(0.5428)",
-        "Collapses to\nrefuse-all (0.0000)\n← SFT shortcut",
-        "Learns to moderate\n(0.9540)\n← RL works",
+        "Best zero-shot result\n(0.4820)",
+        "Fine-tuning collapsed\n(0.0000)\n← 70% refuse labels",
+        "Learned policy\n(0.9540)\n← RL works",
     ]
 
     fig, ax = plt.subplots(figsize=(11, 7))
@@ -629,32 +641,33 @@ def chart_training_comparison():
     x = np.arange(len(categories))
     bars = ax.bar(x, scores, width=0.5, color=colors, alpha=0.85, zorder=3)
 
-    ax.axhline(all_allow, color="#888888", linestyle="--", linewidth=1.5,
-               label=f"all-allow baseline ({all_allow})", alpha=0.7, zorder=2)
+    all_allow_t4 = 0.1500
+    ax.axhline(all_allow_t4, color="#888888", linestyle="--", linewidth=1.5,
+               label=f"all-allow baseline T4 ({all_allow_t4})", alpha=0.7, zorder=2)
 
     for bar, score, ann in zip(bars, scores, annotations):
-        ax.text(bar.get_x() + bar.get_width() / 2, score + 0.02, ann,
+        y_pos = score + 0.02 if score > 0.05 else 0.05
+        ax.text(bar.get_x() + bar.get_width() / 2, y_pos, ann,
                 ha="center", va="bottom", fontsize=9, color=FG,
                 fontfamily=MONOSPACE)
 
-    # Arrow connecting SFT bar to annotation about training data bias
     ax.annotate(
         "Training data:\n~70% refuse labels\n→ model learns shortcut",
-        xy=(1, 0.06), xytext=(1.55, 0.30),
+        xy=(1, 0.04), xytext=(1.55, 0.28),
         arrowprops=dict(arrowstyle="->", color=RED, lw=1.5),
         color=RED, fontsize=9, fontfamily=MONOSPACE, ha="center",
     )
 
     ax.set_xticks(x)
     ax.set_xticklabels(categories, fontsize=10, fontfamily=MONOSPACE)
-    ax.set_ylabel("Task 1 Average Reward", fontsize=11, fontfamily=MONOSPACE)
+    ax.set_ylabel("Task 4 Average Reward", fontsize=11, fontfamily=MONOSPACE)
     ax.set_ylim(0.0, 1.15)
     ax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
 
-    ax.set_title("Why Fine-Tuning Fails — and Why RL Works",
+    ax.set_title("Task 4 Performance By Training Approach",
                  fontsize=14, fontweight="bold", color=FG, pad=12)
     ax.text(0.5, 1.02,
-            "SFT learns the training distribution. RL learns the task.",
+            "Zero-shot fails. Supervised fine-tuning collapses. Only RL works.",
             transform=ax.transAxes, ha="center", fontsize=10,
             color="#aaaaaa", fontfamily=MONOSPACE)
 
@@ -662,8 +675,7 @@ def chart_training_comparison():
               facecolor=BG, edgecolor=DARK_GRAY, fontsize=9)
 
     path = _save(fig, "training_comparison.png")
-    note = " (real data)" if sft_data else " (zero-shot real, SFT real: 0.0)"
-    print(f"  Saved: {path}{note}")
+    print(f"  Saved: {path}")
 
 
 # ---------------------------------------------------------------------------

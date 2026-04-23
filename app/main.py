@@ -789,6 +789,29 @@ async def stats():
     }
 
 
+@app.get("/results")
+async def get_results():
+    """Return all training results as JSON for judge review."""
+    import os as _os
+    results: dict = {}
+    result_files = [
+        "results/claude_baseline_scores.json",
+        "results/gpt35_finetuned_scores.json",
+        "results/gpt35_baseline_scores.json",
+        "results/llama_ppo_scores.json",
+        "results/llama_sft_scores.json",
+        "results/chart_data.json",
+    ]
+    for fpath in result_files:
+        if _os.path.exists(fpath):
+            try:
+                with open(fpath) as fp:
+                    results[_os.path.basename(fpath)] = json.load(fp)
+            except Exception:
+                pass
+    return results
+
+
 @app.get("/metadata")
 async def metadata():
     """OpenEnv spec: environment metadata."""

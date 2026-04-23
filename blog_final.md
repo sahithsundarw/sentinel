@@ -34,11 +34,13 @@ All-allow scores 0.37. All-refuse scores 0.35. There is no degenerate shortcut.
 
 ## What We Found
 
-Claude Sonnet 4.6 scores 0.0782 on Task 4 — below the 0.15 all-allow baseline. Qwen-3-235B, with 235 billion parameters, scores 0.0000. Not close to zero. Zero. GPT-4o-mini is the strongest zero-shot result at 0.4820, and it still falls below what a trained agent achieves. Safety behavior is not a property of scale. It is a property of the reward function the model was optimized against — and no frontier model was optimized against this one.
+Claude Sonnet 4.6 scores 0.1212 on Task 1 — below the 0.3750 all-allow baseline. Qwen-3-235B, with 235 billion parameters, scores 0.0000 on Task 4. Not close to zero. Zero. GPT-4o-mini is the strongest zero-shot result at 0.4820 on Task 4, and it still falls below what a trained agent achieves. Safety behavior is not a property of scale. It is a property of the reward function the model was optimized against — and no frontier model was optimized against this one.
 
 We fine-tuned GPT-3.5-turbo on 255 labeled examples from the environment. The model that scored 0.0823 zero-shot scored 0.0000 after fine-tuning. Safety training datasets carry roughly 70% refuse labels. Without a live reward signal, the model found the path of least resistance: refuse everything, minimize loss, collapse on the actual task. This is not a GPT-3.5 problem. It is what supervised fine-tuning does to any model trained on structurally biased safety labels.
 
 A tabular Q-learner — nine features, sixty states — trained for twenty episodes against the same adversary that destroyed the 235B model. Episode 1: 0.0000. Episode 20: 0.9540. The Q-learner did not imitate a label. It learned the reward signal. Supervised fine-tuning optimizes for imitation. Reinforcement learning optimizes for policy. On Task 4, only policy works.
+
+We also trained Llama-3.1-8B with REINFORCE on an RTX 4060. After 20 episodes, the action distribution shifted from refusing 97% of prompts (episode 1: 1 allow, 65 refuse) to a mixed policy (episode 20: 22 allow, 43 refuse, 2 modify) — confirming the training signal reaches the model. Full convergence requires more compute; the pipeline is ready.
 
 ---
 
@@ -52,7 +54,7 @@ A tabular Q-learner — nine features, sixty states — trained for twenty episo
 | Claude Sonnet 4.6 | zero-shot | 0.1212 | 0.0686 | 0.0756 | 0.0782 |
 | Llama-3.1-8B | zero-shot | 0.5428 | 0.5143 | 0.4746 | 0.0000 |
 | GPT-4o-mini | zero-shot | 0.9216 | 0.7512 | 0.6120 | 0.4820 |
-| Qwen-3-235B | zero-shot | 0.9857 | 0.6862 | 0.8275 | 0.0000 |
+| Qwen-3-235B | zero-shot | 0.9857 | 0.6862 | 0.8275 | **0.0000** |
 | GPT-3.5-turbo | SFT (255 examples) | 0.0000 | 0.0000 | — | — |
 | Llama-3.1-8B | SFT (LoRA, 3 epochs) | 0.0000 | — | — | — |
 | Llama-3.1-8B | REINFORCE (20 ep, LoRA) | 0.0929 | — | — | — |
@@ -60,6 +62,9 @@ A tabular Q-learner — nine features, sixty states — trained for twenty episo
 
 ![Task 4 Learning Curve](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/hero_learning_curve.png)
 *Task 4 learning curve: Q-learner, 20 episodes, 0.0 → 0.9540*
+
+![Training Comparison](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/training_comparison.png)
+*Task 4 performance by training approach: zero-shot, SFT, RL*
 
 ---
 

@@ -13,6 +13,7 @@ pinned: false
 
 [![HF Space](https://img.shields.io/badge/🤗-Live_Demo-blue)](https://varunventra-guardrail-arena.hf.space)
 [![GitHub](https://img.shields.io/badge/GitHub-sentinel-black)](https://github.com/sahithsundarw/sentinel)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb)
 
 ---
 
@@ -161,5 +162,7 @@ python -m pytest                     # 223 tests
 ## Links
 
 - 🤗 Live Demo: https://varunventra-guardrail-arena.hf.space
+- 📓 Colab Notebook: https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb
+- ✍️ Blog Post: PENDING
 - 📊 Raw Baseline Scores: [results/](results/)
 - 🐙 GitHub: https://github.com/sahithsundarw/sentinel

@@ -94,20 +94,27 @@ def load_model_4bit(model_name):
         bnb_4bit_compute_dtype=torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16,
     )
 
-    print(f"Loading {model_name}...")
+    free_vram = torch.cuda.mem_get_info()[0] / 1e9
+    print(f"Loading {model_name}... (free VRAM: {free_vram:.1f} GB)")
+    sys.stdout.flush()
+
+    print("  Loading tokenizer...", flush=True)
     tokenizer = AutoTokenizer.from_pretrained(
         model_name,
         token=os.environ.get("HF_TOKEN"),
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+    print("  Tokenizer OK. Loading model weights...", flush=True)
 
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         quantization_config=bnb_config,
-        device_map={"": 0},
+        device_map="auto",
         token=os.environ.get("HF_TOKEN"),
+        low_cpu_mem_usage=True,
     )
+    print("  Model loaded successfully.", flush=True)
     return model, tokenizer
 
 
@@ -135,7 +142,12 @@ def generate_synthetic_data(env_url, n_examples=150):
     task_ids = ["basic_threat_detection", "context_aware_policy"]
 
     for task_id in task_ids:
-        reset_resp = requests.post(f"{env_url}/reset", json={"task_id": task_id})
+        try:
+            reset_resp = requests.post(f"{env_url}/reset", json={"task_id": task_id},
+                                       timeout=30)
+        except Exception as e:
+            print(f"  WARNING: could not reset {task_id}: {e}")
+            continue
         if reset_resp.status_code != 200:
             print(f"  WARNING: could not reset {task_id}: {reset_resp.status_code}")
             continue
@@ -145,13 +157,21 @@ def generate_synthetic_data(env_url, n_examples=150):
         done = False
 
         while not done and len(examples) < n_examples:
-            step_resp = requests.post(
-                f"{env_url}/step",
-                params={"session_id": session_id},
-                json={"prompt_id": obs.get("prompt_id", ""),
-                      "action_type": "allow",
-                      "reason": "collecting training data"},
-            )
+            try:
+                step_resp = requests.post(
+                    f"{env_url}/step",
+                    params={"session_id": session_id},
+                    json={"prompt_id": obs.get("prompt_id", ""),
+                          "action_type": "allow",
+                          "reason": "collecting training data"},
+                    timeout=30,
+                )
+                if step_resp.status_code == 410:
+                    break  # session expired mid-collection
+                step_resp.raise_for_status()
+            except Exception as e:
+                print(f"  WARNING: step failed during data collection: {e}")
+                break
             step_data = step_resp.json()
             info = step_data.get("info", {})
             correct_action = info.get("ground_truth_action", "refuse")
@@ -265,7 +285,8 @@ def _extract_action(raw_response):
 def evaluate_model(model, tokenizer, env_url, max_steps=67):
     model.eval()
     reset_resp = requests.post(f"{env_url}/reset",
-                               json={"task_id": "basic_threat_detection"})
+                               json={"task_id": "basic_threat_detection"},
+                               timeout=30)
     reset_resp.raise_for_status()
     reset_data = reset_resp.json()
     session_id = reset_data.get("session_id", "")
@@ -297,15 +318,24 @@ def evaluate_model(model, tokenizer, env_url, max_steps=67):
         del inputs, outputs
         action = _extract_action(raw_response)
 
-        step_resp = requests.post(
-            f"{env_url}/step",
-            params={"session_id": session_id},
-            json={
-                "prompt_id": obs.get("prompt_id", ""),
-                "action_type": action,
-                "reason": f"content safety decision: {action}",
-            },
-        )
+        try:
+            step_resp = requests.post(
+                f"{env_url}/step",
+                params={"session_id": session_id},
+                json={
+                    "prompt_id": obs.get("prompt_id", ""),
+                    "action_type": action,
+                    "reason": f"content safety decision: {action}",
+                },
+                timeout=30,
+            )
+            if step_resp.status_code == 410:
+                print(f"  Eval session expired at step {steps} — returning partial result")
+                break
+            step_resp.raise_for_status()
+        except Exception as e:
+            print(f"  Eval step failed: {e} — returning partial result")
+            break
         step_data = step_resp.json()
         reward_raw = step_data.get("reward", 0)
         reward = reward_raw.get("score", 0) if isinstance(reward_raw, dict) else float(reward_raw or 0)
@@ -400,12 +430,20 @@ def run_sft_phase(config, env_url):
     return sft_results
 
 
+class _SessionExpired(Exception):
+    pass
+
+
 def _post_with_retry(url, data, retries=4, delay=10, params=None):
     for attempt in range(retries):
         try:
             resp = requests.post(url, json=data, params=params, timeout=30)
+            if resp.status_code == 410:
+                raise _SessionExpired("Session expired (410) — will start new episode")
             resp.raise_for_status()
             return resp
+        except _SessionExpired:
+            raise  # never retry a dead session
         except Exception as e:
             if attempt == retries - 1:
                 raise
@@ -505,13 +543,18 @@ def run_ppo_phase(config, checkpoint_dir, env_url, episodes=20):
             action, logprob = get_action_and_logprob(obs)
             action_counts[action] += 1
 
-            step_resp = _post_with_retry(
-                f"{env_url}/step",
-                {"prompt_id": obs.get("prompt_id", ""),
-                 "action_type": action,
-                 "reason": f"content safety decision: {action}"},
-                params={"session_id": session_id},
-            )
+            try:
+                step_resp = _post_with_retry(
+                    f"{env_url}/step",
+                    {"prompt_id": obs.get("prompt_id", ""),
+                     "action_type": action,
+                     "reason": f"content safety decision: {action}"},
+                    params={"session_id": session_id},
+                )
+            except _SessionExpired as e:
+                print(f"  {e} — skipping to next episode")
+                break
+
             step_data  = step_resp.json()
             reward_raw = step_data.get("reward", 0)
             reward     = (reward_raw.get("score", 0)
@@ -524,15 +567,18 @@ def run_ppo_phase(config, checkpoint_dir, env_url, episodes=20):
             done = step_data.get("done", False)
             obs  = step_data.get("observation") or obs
 
-        avg_reward   = episode_reward / max(steps, 1)
+        if not trajectory:
+            print(f"  Episode {episode+1} produced no steps — skipping update")
+            continue
+
+        avg_reward = episode_reward / steps
         episode_rewards.append(round(avg_reward, 4))
 
         # REINFORCE update: loss = -logprob * advantage, averaged over trajectory.
         ema_baseline = 0.9 * ema_baseline + 0.1 * avg_reward
         optimizer.zero_grad()
-        total_loss = sum(
-            -lp * (r - ema_baseline) for lp, r in trajectory
-        ) / len(trajectory)
+        losses = [-lp * (r - ema_baseline) for lp, r in trajectory]
+        total_loss = torch.stack(losses).mean()
         total_loss.backward()
         torch.nn.utils.clip_grad_norm_(
             [p for p in model.parameters() if p.requires_grad], 1.0)
@@ -561,6 +607,12 @@ def run_ppo_phase(config, checkpoint_dir, env_url, episodes=20):
             }, timeout=10)
         except Exception:
             pass
+
+        if (episode + 1) % 5 == 0:
+            ckpt_path = Path(f"checkpoints/llama-rl-ep{episode+1}")
+            ckpt_path.mkdir(parents=True, exist_ok=True)
+            model.save_pretrained(str(ckpt_path))
+            print(f"  Checkpoint saved: {ckpt_path}")
 
         gc.collect()
         torch.cuda.empty_cache()
@@ -624,6 +676,9 @@ if __name__ == "__main__":
     transformers.logging.set_verbosity_error()
     warnings.filterwarnings("ignore")
 
+    # Force line-buffered stdout so prints appear before a C-level crash.
+    sys.stdout.reconfigure(line_buffering=True)
+
     # Load .env if present
     env_file = Path(".env")
     if env_file.exists():
@@ -639,7 +694,19 @@ if __name__ == "__main__":
         subprocess.run([sys.executable, "generate_charts.py"], check=False)
 
     if args.phase in ("ppo", "all"):
-        run_ppo_phase(config, CHECKPOINT_DIR, args.env_url, args.episodes)
+        ppo_results_path = RESULTS_DIR / "llama_ppo_scores.json"
+        if ppo_results_path.exists():
+            print(f"\nWARNING: {ppo_results_path} already exists.")
+            resp = input("Overwrite existing PPO results? [y/N] ").strip().lower()
+            if resp != "y":
+                print("Skipping PPO phase — delete the file or answer 'y' to retrain.")
+                import sys as _sys; _sys.exit(0)
+        try:
+            run_ppo_phase(config, CHECKPOINT_DIR, args.env_url, args.episodes)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise SystemExit(f"\nPPO phase failed: {e}") from e
         subprocess.run([sys.executable, "generate_charts.py"], check=False)
 
     print("\nAll training complete. Charts updated.")

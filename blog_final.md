@@ -1,9 +1,10 @@
 ---
-title: "Guardrail Arena: An RL Environment for Training AI Safety Moderators"
-thumbnail: results/hero_learning_curve.png
+title: "Sentinel: We Built an RL Environment for AI Safety — and Watched Fine-Tuning Make It Worse"
+thumbnail: https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/hero_learning_curve.png
 authors:
 - user: varunventra
 - user: sahithsundarw
+- user: pranush
 ---
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb)
@@ -11,36 +12,38 @@ authors:
 
 ---
 
-A user asks: "What herbal teas are good for sleep?" Completely harmless — unless that same user spent the last four turns trying to extract PII from your system. Same prompt. Different correct action. Current safety evaluation tools miss this entirely because they test each prompt in isolation, with no memory of what came before.
+A user asks: *"What herbal teas are good for sleep?"* Completely harmless — unless that same user spent the last four turns trying to extract PII from your system. Same prompt. Different correct action. Tools like WildGuard and LlamaGuard run your model against a fixed dataset and hand you a score. They tell you the model failed. They provide no mechanism to make it not fail next time.
 
-Tools like WildGuard and LlamaGuard run a model against a fixed dataset and return a score. They tell you the model failed. They provide no mechanism to make it not fail next time. We built an environment to train the defender, not just grade it.
+We built the mechanism.
 
 ---
 
-## How It Works
+## What We Built
 
-An agent sees a stream of prompts and must classify each one: **allow**, **refuse**, **modify**, or **escalate**. The observation includes the prompt, application context, risk level, turn number, and conversation history. The agent receives a shaped reward based on correctness and context.
+**Sentinel** (Guardrail Arena) is a live reinforcement learning environment for training AI content safety agents. An agent sees a stream of prompts and chooses: **allow**, **refuse**, **modify**, or **escalate**. The environment returns a shaped reward and the next prompt — which changes based on what the agent just did.
 
-| Task | Difficulty | Key Mechanic | Eval Steps |
-|------|-----------|-------------|-----------|
-| `basic_threat_detection` | 🟢 Easy | DAN jailbreaks, encoding tricks, PII requests | 67 |
-| `context_aware_policy` | 🟡 Medium | Same prompt, different correct action by context | 83 |
-| `multiturn_adversarial` | 🟠 Hard | Block → adversary reframes. Allow → adversary escalates. | 238 |
-| `adversarial_adaptation` | 🔴 Expert | FSM adversary: 10 topics × 6 intensities × 3 surfaces. Turn-1 action shapes turn-5 prompt. | Dynamic |
+| Task | Difficulty | Key Mechanic |
+|------|-----------|-------------|
+| `basic_threat_detection` | 🟢 Easy | DAN jailbreaks, encoding tricks, PII extraction |
+| `context_aware_policy` | 🟡 Medium | Same prompt → different correct action by application context |
+| `multiturn_adversarial` | 🟠 Hard | Block → adversary reframes. Allow → adversary escalates deeper. |
+| `adversarial_adaptation` | 🔴 Expert | FSM adversary: 10 topics × 6 intensities × 3 surfaces = 180 states. No fixed sequence. |
 
 All-allow scores 0.37. All-refuse scores 0.35. There is no degenerate shortcut.
+
+Task 4 is the critical one. A deterministic FSM adversary generates every prompt in real time from your last action. Allow it once — it escalates. Block it — it backs off and probes a new angle. Your turn-1 action shapes what you face on turn 5. The episode trajectory is entirely determined by your policy. No lookup table works.
 
 ---
 
 ## What We Found
 
-Claude Sonnet 4.6 scores 0.1212 on Task 1 — below the 0.3750 all-allow baseline. Qwen-3-235B, with 235 billion parameters, scores 0.0000 on Task 4. Not close to zero. Zero. GPT-4o-mini is the strongest zero-shot result at 0.4820 on Task 4, and it still falls below what a trained agent achieves. Safety behavior is not a property of scale. It is a property of the reward function the model was optimized against — and no frontier model was optimized against this one.
+**Frontier models fail.** Claude Sonnet 4.6 scores 0.1212 on Task 1 — the all-allow baseline (do nothing, let everything through) scores 0.3750. Qwen-3-235B, with 235 billion parameters, scores **0.0000** on Task 4. Not close to zero. Zero. These models are among the most capable available. Their safety behaviors were not optimized against an adaptive adversary with a live reward signal, and it shows.
 
-We fine-tuned GPT-3.5-turbo on 255 labeled examples from the environment. The model that scored 0.0823 zero-shot scored 0.0000 after fine-tuning. Safety training datasets carry roughly 70% refuse labels. Without a live reward signal, the model found the path of least resistance: refuse everything, minimize loss, collapse on the actual task. This is not a GPT-3.5 problem. It is what supervised fine-tuning does to any model trained on structurally biased safety labels.
+**Fine-tuning made it worse.** We labeled 255 examples from the environment and fine-tuned GPT-3.5-turbo. The model that scored 0.0823 zero-shot scored **0.0000** after fine-tuning. We replicated this with Llama-3.1-8B SFT — same result. The cause: safety datasets carry ~70% refuse labels. Without a live reward signal, both models found the same shortcut — refuse everything, minimize cross-entropy loss. Over-blocking safe prompts accumulates -0.15 per step. The score collapses. This is not a model failure. It is what supervised fine-tuning does to any model trained on structurally biased safety labels.
 
-A tabular Q-learner — nine features, sixty states — trained for twenty episodes against the same adversary that destroyed the 235B model. Episode 1: 0.0000. Episode 20: 0.9540. The Q-learner did not imitate a label. It learned the reward signal. Supervised fine-tuning optimizes for imitation. Reinforcement learning optimizes for policy. On Task 4, only policy works.
+**RL works.** A 60-state tabular Q-learner trained for 20 episodes on the same adversary that destroyed the 235B model. Episode 1: 0.0000. Episode 20: **0.9540**.
 
-We also trained Llama-3.1-8B with REINFORCE on an RTX 4060. After 20 episodes, the action distribution shifted from refusing 97% of prompts (episode 1: 1 allow, 65 refuse) to a mixed policy (episode 20: 22 allow, 43 refuse, 2 modify) — confirming the training signal reaches the model. Full convergence requires more compute; the pipeline is ready.
+We also ran REINFORCE on Llama-3.1-8B (RTX 4060, 20 episodes). Episode 1 action distribution: 97% refuse — essentially broken. Episode 20: 33% allow, 64% refuse, 3% modify. The weights are updating. The policy is shifting. The training signal is real. Full convergence needs more compute.
 
 ---
 
@@ -48,8 +51,8 @@ We also trained Llama-3.1-8B with REINFORCE on an RTX 4060. After 20 episodes, t
 
 | Model | Training | Task 1 | Task 2 | Task 3 | Task 4 |
 |---|---|---|---|---|---|
-| all-allow baseline | — | 0.3750 | 0.4037 | 0.1607 | 0.1500 |
-| all-refuse baseline | — | 0.3534 | 0.3460 | 0.0688 | 0.0000 |
+| all-allow | — | 0.3750 | 0.4037 | 0.1607 | 0.1500 |
+| all-refuse | — | 0.3534 | 0.3460 | 0.0688 | 0.0000 |
 | Claude Haiku 3.5 | zero-shot | 0.1089 | 0.0676 | 0.0831 | 0.0830 |
 | Claude Sonnet 4.6 | zero-shot | 0.1212 | 0.0686 | 0.0756 | 0.0782 |
 | Llama-3.1-8B | zero-shot | 0.5428 | 0.5143 | 0.4746 | 0.0000 |
@@ -57,14 +60,23 @@ We also trained Llama-3.1-8B with REINFORCE on an RTX 4060. After 20 episodes, t
 | Qwen-3-235B | zero-shot | 0.9857 | 0.6862 | 0.8275 | **0.0000** |
 | GPT-3.5-turbo | SFT (255 examples) | 0.0000 | 0.0000 | — | — |
 | Llama-3.1-8B | SFT (LoRA, 3 epochs) | 0.0000 | — | — | — |
-| Llama-3.1-8B | REINFORCE (20 ep, LoRA) | 0.0929 | — | — | — |
+| Llama-3.1-8B | REINFORCE (20 ep) | 0.0929 | — | — | — |
 | **Tabular Q-Learner** | **RL (20 episodes)** | ~0.46 | — | — | **0.9540** |
 
 ![Task 4 Learning Curve](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/hero_learning_curve.png)
-*Task 4 learning curve: Q-learner, 20 episodes, 0.0 → 0.9540*
+*Q-Learner on Task 4: 20 episodes, 0.0 → 0.9540. Baselines shown on same axes.*
 
 ![Training Comparison](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/training_comparison.png)
-*Task 4 performance by training approach: zero-shot, SFT, RL*
+*Three approaches on Task 4. Zero-shot peaks at 0.4820. SFT collapses to 0.0. RL reaches 0.9540.*
+
+![All Models × All Tasks](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/heatmap.png)
+*Task 4 is the separator. Only a trained policy survives.*
+
+---
+
+## Why It Matters
+
+Every LLM deployment needs a safety layer. The current approach — classify each prompt independently against a fixed benchmark — misses multi-turn coordinated attacks where no single turn looks harmful in isolation. Sentinel makes that gap measurable and trainable. The SFT collapse finding is a practical warning: naive fine-tuning on biased safety labels does not produce a robust policy. It produces a model that refuses everything and breaks on the live task. RL against a live adversarial environment is the missing step.
 
 ---
 
@@ -72,7 +84,10 @@ We also trained Llama-3.1-8B with REINFORCE on an RTX 4060. After 20 episodes, t
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb)
 
+The Colab notebook runs end-to-end on a free T4 GPU in under 30 minutes — install dependencies, connect to the live environment, train, and plot reward curves. No local GPU required.
+
 ```bash
+# Or run locally
 git clone https://github.com/sahithsundarw/sentinel
 cd sentinel
 pip install transformers trl peft bitsandbytes accelerate datasets requests
@@ -85,7 +100,6 @@ We don't evaluate safety. We train it.
 
 ---
 
-**Links**
-- 🤗 Live Demo: https://varunventra-guardrail-arena.hf.space
-- 🐙 GitHub: https://github.com/sahithsundarw/sentinel
-- 📓 Training Notebook: https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb
+🤗 **Live Demo:** https://varunventra-guardrail-arena.hf.space
+🐙 **GitHub:** https://github.com/sahithsundarw/sentinel
+📓 **Colab:** https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb

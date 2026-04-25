@@ -1,0 +1,7 @@
+results/hero_learning_curve.png filter=lfs diff=lfs merge=lfs -text
+results/heatmap.png filter=lfs diff=lfs merge=lfs -text
+results/full_training_curve.png filter=lfs diff=lfs merge=lfs -text
+results/training_comparison.png filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text

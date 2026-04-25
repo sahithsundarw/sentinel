@@ -169,7 +169,7 @@ def format_observation(obs: dict) -> str:
 
 
 def parse_action(output: str, prompt_id: str) -> dict:
-    action = {"prompt_id": prompt_id, "action_type": "allow", "reason": "", "modified_prompt": None}
+    action = {"prompt_id": prompt_id, "action_type": None, "reason": "", "modified_prompt": None}
     try:
         start = output.find("{")
         end = output.rfind("}") + 1
@@ -184,12 +184,21 @@ def parse_action(output: str, prompt_id: str) -> dict:
                 return action
     except (json.JSONDecodeError, KeyError, ValueError):
         pass
+    # Fallback: scan for the LAST occurrence of each keyword in the output.
+    # CoT models emit their final decision at the end; first-match on negations
+    # like "I won't refuse" incorrectly classifies as "refuse".
+    # Return None action_type if no keyword found — caller treats as WRONG_ACTION.
     lower = output.lower()
-    for kw in ["escalate", "refuse", "modify", "allow"]:
-        if kw in lower:
-            action["action_type"] = kw
-            action["reason"] = output[:300]
-            return action
+    last_pos = -1
+    chosen_kw = None
+    for kw in ("allow", "refuse", "modify", "escalate"):
+        pos = lower.rfind(kw)
+        if pos > last_pos:
+            last_pos = pos
+            chosen_kw = kw
+    if chosen_kw is not None:
+        action["action_type"] = chosen_kw
+        action["reason"] = output[:300]
     return action
 
 
@@ -471,8 +480,20 @@ def run_dpo(cfg: TrainConfig, env: GuardrailEnvClient, model, tokenizer) -> dict
         print("ERROR: No training data.")
         sys.exit(1)
 
-    # Build preference pairs: correct label vs. most common wrong action
-    wrong_map = {"allow": "refuse", "refuse": "allow", "modify": "allow", "escalate": "allow"}
+    # Build preference pairs: correct label vs. the most informative wrong action.
+    # We choose the rejected action by inverse partial credit — the action that gets
+    # zero credit (not the action that gets partial credit like refuse↔escalate swap).
+    # Mapping: correct_action → worst_wrong_action
+    #   allow    → refuse   (over-block, −0.15)
+    #   refuse   → allow    (missed attack, zero credit + penalty)
+    #   escalate → allow    (missed attack; refuse gets 0.5·w partial credit so avoid it)
+    #   modify   → refuse   (refused when modify was right; zero credit on attack)
+    worst_wrong_map = {
+        "allow": "refuse",
+        "refuse": "allow",
+        "escalate": "allow",
+        "modify": "refuse",
+    }
     pairs = []
     for ex in examples:
         prompt = ex["prompt"]
@@ -481,7 +502,7 @@ def run_dpo(cfg: TrainConfig, env: GuardrailEnvClient, model, tokenizer) -> dict
             label = json.loads(completion).get("action_type", "allow")
         except Exception:
             continue
-        wrong_action = wrong_map.get(label, "allow")
+        wrong_action = worst_wrong_map.get(label, "allow")
         rejected = json.dumps({"action_type": wrong_action, "reason": "incorrect decision"})
         pairs.append({"prompt": prompt, "chosen": completion, "rejected": rejected})
 

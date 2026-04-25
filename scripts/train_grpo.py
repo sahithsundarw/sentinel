@@ -4,15 +4,19 @@ Group Relative Policy Optimization on Tasks 1, 2, and 3 sequentially.
 Task 4 is handled by the Tabular Q-Learner (train_agent.py).
 
 Usage:
-  python scripts/train_grpo.py                         # default: 20 eps, K=2, all 3 tasks
-  python scripts/train_grpo.py --episodes 30 --k 2     # more episodes
+  python scripts/train_grpo.py                         # default: 20 eps, K=8, all 3 tasks
+  python scripts/train_grpo.py --episodes 30 --k 4     # smaller group size
   python scripts/train_grpo.py --tasks 1               # single task dry-run
   python scripts/train_grpo.py --resume task2          # resume after crash
+  python scripts/train_grpo.py --kl-beta 0.02          # KL penalty weight (default 0.02)
+  python scripts/train_grpo.py --free-form             # emit JSON instead of constrained token
+  python scripts/train_grpo.py --reward-mode grader    # use grader-aligned reward signal
 
 Algorithm:
   At each episode, run K full rollouts from the same start state.
   Compute episode-level group advantage: adv_k = (r_k - mean(r)) / (std(r) + eps)
-  Loss = -mean_k[ adv_k * mean_t(log_pi(a_t | s_t)) ]
+  Loss = -mean_k[ adv_k * mean_t(log_pi(a_t | s_t)) ] + kl_beta * KL(pi_theta || pi_ref)
+  KL penalty is computed per-step against the frozen reference model (LoRA base).
   Same VRAM footprint as REINFORCE since rollouts are sequential, not batched.
 """
 import argparse
@@ -100,6 +104,33 @@ def _extract_action(raw):
     return "refuse"
 
 
+def _parse_action_freeform(output: str) -> str:
+    """Parse a free-form JSON or keyword response into an action type.
+
+    Uses last-occurrence keyword scan as fallback (CoT models put final
+    decision last; first-occurrence misclassifies negated phrases).
+    Returns "refuse" if no valid action is found.
+    """
+    import json as _json
+    try:
+        start = output.find("{")
+        end   = output.rfind("}") + 1
+        if start >= 0 and end > start:
+            parsed = _json.loads(output[start:end])
+            at = parsed.get("action_type", "").lower().strip()
+            if at in VALID_ACTIONS:
+                return at
+    except Exception:
+        pass
+    lower = output.lower()
+    last_pos, chosen = -1, None
+    for kw in VALID_ACTIONS:
+        pos = lower.rfind(kw)
+        if pos > last_pos:
+            last_pos, chosen = pos, kw
+    return chosen if chosen else "refuse"
+
+
 def load_model_4bit(model_name):
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     bnb = BitsAndBytesConfig(
@@ -143,30 +174,72 @@ def _build_prompt(obs):
     )
 
 
-def _forward_action(model, tokenizer, obs, action_token_ids):
-    """Single forward pass; returns (chosen_action, log_prob_tensor)."""
+def _forward_action(model, tokenizer, obs, action_token_ids, free_form=False):
+    """Single forward pass; returns (chosen_action, log_prob_tensor, action_logprobs_all).
+
+    action_logprobs_all is the full log-softmax distribution over the 4 action tokens,
+    used for KL divergence computation against the reference model.
+    """
     prompt = _build_prompt(obs)
     enc = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=256).to("cuda")
-    with torch.enable_grad():
-        logits = model(**enc).logits[0, -1, :]
+
+    if free_form:
+        with torch.enable_grad():
+            logits_all = model(**enc).logits[0, -1, :]
+        del enc
+        a_logprobs_all = F.log_softmax(logits_all[action_token_ids], dim=0)
+        a_probs = F.softmax(logits_all[action_token_ids], dim=0).detach()
+        idx = torch.multinomial(a_probs, 1).item()
+        chosen_action = VALID_ACTIONS[idx]
+        return chosen_action, a_logprobs_all[idx], a_logprobs_all
+    else:
+        with torch.enable_grad():
+            logits = model(**enc).logits[0, -1, :]
+        del enc
+        a_logprobs = F.log_softmax(logits[action_token_ids], dim=0)
+        a_probs    = F.softmax(logits[action_token_ids], dim=0).detach()
+        idx        = torch.multinomial(a_probs, 1).item()
+        return VALID_ACTIONS[idx], a_logprobs[idx], a_logprobs
+
+
+@torch.no_grad()
+def _ref_logprobs(ref_model, tokenizer, obs, action_token_ids):
+    """Compute reference model log-probs over 4 action tokens (no grad)."""
+    prompt = _build_prompt(obs)
+    enc = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=256).to("cuda")
+    logits = ref_model(**enc).logits[0, -1, :]
     del enc
-    a_logprobs = F.log_softmax(logits[action_token_ids], dim=0)
-    a_probs    = F.softmax(logits[action_token_ids], dim=0).detach()
-    idx        = torch.multinomial(a_probs, 1).item()
-    return VALID_ACTIONS[idx], a_logprobs[idx]
+    return F.log_softmax(logits[action_token_ids], dim=0)
 
 
-def _run_episode(model, tokenizer, env_url, task_id, action_token_ids, seed=None):
-    """Run one full episode; return (logprobs_list, total_reward, action_counts)."""
+def _run_episode(
+    model, tokenizer, env_url, task_id, action_token_ids,
+    seed=None, ref_model=None, free_form=False, reward_mode="step",
+    session_id_reuse=None,
+):
+    """Run one full episode; return (logprobs_list, kl_terms_list, total_reward, action_counts).
+
+    kl_terms_list contains per-step KL(pi_theta || pi_ref) tensors (empty if no ref_model).
+    session_id_reuse: if provided, reuse this session_id instead of /reset (cross-episode chaining).
+    """
     reset_body = {"task_id": task_id}
     if seed is not None:
         reset_body["seed"] = seed
-    reset_resp = _post_with_retry(f"{env_url}/reset", reset_body)
+    if reward_mode != "step":
+        reset_body["reward_mode"] = reward_mode
+
+    if session_id_reuse:
+        session_id = session_id_reuse
+        reset_resp = _post_with_retry(f"{env_url}/reset", reset_body, params={"session_id": session_id})
+    else:
+        reset_resp = _post_with_retry(f"{env_url}/reset", reset_body)
+
     data       = reset_resp.json()
-    session_id = data["session_id"]
+    session_id = data.get("session_id", session_id_reuse or "")
     obs        = data.get("observation", data)
 
     logprobs      = []
+    kl_terms      = []
     total_reward  = 0.0
     steps         = 0
     done          = False
@@ -174,8 +247,16 @@ def _run_episode(model, tokenizer, env_url, task_id, action_token_ids, seed=None
 
     while not done and steps < MAX_STEPS_PER_EP:
         model.train()
-        action, logprob = _forward_action(model, tokenizer, obs, action_token_ids)
+        action, logprob, logprobs_all = _forward_action(
+            model, tokenizer, obs, action_token_ids, free_form=free_form)
         action_counts[action] += 1
+
+        if ref_model is not None:
+            ref_lps = _ref_logprobs(ref_model, tokenizer, obs, action_token_ids)
+            # KL per step: sum_a pi(a) * (log pi(a) - log pi_ref(a))
+            pi = logprobs_all.exp()
+            kl = (pi * (logprobs_all - ref_lps)).sum()
+            kl_terms.append(kl)
 
         try:
             step_resp = _post_with_retry(
@@ -199,7 +280,7 @@ def _run_episode(model, tokenizer, env_url, task_id, action_token_ids, seed=None
         obs  = step_data.get("observation") or obs
 
     avg_reward = total_reward / max(steps, 1)
-    return logprobs, avg_reward, action_counts
+    return logprobs, kl_terms, avg_reward, action_counts, session_id
 
 
 def _get_grader_score(env_url, task_id, model, tokenizer, action_token_ids, n_eval=1):
@@ -254,12 +335,16 @@ def _get_grader_score(env_url, task_id, model, tokenizer, action_token_ids, n_ev
 
 
 # ── Per-task training loop ────────────────────────────────────────────────────
-def train_task(task_num, task_id, model_name, env_url, episodes, K, resume_ep=0):
+def train_task(
+    task_num, task_id, model_name, env_url, episodes, K,
+    resume_ep=0, kl_beta=0.02, free_form=False, reward_mode="step",
+):
     import bitsandbytes as bnb
 
     print(f"\n{'='*60}")
     print(f"GRPO Training  |  Task {task_num}: {task_id}")
-    print(f"Episodes: {episodes}  |  K (group size): {K}")
+    print(f"Episodes: {episodes}  |  K (group size): {K}  |  KL β: {kl_beta}")
+    print(f"Free-form: {free_form}  |  Reward mode: {reward_mode}")
     print(f"{'='*60}")
 
     ckpt_dir = CHECKPOINT_BASE / f"llama-grpo-task{task_num}"
@@ -269,6 +354,15 @@ def train_task(task_num, task_id, model_name, env_url, episodes, K, resume_ep=0)
     torch.cuda.empty_cache()
 
     model, tokenizer = load_model_4bit(model_name)
+    # Freeze a copy of the base model to use as the KL reference policy.
+    # The reference model has no LoRA adapters — it is the frozen pre-training checkpoint.
+    ref_model = None
+    if kl_beta > 0:
+        print("Loading frozen reference model for KL penalty...")
+        ref_model, _ = load_model_4bit(model_name)
+        ref_model.eval()
+        for p in ref_model.parameters():
+            p.requires_grad_(False)
     model = attach_lora(model)
 
     # Resume from mid-run checkpoint if requested
@@ -308,17 +402,20 @@ def train_task(task_num, task_id, model_name, env_url, episodes, K, resume_ep=0)
         print(f"\nGRPO Episode {ep+1}/{episodes} (Task {task_num})")
 
         # -- Collect K rollouts --
-        rollouts = []  # list of (logprobs, avg_reward, action_counts)
+        rollouts = []  # list of (logprobs, kl_terms, avg_reward, action_counts)
         for k in range(K):
             try:
-                lps, avg_r, counts = _run_episode(
+                lps, kls, avg_r, counts, _ = _run_episode(
                     model, tokenizer, env_url, task_id, action_token_ids,
                     seed=ep * 100 + k,
+                    ref_model=ref_model,
+                    free_form=free_form,
+                    reward_mode=reward_mode,
                 )
             except (requests.exceptions.ConnectionError, _SessionExpired) as e:
                 print(f"  Rollout {k+1} failed: {e} — skipping episode")
                 break
-            rollouts.append((lps, avg_r, counts))
+            rollouts.append((lps, kls, avg_r, counts))
             print(f"  Rollout {k+1}/{K}: avg_reward={avg_r:.4f}  "
                   f"actions={' '.join(f'{a}:{c}' for a,c in counts.items())}")
 
@@ -326,12 +423,12 @@ def train_task(task_num, task_id, model_name, env_url, episodes, K, resume_ep=0)
             print("  Not enough rollouts — skipping update")
             continue
 
-        rewards = [r[1] for r in rollouts]
+        rewards = [r[2] for r in rollouts]
         avg_ep  = sum(rewards) / len(rewards)
         episode_rewards.append(round(avg_ep, 4))
 
         if ep == 0:
-            action_dist_ep1 = {k: v for k, v in rollouts[0][2].items()}
+            action_dist_ep1 = {k: v for k, v in rollouts[0][3].items()}
 
         # -- GRPO advantage --
         mean_r = avg_ep
@@ -339,11 +436,14 @@ def train_task(task_num, task_id, model_name, env_url, episodes, K, resume_ep=0)
 
         optimizer.zero_grad()
         losses = []
-        for logprobs, reward, _ in rollouts:
+        for logprobs, kl_terms, reward, _ in rollouts:
             if not logprobs:
                 continue
             advantage = (reward - mean_r) / (std_r + 1e-6)
-            ep_loss   = -advantage * torch.stack(logprobs).mean()
+            policy_loss = -advantage * torch.stack(logprobs).mean()
+            # KL penalty: pushes policy toward frozen reference (prevents forgetting)
+            kl_loss = torch.stack(kl_terms).mean() if kl_terms else torch.tensor(0.0)
+            ep_loss = policy_loss + kl_beta * kl_loss
             losses.append(ep_loss)
 
         if not losses:
@@ -395,7 +495,7 @@ def train_task(task_num, task_id, model_name, env_url, episodes, K, resume_ep=0)
     print(f"\nFinal checkpoint: {final_ckpt}")
 
     if episode_rewards:
-        action_dist_final = {k: v for k, v in rollouts[-1][2].items()}
+        action_dist_final = {k: v for k, v in rollouts[-1][3].items()}
 
     print("Post-training grader eval...")
     post_score = _get_grader_score(env_url, task_id, model, tokenizer, action_token_ids)
@@ -439,8 +539,8 @@ def main():
     parser = argparse.ArgumentParser(description="GRPO training on Sentinel Tasks 1-3")
     parser.add_argument("--episodes", type=int, default=20,
                         help="Episodes per task (default: 20)")
-    parser.add_argument("--k", type=int, default=2,
-                        help="Group size K for GRPO (default: 2, min 2)")
+    parser.add_argument("--k", type=int, default=8,
+                        help="Group size K for GRPO (default: 8; must be ≥2)")
     parser.add_argument("--tasks", type=str, default="1,2,3",
                         help="Comma-separated task numbers to train (default: 1,2,3)")
     parser.add_argument("--model", type=str,
@@ -449,6 +549,13 @@ def main():
     parser.add_argument("--env-url", type=str, default=ENV_URL)
     parser.add_argument("--resume", type=str, default=None,
                         help="Resume from mid-run: e.g. 'task2' resumes Task 2 from latest checkpoint")
+    parser.add_argument("--kl-beta", type=float, default=0.02,
+                        help="KL penalty weight against frozen reference policy (default: 0.02; 0 to disable)")
+    parser.add_argument("--free-form", action="store_true",
+                        help="Emit JSON output instead of constrained single-token sampling")
+    parser.add_argument("--reward-mode", type=str, default="step",
+                        choices=["step", "grader"],
+                        help="Reward signal: 'step' (default, RL training reward) or 'grader' (grader-aligned)")
     args = parser.parse_args()
 
     if not torch.cuda.is_available():
@@ -501,6 +608,9 @@ def main():
             episodes=args.episodes,
             K=K,
             resume_ep=resume_ep,
+            kl_beta=args.kl_beta,
+            free_form=args.free_form,
+            reward_mode=args.reward_mode,
         )
         all_results[f"task{task_num}"] = result
 
@@ -515,6 +625,9 @@ def main():
         "model":            "Llama-3.1-8B-Instruct",
         "algorithm":        "GRPO",
         "k_group_size":     K,
+        "kl_beta":          args.kl_beta,
+        "free_form":        args.free_form,
+        "reward_mode":      args.reward_mode,
         "episodes_per_task": args.episodes,
         "env_url":          args.env_url,
         "elapsed_hours":    elapsed,

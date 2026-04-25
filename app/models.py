@@ -16,7 +16,6 @@ class Observation(BaseModel):
     turn_number: int
     prompts_remaining: int
     episode_score_so_far: float
-    episode_difficulty: float = 0.0
     # Cross-episode behavioral history within the same session.
     # An agent that missed attacks in earlier episodes starts subsequent episodes
     # with an elevated risk penalty; a clean session maintains the default starting score.

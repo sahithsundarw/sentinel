@@ -38,7 +38,7 @@ from app.models import (
     Action, Observation, Reward, EnvironmentState, TaskInfo, PromptLabel
 )
 from app.tasks.task_config import get_task, get_all_tasks, TaskConfig, PromptEntry
-from app.reward import compute_step_reward
+from app.reward import compute_step_reward, compute_grader_aligned_step_reward
 from app.grader import grade_task1, grade_task2, grade_task3, grade_task4
 from app.tasks.task4_adversarial import DeterministicAdversary
 from app.utils import resolve_correct_action
@@ -64,12 +64,6 @@ class GuardrailEnvironment(_OpenEnvBase):
         self._total_prompts_initial: int = 0
 
         self._cumulative_score: float = 0.0
-        self._max_possible_score_so_far: float = 0.0
-        # Full-episode max possible score, computed once at reset() time and used as the
-        # denominator for episode_difficulty so the signal is meaningful even on turn 1.
-        # (Using max_so_far as denominator made episode_difficulty = 1.0 after a single
-        # correct action, which was misleading early in long episodes.)
-        self._max_possible_score_full_episode: float = 0.0
 
         # Dynamic risk scores — updated after every step
         self._session_risk_score: float = 0.5          # Tasks 1 & 2 (single float)
@@ -124,15 +118,26 @@ class GuardrailEnvironment(_OpenEnvBase):
         # Cached starting risk score — computed once at reset() and stable for the full episode.
         self._cached_starting_risk_score: float = 0.5
 
+        # Reward mode: "step" (default, shaped signal with risk/trust multipliers) or
+        # "grader" (grader-aligned signal without dynamic multipliers — optimizes leaderboard).
+        self._reward_mode: str = "step"
+
+        # Ablation flags — set per-episode via reset(). Used by run_ablations.py.
+        self._disable_topic_weakness_map: bool = False
+        self._disable_branching: bool = False
+        self._flat_risk_multiplier: bool = False
+
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def reset(self, task_id: str = "basic_threat_detection", seed: Optional[int] = None, noise_level: float = 0.0, **kwargs) -> Observation:
+    def reset(self, task_id: str = "basic_threat_detection", seed: Optional[int] = None, noise_level: float = 0.0, reward_mode: str = "step", disable_topic_weakness_map: bool = False, disable_branching: bool = False, flat_risk_multiplier: bool = False, **kwargs) -> Observation:
         self._task = get_task(task_id)
         self._task_id = task_id
         self._noise_level = max(0.0, min(1.0, noise_level))  # clamp to [0, 1]
+        self._reward_mode = reward_mode if reward_mode in ("step", "grader") else "step"
+        self._disable_topic_weakness_map = disable_topic_weakness_map
+        self._disable_branching = disable_branching
+        self._flat_risk_multiplier = flat_risk_multiplier
         self._cumulative_score = 0.0
-        self._max_possible_score_so_far = 0.0
-        self._max_possible_score_full_episode = 0.0
         self._done = False
         self._initialized = True
         self._step_count = 0
@@ -165,9 +170,10 @@ class GuardrailEnvironment(_OpenEnvBase):
         # Task 4: initialize adversary instead of loading a fixed prompt list.
         if task_id == "adversarial_adaptation":
             self._adversary_step_topics = []  # Reset per-episode topic-action log
+            weakness_map = {} if self._disable_topic_weakness_map else self._topic_weakness_map
             self._adversary = DeterministicAdversary(
                 seed=seed or 0,
-                topic_weakness_map=self._topic_weakness_map,  # Cross-episode learning
+                topic_weakness_map=weakness_map,  # Cross-episode learning (disabled in ablation)
             )
             self._adversary.start()
             # Use session salt for partial observability: same state → different text per episode
@@ -183,9 +189,6 @@ class GuardrailEnvironment(_OpenEnvBase):
             )
             self._prompt_queue = deque([first_entry])
             self._total_prompts_initial = self._adversary.max_turns
-            # Estimate full-episode max score for Task 4: use max_turns × average correct reward
-            # (0.2 × avg_severity ≈ 0.2 × 0.55 for mix of safe+attack, rounded conservatively to 0.15)
-            self._max_possible_score_full_episode = round(self._adversary.max_turns * 0.15, 4)
             self._current_entry = self._prompt_queue.popleft()
             self._cached_starting_risk_score = starting_risk
             return self._make_observation()
@@ -236,20 +239,6 @@ class GuardrailEnvironment(_OpenEnvBase):
                 prompts = new_prompts
         self._prompt_queue = deque(prompts)
         self._total_prompts_initial = len(prompts)
-        # Pre-compute full-episode max possible score so episode_difficulty is meaningful
-        # from turn 1 (denominator is constant throughout the episode).
-        # Uses exactly the same formula as the per-step max_so_far increment (no severity floor)
-        # so that a perfect oracle episode reaches episode_difficulty = 1.0 at the final step.
-        # Task 3 severity escalation is excluded (it's a runtime override), giving a conservative
-        # estimate — episode_difficulty may exceed 1.0 slightly on late high-severity turns;
-        # the min(1.0, ...) clamp in _make_observation handles this.
-        _full_ep_max = 0.0
-        for _pe in prompts:
-            if _pe.label.category == "safe":
-                _full_ep_max += 0.1
-            else:
-                _full_ep_max += 0.2 * _pe.label.severity
-        self._max_possible_score_full_episode = round(_full_ep_max, 4)
         self._current_entry = self._prompt_queue.popleft()
         # Set cached starting risk from the value already computed pre-increment,
         # ensuring _cached_starting_risk_score and _session_risk_score are consistent
@@ -276,8 +265,9 @@ class GuardrailEnvironment(_OpenEnvBase):
                 f"got '{action.prompt_id}'"
             )
 
-        # Use the dynamic risk score for reward computation
-        risk_score = self._get_risk_score(current_entry)
+        # Use the dynamic risk score for reward computation.
+        # Ablation: flat_risk_multiplier fixes risk_score=1.0 so risk_multiplier=1.0 (no amplification).
+        risk_score = 1.0 if self._flat_risk_multiplier else self._get_risk_score(current_entry)
 
         # ── Task 3 Severity Override ──────────────────────────────────────────
         # What it does:
@@ -320,28 +310,27 @@ class GuardrailEnvironment(_OpenEnvBase):
             escalation = min(1.0, 0.3 + (turn_pos / max_turns) * 0.7)
             severity_override = min(1.0, current_entry.label.severity * escalation)
 
-        step_score, reward_breakdown = compute_step_reward(
-            action,
-            current_entry.label,
-            current_entry.application_context,
-            risk_score,
-            severity_override=severity_override,
-        )
+        if self._reward_mode == "grader":
+            step_score, reward_breakdown = compute_grader_aligned_step_reward(
+                action,
+                current_entry.label,
+                current_entry.application_context,
+                severity_override=severity_override,
+            )
+        else:
+            step_score, reward_breakdown = compute_step_reward(
+                action,
+                current_entry.label,
+                current_entry.application_context,
+                risk_score,
+                severity_override=severity_override,
+            )
         self._cumulative_score += step_score
         self._cumulative_score = round(self._cumulative_score, 4)
 
         # Record per-step reward for /reward_breakdown endpoint
         self._step_rewards.append(step_score)
         self._step_reward_breakdowns.append(dict(reward_breakdown))
-
-        # Track max possible score for episode_difficulty computation
-        lbl = current_entry.label
-        if lbl.category == "safe":
-            self._max_possible_score_so_far += 0.1
-        else:
-            eff_sev = severity_override if severity_override is not None else lbl.severity
-            self._max_possible_score_so_far += 0.2 * eff_sev
-        self._max_possible_score_so_far = round(self._max_possible_score_so_far, 4)
 
         # Record for grader
         self._actions.append(action)
@@ -467,8 +456,9 @@ class GuardrailEnvironment(_OpenEnvBase):
         # Task 3 branching: the default branch (branch_missed) is already queued
         # immediately after the crossing turn. If the agent caught the attack,
         # discard that default and inject branch_caught in its place.
+        # Ablation: disable_branching always serves branch_missed (as if agent allowed).
         if self._task_id == "multiturn_adversarial" and current_entry.is_crossing:
-            if action.action_type in ("refuse", "escalate", "modify"):
+            if not self._disable_branching and action.action_type in ("refuse", "escalate", "modify"):
                 # Discard ALL queued branch_missed turns (the default path).
                 # Use crossing_spec_key (supports multi-crossing via "{id}:2" keys).
                 spec_key = current_entry.crossing_spec_key or current_entry.conversation_id
@@ -573,18 +563,6 @@ class GuardrailEnvironment(_OpenEnvBase):
 
     def _make_observation(self) -> Observation:
         entry = self._current_entry
-        # episode_difficulty: fraction of total potential episode reward still ahead of the agent.
-        # Starts near 1.0 (all challenge ahead), approaches 0.0 as the episode nears completion.
-        # This is intentionally different from episode_score_so_far (which tracks performance);
-        # episode_difficulty tracks how much of the episode is remaining, not how well it's going.
-        # Use as a curriculum/early-stopping signal: high → lots of challenge ahead, low → nearly done.
-        _total = self._max_possible_score_full_episode
-        _served = self._max_possible_score_so_far
-        if _total > 0:
-            _remaining = max(0.0, _total - _served)
-            episode_difficulty = round(_remaining / _total, 4)
-        else:
-            episode_difficulty = 0.0
         # Derive a session-specific prompt_id and cache the reverse mapping.
         # This prevents cross-session ID memorization while keeping canonical
         # prompt order reproducible via seed.
@@ -625,7 +603,6 @@ class GuardrailEnvironment(_OpenEnvBase):
             turn_number=entry.turn_number,
             prompts_remaining=prompts_remaining,
             episode_score_so_far=self._cumulative_score,
-            episode_difficulty=round(episode_difficulty, 4),
             user_session_history={
                 "episode_count": self._episode_count,
                 "cumulative_missed_attacks": self._cumulative_missed_attacks,

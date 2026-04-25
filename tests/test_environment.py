@@ -21,7 +21,7 @@ def test_reset_returns_valid_observation_task1():
     assert obs.user_prompt
     assert obs.application_context == "general_assistant"
     assert obs.turn_number == 1
-    assert obs.prompts_remaining == 66  # 67 eval prompts, first one served
+    assert obs.prompts_remaining == 70  # 71 eval prompts, first one served
     assert obs.episode_score_so_far == 0.0
 
 
@@ -120,7 +120,7 @@ def test_step_advances_prompt_index():
     obs = env.reset("basic_threat_detection")
     first_id = obs.prompt_id
     _, _, _, _ = env.step(make_action("allow", first_id))
-    state = env.state()
+    state = env.state
     assert state.current_prompt_index == 1
 
 
@@ -135,11 +135,11 @@ def test_step_returns_info_with_ground_truth():
 def test_cumulative_score_accumulates():
     env = GuardrailEnvironment()
     obs = env.reset("basic_threat_detection")
-    state_before = env.state()
+    state_before = env.state
     assert state_before.cumulative_score == 0.0
 
     _, _, _, _ = env.step(make_action("allow", obs.prompt_id))
-    state_after = env.state()
+    state_after = env.state
     # Cumulative score should have changed (positive or negative)
     assert state_after.cumulative_score != state_before.cumulative_score
 
@@ -206,7 +206,7 @@ def test_task1_completes_without_error():
         steps += 1
         if not done:
             obs = next_obs
-    assert steps == 67  # 67 eval prompts
+    assert steps == 71  # 71 eval prompts
     assert env.is_done()
 
 
@@ -255,7 +255,7 @@ def test_task3_conversation_done_signal():
         if info.get("conversation_done"):
             conversation_done_signals.append(info.get("conversation_id"))
         if not done:
-            state = env.state()
+            state = env.state
             from app.tasks.task_config import get_task
             task = get_task("multiturn_adversarial")
             obs = env._make_observation()
@@ -291,7 +291,7 @@ def test_state_reflects_done_after_completion():
         next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
         if not done:
             obs = next_obs
-    state = env.state()
+    state = env.state
     assert state.done is True
 
 
@@ -853,78 +853,6 @@ def test_task3_action_dependent_conversation_history():
     assert allow_asst != refuse_asst, "Action-dependent assistant responses should differ"
 
 
-# ── episode_difficulty tests ──────────────────────────────────────────────────
-
-def test_episode_difficulty_near_one_at_start():
-    """episode_difficulty should be near 1.0 on first observation (all challenge remaining)."""
-    env = GuardrailEnvironment()
-    obs = env.reset("basic_threat_detection")
-    # After reset, almost all potential is still ahead — difficulty should be close to 1.0.
-    # It equals (total_max - first_prompt_max) / total_max, which is > 0.9 for any episode.
-    assert obs.episode_difficulty > 0.9, (
-        f"episode_difficulty should be near 1.0 at start, got {obs.episode_difficulty}"
-    )
-
-
-def test_episode_difficulty_near_zero_at_end():
-    """episode_difficulty should approach 0.0 near episode end (little challenge remaining)."""
-    env = GuardrailEnvironment()
-    obs = env.reset("basic_threat_detection")
-
-    last_difficulty = 1.0
-    while not env.is_done():
-        action = make_action("allow", obs.prompt_id)
-        next_obs, _, done, _ = env.step(action)
-        if not done and next_obs is not None:
-            last_difficulty = next_obs.episode_difficulty
-            obs = next_obs
-
-    # Near the end of the episode, very little potential remains → difficulty near 0.
-    # The penultimate step gives ≈ 1/N of total potential remaining.
-    assert last_difficulty < 0.05, (
-        f"episode_difficulty should be near 0.0 at episode end, got {last_difficulty}"
-    )
-
-
-def test_episode_difficulty_drops_after_missed_attack():
-    """episode_difficulty should drop below 1.0 after a missed attack."""
-    from app.tasks.task_config import get_task
-
-    env = GuardrailEnvironment()
-    obs = env.reset("basic_threat_detection")
-    task = get_task("basic_threat_detection")
-
-    # Find first attack entry
-    attack_entry = next((e for e in task.prompts if e.label.category != "safe"), None)
-    assert attack_entry is not None
-
-    while not env.is_done():
-        curr = env.current_prompt_entry
-        if curr and curr.label.prompt_id == attack_entry.label.prompt_id:
-            # Miss the attack
-            next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
-            if not done and next_obs is not None:
-                assert next_obs.episode_difficulty < 1.0
-            return
-        next_obs, _, done, _ = env.step(make_action(curr.label.correct_action, obs.prompt_id))
-        if not done and next_obs is not None:
-            obs = next_obs
-
-    pytest.fail("Attack entry not encountered")
-
-
-def test_episode_difficulty_always_nonnegative():
-    """episode_difficulty should never go below 0.0 even after many missed attacks."""
-    env = GuardrailEnvironment()
-    obs = env.reset("basic_threat_detection")
-
-    while not env.is_done():
-        next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
-        if not done and next_obs is not None:
-            assert next_obs.episode_difficulty >= 0.0
-            obs = next_obs
-
-
 # ── Risk threshold boundary test ─────────────────────────────────────────────
 
 def test_risk_threshold_boundary_strict_greater_than():
@@ -1269,63 +1197,6 @@ def test_over_block_count_increments_on_refuse_safe():
             obs = next_obs
 
     pytest.fail("Safe entry not encountered")
-
-
-# ── episode_difficulty remaining-challenge tests ─────────────────────────────
-
-def test_episode_difficulty_starts_near_one():
-    """episode_difficulty should start near 1.0 (all challenge ahead) on turn 1."""
-    env = GuardrailEnvironment()
-    obs = env.reset("basic_threat_detection")
-    # After reset, only the first prompt has been served, so almost all potential remains.
-    # episode_difficulty should be close to 1.0 (not 0).
-    assert obs.episode_difficulty > 0.9, (
-        f"episode_difficulty should be near 1.0 at start, got {obs.episode_difficulty}"
-    )
-
-
-def test_episode_difficulty_decreases_as_episode_progresses():
-    """episode_difficulty should decrease monotonically as the episode progresses."""
-    env = GuardrailEnvironment()
-    obs = env.reset("basic_threat_detection")
-    difficulties = [obs.episode_difficulty]
-
-    for _ in range(5):
-        if env.is_done():
-            break
-        next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
-        if done or next_obs is None:
-            break
-        obs = next_obs
-        difficulties.append(obs.episode_difficulty)
-
-    assert len(difficulties) >= 2, "Need at least 2 observations to test trend"
-    # Difficulty should be non-increasing (each step serves more potential)
-    for i in range(1, len(difficulties)):
-        assert difficulties[i] <= difficulties[i - 1], (
-            f"episode_difficulty increased at step {i}: {difficulties[i - 1]:.4f} → {difficulties[i]:.4f}"
-        )
-
-
-def test_episode_difficulty_distinct_from_score():
-    """episode_difficulty (remaining challenge) should differ from episode_score_so_far."""
-    env = GuardrailEnvironment()
-    obs = env.reset("basic_threat_detection")
-    # After one allow on an attack (negative reward), score should be < 0
-    # but episode_difficulty should still be close to 1.0 (lots remaining)
-    for _ in range(3):
-        if env.is_done():
-            break
-        next_obs, _, done, _ = env.step(make_action("allow", obs.prompt_id))
-        if done or next_obs is None:
-            break
-        obs = next_obs
-
-    # episode_difficulty is remaining challenge (should still be high early on)
-    # episode_score_so_far is performance (may be negative from missed attacks)
-    assert obs.episode_difficulty > 0.5, "Early episode: lots of challenge should remain"
-    # They should not be equal (one tracks remaining potential, other tracks cumulative performance)
-    assert obs.episode_difficulty != obs.episode_score_so_far
 
 
 # ── Task 4 honeypot signal tests ──────────────────────────────────────────────

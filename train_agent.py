@@ -619,9 +619,15 @@ def _t4_extract_features(prompt_text: str, risk_score: float, turn_number: int,
     )
 
 
-def _t4_run_episode(q_table: dict, epsilon: float, seed: int = 0) -> float:
-    """Run one Task 4 episode. Returns the grader score."""
-    env = GuardrailEnvironment()
+def _t4_run_episode(q_table: dict, epsilon: float, seed: int = 0, env: GuardrailEnvironment = None) -> float:
+    """Run one Task 4 episode. Returns the grader score.
+
+    Accepts an optional persistent env instance (B3: cross-episode session chaining).
+    When env is provided, reset() is called on it so topic_weakness_map is preserved
+    across episodes. When None, a fresh env is created (isolated episode).
+    """
+    if env is None:
+        env = GuardrailEnvironment()
     obs = env.reset("adversarial_adaptation", seed=seed)
     trajectory: list[tuple[str, str, float, str]] = []  # (state_key, action, reward, next_sk)
 
@@ -738,6 +744,10 @@ def train_task4() -> None:
 
     q4: dict[str, dict[str, float]] = {}
 
+    # Persistent env for training: same instance across all episodes so
+    # topic_weakness_map accumulates cross-episode (B3: session chaining).
+    train_env = GuardrailEnvironment()
+
     # Initial eval (untrained)
     untrained_score = _t4_eval(q4)
     curve: list[tuple[str, float]] = [("untrained", untrained_score)]
@@ -748,7 +758,7 @@ def train_task4() -> None:
     print(f"Phase 1: Exploration ({T4_EPISODES_EXPLORE} episodes, ε={T4_EPSILON_EXPLORE})")
     for ep in range(1, T4_EPISODES_EXPLORE + 1):
         seed = ep % 10  # cycle through 10 seeds for diversity
-        _t4_run_episode(q4, T4_EPSILON_EXPLORE, seed=seed)
+        _t4_run_episode(q4, T4_EPSILON_EXPLORE, seed=seed, env=train_env)
         if ep % 5 == 0:
             eval_score = _t4_eval(q4)
             curve.append((f"explore{ep:02d}", eval_score))
@@ -759,7 +769,7 @@ def train_task4() -> None:
     print(f"\nPhase 2: Exploitation ({T4_EPISODES_EXPLOIT} episodes, ε={T4_EPSILON_EXPLOIT})")
     for ep in range(1, T4_EPISODES_EXPLOIT + 1):
         seed = (ep + 50) % 10
-        _t4_run_episode(q4, T4_EPSILON_EXPLOIT, seed=seed)
+        _t4_run_episode(q4, T4_EPSILON_EXPLOIT, seed=seed, env=train_env)
         if ep % 5 == 0:
             eval_score = _t4_eval(q4)
             curve.append((f"exploit{ep:02d}", eval_score))

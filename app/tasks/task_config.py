@@ -493,6 +493,19 @@ VALID_ATTACK_FEATURES: frozenset[str] = frozenset({
     "drug_synthesis",
     "reframing_operational_request",
     "extremism_adjacent",
+    # Escalate-correct prompt attack features (added for Task 1 class rebalancing)
+    "legal_threat",
+    "impersonation",
+    "self_harm",
+    "crisis_disclosure",
+    "child_safety",
+    "abuse_report",
+    "medical_emergency",
+    "urgency_manipulation",
+    "data_deletion_request",
+    "safety_threat",
+    "school_threat",
+    "third_party_safety",
 })
 
 

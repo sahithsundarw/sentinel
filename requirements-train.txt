@@ -1,0 +1,16 @@
+# Training-only dependencies — NOT needed to run the environment server.
+# Install with: pip install -r requirements-train.txt
+# NOTE: unsloth (required for train_grpo.py and train_trl.py) must be installed
+# separately; it only supports Linux/Colab environments.
+#   pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+# All other packages below install on any platform.
+
+torch>=2.1.0
+transformers>=4.45.0
+# trl 0.12.x is required for PPOTrainer API used in train_trl.py.
+# trl 0.8.x (older) is incompatible — PPOConfig and ppo_trainer.step() differ.
+trl>=0.12.0,<0.13
+peft>=0.8.0
+bitsandbytes>=0.43.0
+accelerate>=0.31.0
+datasets>=2.14.0

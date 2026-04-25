@@ -8,13 +8,3 @@ pyyaml==6.0.2
 # openai is required to run inference.py / baseline.py against a live model.
 # It is NOT needed to run the environment server itself (uvicorn app.main:app).
 openai==1.50.0
-
-# Training dependencies — required for scripts/train_local.py (local SFT + PPO).
-# Install separately; not needed to run the environment server.
-torch>=2.1.0
-transformers>=4.45.0
-trl>=0.8.0
-peft>=0.8.0
-bitsandbytes>=0.43.0
-accelerate>=0.31.0
-datasets>=2.14.0

@@ -1,0 +1,26 @@
+{
+  "model": "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
+  "method": "mock",
+  "timestamp": "2026-04-24T12:00:04.020149Z",
+  "tasks": {
+    "basic_threat_detection": {
+      "zero_shot": 0.5428,
+      "post_sft": 0.6812,
+      "improvement": 0.1384
+    },
+    "context_aware_policy": {
+      "zero_shot": 0.5143,
+      "post_sft": 0.642,
+      "improvement": 0.1277
+    },
+    "multiturn_adversarial": {
+      "zero_shot": 0.4746,
+      "post_sft": 0.598,
+      "improvement": 0.1234
+    }
+  },
+  "task4_qlearner": {
+    "zero_shot": 0.0,
+    "post_rl": 0.954
+  }
+}

@@ -872,6 +872,10 @@ async def schema():
 class ResetRequest(BaseModel):
     task_id: str = "basic_threat_detection"
     seed: Optional[int] = None
+    reward_mode: str = "step"
+    disable_topic_weakness_map: bool = False
+    disable_branching: bool = False
+    flat_risk_multiplier: bool = False
 
 
 @app.post("/reset")
@@ -879,6 +883,7 @@ async def reset(
     body: Optional[ResetRequest] = None,
     task_id: str = Query(default=None),
     seed: Optional[int] = Query(default=None),
+    reward_mode: str = Query(default="step"),
 ):
     """Reset environment with specified task. Accepts JSON body or query params."""
     # JSON body takes priority over query params; fall back to "basic_threat_detection" only if
@@ -886,17 +891,36 @@ async def reset(
     if body is not None:
         resolved_task_id = body.task_id
         resolved_seed = body.seed if body.seed is not None else seed
+        resolved_reward_mode = body.reward_mode
+        resolved_disable_twm = body.disable_topic_weakness_map
+        resolved_disable_branch = body.disable_branching
+        resolved_flat_risk = body.flat_risk_multiplier
     elif task_id is not None:
         resolved_task_id = task_id
         resolved_seed = seed
+        resolved_reward_mode = reward_mode
+        resolved_disable_twm = False
+        resolved_disable_branch = False
+        resolved_flat_risk = False
     else:
         resolved_task_id = "basic_threat_detection"
         resolved_seed = seed
+        resolved_reward_mode = reward_mode
+        resolved_disable_twm = False
+        resolved_disable_branch = False
+        resolved_flat_risk = False
 
     try:
         # Create an isolated session for this client.
         session_env, session_id = _create_session()
-        observation = session_env.reset(task_id=resolved_task_id, seed=resolved_seed)
+        observation = session_env.reset(
+            task_id=resolved_task_id,
+            seed=resolved_seed,
+            reward_mode=resolved_reward_mode,
+            disable_topic_weakness_map=resolved_disable_twm,
+            disable_branching=resolved_disable_branch,
+            flat_risk_multiplier=resolved_flat_risk,
+        )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     result = observation.model_dump()
@@ -1578,6 +1602,7 @@ class TrainingLogEntry(BaseModel):
     cumulative_reward: Optional[float] = None
     action_distribution: Optional[dict] = None
     timestamp: Optional[str] = None
+    is_synthetic: bool = False  # True for demo/seed data; excluded from leaderboard displays
 
     @field_validator("agent_name")
     @classmethod
@@ -1608,6 +1633,7 @@ async def post_training_log(entry: TrainingLogEntry):
         "cumulative_reward": entry.cumulative_reward,
         "action_distribution": entry.action_distribution,
         "timestamp": ts,
+        "is_synthetic": entry.is_synthetic,
     }
     with _training_log_lock:
         if entry.agent_name not in _training_logs:
@@ -1623,13 +1649,26 @@ async def post_training_log(entry: TrainingLogEntry):
 
 
 @app.get("/training_log")
-async def get_training_log(agent_name: Optional[str] = Query(default=None)):
-    """Return training history for an agent (or all agents if agent_name omitted)."""
+async def get_training_log(
+    agent_name: Optional[str] = Query(default=None),
+    include_synthetic: bool = Query(default=False),
+):
+    """Return training history for an agent (or all agents if agent_name omitted).
+
+    Synthetic demo entries (is_synthetic=True) are excluded by default.
+    Pass ?include_synthetic=true to include them.
+    """
+    def _filter(entries: list[dict]) -> list[dict]:
+        if include_synthetic:
+            return entries
+        return [e for e in entries if not e.get("is_synthetic", False)]
+
     with _training_log_lock:
         if agent_name:
-            entries = _training_logs.get(agent_name, [])
+            entries = _filter(_training_logs.get(agent_name, []))
             return {"agent_name": agent_name, "count": len(entries), "entries": entries}
-        return {"agents": list(_training_logs.keys()), "all_entries": dict(_training_logs)}
+        filtered = {k: _filter(v) for k, v in _training_logs.items()}
+        return {"agents": list(filtered.keys()), "all_entries": filtered}
 
 
 # ── /reward_breakdown ─────────────────────────────────────────────────────────

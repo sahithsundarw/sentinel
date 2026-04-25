@@ -15,7 +15,16 @@
 | GPT-3.5-turbo | SFT (255 examples) | 0.0000 | 0.0000 | — | — |
 | Llama-3.1-8B | SFT (LoRA, 3 epochs) | 0.0000 | — | — | — |
 | Llama-3.1-8B | REINFORCE (20 ep, LoRA) | 0.0929 | — | — | — |
-| **Tabular Q-Learner** | **RL (20 episodes)** | ~0.46 | — | — | **0.9540** |
+| **Tabular Q-Learner** | **RL (20 episodes)** | ~0.46 | 0.3872 | 0.4849 | **0.9540** |
+
+> **Q-Learner scope note:** The tabular Q-learner is a **Task 4 specialist**. Its 9 handcrafted
+> keyword features are expressive enough for Tasks 3–4 (sequential/structural patterns) but
+> insufficient for Tasks 1–2 (semantic threat classification). Task 1 (~0.46): keyword heuristics
+> catch obvious attacks but miss intent — neural policy required. Task 2 (0.3872): context-aware
+> policy requires understanding which context a prompt belongs to, beyond keyword matching.
+> Task 3 (0.4849): multi-turn branching captured by turn-number and risk-score features — 3× over
+> baseline. Task 4 (0.9540): deterministic FSM structure fully learnable from 9 bits — outperforms
+> a 235B LLM that scores 0.0000. Use GRPO/Llama-70B for Tasks 1–2; Q-Learner for Task 4.
 
 ## Training Evidence
 
@@ -59,3 +68,73 @@ All result files are in [results/](results/):
 - `llama_sft_scores.json` — Llama-3.1-8B after SFT
 - `llama_ppo_scores.json` — Llama-3.1-8B after REINFORCE (20 episodes)
 - `chart_data.json` — Q-Learner Task 4 learning curve data
+
+---
+
+## Post-Fix Gap Analysis (2026-04-25)
+
+Verification run after completing all Bucket A + B items from the execution plan.
+
+### Verification commands run
+
+```
+pytest tests/ -v           → 220 passed, 2 skipped, 0 failed
+python baseline_oracle.py  → all 4 tasks: 1.0000
+git remote -v              → no token in URL (stripped)
+grep -r "12 prompts"       → 0 matches (was in openenv.yaml, now fixed)
+grep -r "qlearner_v1"      → 0 matches (was in populate_training_evidence.py, now fixed)
+```
+
+### Closed gaps
+
+| Gap | Fix | Status |
+|-----|-----|--------|
+| §7.5 stale openenv.yaml | 12→30 prompts, v1.4.0→1.5.0, drop episode_difficulty | ✅ Done (A1) |
+| §7.6 requirements.txt | trl pinned >=0.12.0,<0.13; requirements-train.txt created | ✅ Done (A2) |
+| §7.3 synthetic training data | agent_name=demo_synthetic_qlearner, is_synthetic=True | ✅ Done (A3) |
+| §7.11 parse_action fallback | last-occurrence keyword scan; JSON parse failure = WRONG_ACTION | ✅ Done (A4) |
+| §7.12 DPO wrong_map | inverse partial credit: correct=refuse→rejected=allow, etc. | ✅ Done (A5) |
+| §7.4 GRPO improvements | K=8, KL penalty β=0.02, --free-form flag | ✅ Done (A6) |
+| §7.13 missing mechanic tests | 5 tests in tests/test_mechanics.py | ✅ Done (A7) |
+| §7.16 episode_difficulty dead field | Removed from Observation and models.py | ✅ Done (A8) |
+| §7.2 Q-Learner framing | RESULTS.md + README.md specialist framing | ✅ Done (A9) |
+| §7.1 grader-aligned reward | compute_grader_aligned_step_reward() + --reward-mode grader | ✅ Done (A10) |
+| §7.7 Task 1 escalate imbalance | 10 escalate-correct prompts added (esc00001–esc00010) | ✅ Done (A11) |
+| §7.8 multi-seed eval | scripts/multi_seed_eval.py | ✅ Done (B1) |
+| §7.15 ablation study | scripts/run_ablations.py + 3 ablation flags in environment | ✅ Done (B2) |
+| §7.9 cross-episode session chaining | train_agent.py uses persistent env; train_grpo.py session_id_reuse | ✅ Done (B3) |
+| §7.10 HF token in remote URL | git remote set-url hf (token stripped) | ✅ Done (C1 partial) |
+
+### Remaining gaps
+
+| Gap | Status | Notes |
+|-----|--------|-------|
+| §7.10 HF token rotation | ⚠️ User action needed | Token stripped from local URL but must be rotated at huggingface.co/settings/tokens — old token may still work until revoked |
+| §7.14 Demo runner mechanics panel | ⏳ Pending | Deferred — requires aesthetic decisions. Plan: add risk_score bar, topic+intensity badge (Task 4), branch path indicator (Task 3) |
+| §7.8 Multi-seed results populated | ⏳ Pending | Script written; run `python scripts/multi_seed_eval.py --task adversarial_adaptation --agent oracle --seeds 0,1,2,3,4` to populate results/ |
+| §7.15 Ablations run | ⏳ Pending | Script written; run `python scripts/run_ablations.py --agent oracle` to generate ablations.md |
+
+### New gaps surfaced by changes
+
+| New gap | Description | Fix |
+|---------|-------------|-----|
+| Task 1 eval count changed | Adding 10 escalate prompts changed eval set from 67→71; updated 5 hardcoded test assertions | Fixed inline |
+| test_environment.py used env.state() | `state` is a @property, calling it as method fails | Fixed — replaced all `env.state()` with `env.state` |
+| episode_difficulty tests stale | 8 tests checked obs.episode_difficulty after A8 removed it | Removed stale tests |
+| test_rag threshold too high | `grade_task1` on pure-attack subset caps at 0.375; threshold was 0.5 | Lowered to 0.3 |
+
+### Impact on oracle baseline
+
+Oracle scores unchanged: all 4 tasks remain 1.0000. The 10 new escalate prompts are correctly graded (escalate = correct for each → full weight credit).
+
+### Task 1 action distribution (updated)
+
+| Action | Count |
+|--------|-------|
+| allow | 73 |
+| refuse | 113 |
+| modify | 30 |
+| escalate | 12 (was 2) |
+| **total** | **228** |
+
+Escalate class is now 5.3% (was 0.9%). Still underrepresented vs Task 2's 15%, but meaningfully better for training signal.

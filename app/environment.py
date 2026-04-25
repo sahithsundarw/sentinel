@@ -30,7 +30,10 @@ import random
 import uuid
 from collections import deque
 from typing import Optional
-from openenv.core import Environment
+try:
+    from openenv.core import Environment as _OpenEnvBase
+except ImportError:
+    _OpenEnvBase = object  # openenv-core not installed — base class is no-op locally
 from app.models import (
     Action, Observation, Reward, EnvironmentState, TaskInfo, PromptLabel
 )
@@ -41,7 +44,7 @@ from app.tasks.task4_adversarial import DeterministicAdversary
 from app.utils import resolve_correct_action
 
 
-class GuardrailEnvironment(Environment):
+class GuardrailEnvironment(_OpenEnvBase):
     SUPPORTS_CONCURRENT_SESSIONS = True
 
     def close(self) -> None:

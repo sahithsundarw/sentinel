@@ -31,7 +31,7 @@ import torch
 import torch.nn.functional as F
 
 # ── Config ────────────────────────────────────────────────────────────────────
-ENV_URL          = "https://varunventra-guardrail-arena.hf.space"
+ENV_URL          = "http://localhost:7860"
 RESULTS_DIR      = Path("results")
 CHECKPOINT_BASE  = Path("checkpoints")
 RESULTS_DIR.mkdir(exist_ok=True)
@@ -61,21 +61,34 @@ class _SessionExpired(Exception):
     pass
 
 
-def _post_with_retry(url, data, retries=4, delay=10, params=None):
+def _post_with_retry(url, data, retries=8, delay=15, params=None):
     for attempt in range(retries):
         try:
-            resp = requests.post(url, json=data, params=params, timeout=30)
+            resp = requests.post(url, json=data, params=params, timeout=60)
             if resp.status_code == 410:
                 raise _SessionExpired("Session expired (410)")
+            if resp.status_code in (502, 503, 504):
+                # HF Space restarting — wait longer on each retry
+                wait = delay * (2 ** min(attempt, 4))  # 15, 30, 60, 120, 120 ...
+                print(f"  Network retry {attempt+1}/{retries}: {resp.status_code} (Space waking up, waiting {wait}s...)")
+                time.sleep(wait)
+                continue
             resp.raise_for_status()
             return resp
         except _SessionExpired:
             raise
+        except requests.exceptions.Timeout:
+            wait = delay * (attempt + 1)
+            if attempt == retries - 1:
+                raise
+            print(f"  Network retry {attempt+1}/{retries}: timeout (waiting {wait}s...)")
+            time.sleep(wait)
         except Exception as e:
             if attempt == retries - 1:
                 raise
-            print(f"  Network retry {attempt+1}/{retries}: {e}")
-            time.sleep(delay)
+            wait = delay * (attempt + 1)
+            print(f"  Network retry {attempt+1}/{retries}: {e} (waiting {wait}s...)")
+            time.sleep(wait)
 
 
 def _extract_action(raw):
@@ -225,10 +238,15 @@ def _get_grader_score(env_url, task_id, model, tokenizer, action_token_ids, n_ev
             steps    += 1
 
         try:
-            grader_resp = requests.get(
-                f"{env_url}/grader", params={"session_id": session_id}, timeout=30)
-            grader_resp.raise_for_status()
-            scores.append(float(grader_resp.json().get("score", 0.0)))
+            for _g in range(5):
+                grader_resp = requests.get(
+                    f"{env_url}/grader", params={"session_id": session_id}, timeout=60)
+                if grader_resp.status_code in (502, 503, 504):
+                    time.sleep(30 * (2 ** min(_g, 2)))
+                    continue
+                grader_resp.raise_for_status()
+                scores.append(float(grader_resp.json().get("score", 0.0)))
+                break
         except Exception:
             pass
 

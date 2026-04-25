@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentinel — AI Safety Training Environment</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1e1e1e;
+      --text: #e8e8e8;
+      --muted: #666666;
+      --green: #00ff88;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --orange: #f97316;
+      --easy: #22c55e;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      height: 48px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 100;
+    }
+
+    .header-left {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 18px;
+      letter-spacing: 0.08em;
+      color: var(--text);
+    }
+
+    .header-right {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 60px 40px 32px;
+    }
+
+    .tagline {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 18px;
+      font-style: italic;
+      color: #a0a0a0;
+      margin-bottom: 48px;
+    }
+
+    /* Stat boxes */
+    .stat-row {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      max-width: 600px;
+      margin: 0 auto 48px;
+    }
+
+    .stat-box {
+      flex: 1;
+      background: var(--surface);
+      padding: 24px 28px;
+      text-align: center;
+    }
+
+    .stat-box.green {
+      border: 1px solid #22c55e;
+    }
+
+    .stat-box.red {
+      border: 1px solid var(--red);
+    }
+
+    .stat-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 48px;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat-value.green { color: var(--green); }
+    .stat-value.red { color: var(--red); }
+
+    .stat-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* Section title */
+    .section-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 14px;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    /* Task grid */
+    .task-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 40px;
+    }
+
+    .task-card {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      padding: 24px;
+      cursor: pointer;
+      border-radius: 0;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .task-card:hover {
+      border-color: #333333;
+      background: #151515;
+    }
+
+    .difficulty-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    .task-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+
+    .task-steps {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .task-desc {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #888888;
+      line-height: 1.6;
+      margin-bottom: 4px;
+    }
+
+    .task-extra {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      margin-bottom: 4px;
+    }
+
+    .enter-btn {
+      background: #ffffff;
+      color: #000000;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 14px;
+      letter-spacing: 0.06em;
+      border: none;
+      padding: 8px 16px;
+      cursor: pointer;
+      margin-top: 16px;
+      transition: background 0.1s ease;
+    }
+
+    .enter-btn:hover {
+      background: #e0e0e0;
+    }
+
+    /* Bottom actions */
+    .bottom-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 32px;
+      padding: 0 40px;
+    }
+
+    .action-btn {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 10px 20px;
+      border: 1px solid #333333;
+      background: none;
+      color: #a0a0a0;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .action-btn:hover {
+      color: #ffffff;
+      border-color: #ffffff;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      margin-top: 40px;
+      padding-bottom: 40px;
+    }
+
+    .footer span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">SENTINEL · AI SAFETY TRAINING ENVIRONMENT</div>
+    <div class="header-right">Team Ceciroleo</div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <p class="tagline">"We don't evaluate safety. We train it."</p>
+
+    <!-- Stat boxes -->
+    <div class="stat-row">
+      <div class="stat-box green">
+        <div class="stat-label">TRAINED Q-LEARNER — TASK 4</div>
+        <div class="stat-value green">0.9540</div>
+        <div class="stat-sub">20 episodes · RL training</div>
+      </div>
+      <div class="stat-box red">
+        <div class="stat-label">QWEN-3-235B — TASK 4</div>
+        <div class="stat-value red">0.0000</div>
+        <div class="stat-sub">235 billion parameters</div>
+      </div>
+    </div>
+
+    <!-- Section title -->
+    <div class="section-title">SELECT A TASK TO EXPLORE</div>
+
+    <!-- Task grid -->
+    <div class="task-grid">
+
+      <!-- Card 1 -->
+      <div class="task-card" data-task="basic_threat_detection">
+        <div class="difficulty-badge" style="color: #22c55e;">🟢 EASY</div>
+        <div class="task-title">BASIC THREAT DETECTION</div>
+        <div class="task-steps">67 eval steps</div>
+        <div class="task-desc">DAN jailbreaks, encoding tricks, PII extraction</div>
+        <button class="enter-btn">ENTER TASK 1 →</button>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="task-card" data-task="context_aware_policy">
+        <div class="difficulty-badge" style="color: #f59e0b;">🟡 MED</div>
+        <div class="task-title">CONTEXT-AWARE POLICY</div>
+        <div class="task-steps">83 eval steps</div>
+        <div class="task-desc">Same prompt → different action by context</div>
+        <button class="enter-btn">ENTER TASK 2 →</button>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="task-card" data-task="multiturn_adversarial">
+        <div class="difficulty-badge" style="color: #f97316;">🟠 HARD</div>
+        <div class="task-title">MULTI-TURN ADVERSARIAL</div>
+        <div class="task-steps">238 eval steps</div>
+        <div class="task-desc">Block → reframes · Allow → escalates · 39 conversations</div>
+        <button class="enter-btn">ENTER TASK 3 →</button>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="task-card" data-task="adversarial_adaptation">
+        <div class="difficulty-badge" style="color: #ef4444;">🔴 EXPERT</div>
+        <div class="task-title">ADVERSARIAL ADAPTATION</div>
+        <div class="task-steps">Dynamic steps</div>
+        <div class="task-desc">FSM adversary · 180 states</div>
+        <div class="task-extra">
+          <span style="color: #00ff88;">Q-Learner: 0.9540</span>
+          <span style="color: #888888;"> | </span>
+          <span style="color: #ef4444;">235B LLM: 0.0000</span>
+        </div>
+        <button class="enter-btn">ENTER TASK 4 →</button>
+      </div>
+
+    </div>
+
+    <!-- Bottom action buttons -->
+    <div class="bottom-actions">
+      <a class="action-btn" href="demo_runner.html?mode=compare">⚔ COMPARE MODE</a>
+      <a class="action-btn" href="training_results.html">📊 TRAINING RESULTS</a>
+    </div>
+
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <span>varunventra-guardrail-arena.hf.space</span>
+  </footer>
+
+  <script>
+    // Click task card → go to demo_runner.html?task=TASKID
+    document.querySelectorAll('.task-card').forEach(card => {
+      card.addEventListener('click', function(e) {
+        if (e.target.tagName === 'BUTTON') return; // let button handle
+        const task = this.dataset.task;
+        window.location.href = 'demo_runner.html?task=' + task;
+      });
+    });
+
+    document.querySelectorAll('.enter-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const task = this.closest('.task-card').dataset.task;
+        window.location.href = 'demo_runner.html?task=' + task;
+      });
+    });
+  </script>
+
+</body>
+</html>

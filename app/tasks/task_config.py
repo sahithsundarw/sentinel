@@ -442,6 +442,7 @@ VALID_ATTACK_FEATURES: frozenset[str] = frozenset({
     "pig_latin_obfuscation",
     "prior_agreement_exploitation",
     "prompt_injection",
+    "rag_injection",            # attack embedded in retrieved/external content, not user prompt
     "reframing",
     "roleplay_bypass",
     "role_play_trigger",

@@ -397,6 +397,7 @@ def train_task(
     episode_rewards   = []
     action_dist_ep1   = None
     action_dist_final = None
+    episode_log       = []  # full per-episode detail for judges
 
     for ep in range(resume_ep, episodes):
         print(f"\nGRPO Episode {ep+1}/{episodes} (Task {task_num})")
@@ -477,6 +478,19 @@ def train_task(
         if avg_grad == 0.0:
             print("  WARNING: zero gradients — no weight update")
 
+        episode_log.append({
+            "episode":       ep + 1,
+            "rollout_rewards": [round(r, 4) for r in rewards],
+            "avg_reward":    round(avg_ep, 4),
+            "advantage_std": round(std_r, 4),
+            "loss":          round(total_loss.item(), 4),
+            "grad_norm":     round(avg_grad, 6),
+            "action_dist":   action_totals,
+            "dominant_action": dominant,
+            "dominant_pct":  round(dominant_pct, 3),
+            "collapse":      dominant_pct > 0.65,
+        })
+
         # -- Post to training_log --
         try:
             requests.post(f"{env_url}/training_log", json={
@@ -525,7 +539,22 @@ def train_task(
         "action_dist_final": action_dist_final,
         "checkpoint":    str(final_ckpt),
         "timestamp":     datetime.utcnow().isoformat() + "Z",
+        "episode_log":   episode_log,
     }
+
+    log_path = RESULTS_DIR / f"grpo_training_log_task{task_num}.json"
+    with open(log_path, "w") as f:
+        json.dump({
+            "task_id":     task_id,
+            "pre_score":   pre_score,
+            "post_score":  post_score,
+            "k":           K,
+            "episodes":    len(episode_rewards),
+            "reward_mode": "grader",
+            "timestamp":   datetime.utcnow().isoformat() + "Z",
+            "log":         episode_log,
+        }, f, indent=2)
+    print(f"  Training log saved: {log_path}")
 
     # -- Post final score to leaderboard --
     try:
@@ -635,18 +664,26 @@ def main():
             try:
                 from huggingface_hub import HfApi
                 api = HfApi()
+                token = os.environ.get("HF_TOKEN")
                 ckpt_path = str(CHECKPOINT_BASE / f"llama-grpo-task{task_num}" / "final")
-                print(f"  Pushing task{task_num} checkpoint to {args.push_to_hub}...")
+                print(f"  Pushing task{task_num} checkpoint + log to {args.push_to_hub}...")
                 api.upload_folder(
                     folder_path=ckpt_path,
                     repo_id=args.push_to_hub,
                     path_in_repo=f"task{task_num}",
-                    token=os.environ.get("HF_TOKEN"),
+                    token=token,
                     repo_type="model",
                 )
-                print(f"  Pushed to {args.push_to_hub}/task{task_num}")
+                api.upload_file(
+                    path_or_fileobj=str(log_path),
+                    path_in_repo=f"logs/grpo_training_log_task{task_num}.json",
+                    repo_id=args.push_to_hub,
+                    token=token,
+                    repo_type="model",
+                )
+                print(f"  Pushed checkpoint + training log to {args.push_to_hub}")
             except Exception as e:
-                print(f"  Push failed: {e} — checkpoint still saved locally")
+                print(f"  Push failed: {e} — files still saved locally")
 
     elapsed = round((time.time() - start_time) / 3600, 2)
 

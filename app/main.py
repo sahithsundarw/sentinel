@@ -1990,9 +1990,13 @@ async def batch_rollout(req: BatchRolloutRequest):
 
 
 @app.get("/config")
-def get_config():
+def get_config(request: Request):
+    # Only allow localhost — keys must never be exposed publicly
+    host = request.client.host if request.client else ""
+    if host not in ("127.0.0.1", "::1", "localhost"):
+        raise HTTPException(status_code=403, detail="Config endpoint restricted to localhost")
     return {
-        "openai_api_key":    os.environ.get("OPENAI_API_KEY", ""),
-        "anthropic_api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
-        "hf_token":          os.environ.get("HF_TOKEN", ""),
+        "openai_api_key":    "***" if os.environ.get("OPENAI_API_KEY") else "",
+        "anthropic_api_key": "***" if os.environ.get("ANTHROPIC_API_KEY") else "",
+        "hf_token":          "***" if os.environ.get("HF_TOKEN") else "",
     }

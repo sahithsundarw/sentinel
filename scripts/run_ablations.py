@@ -105,7 +105,7 @@ def run_episode(task_id: str, agent: str, seed: int, q_table: dict = None,
         obs_next, _, done, _ = env.step(action)
         if obs_next is not None:
             obs = obs_next
-    grade = env.grade()
+    grade = env.get_grader_score()
     return grade.score if hasattr(grade, "score") else grade
 
 

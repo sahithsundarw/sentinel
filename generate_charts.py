@@ -395,10 +395,10 @@ def chart_action_distribution():
     ax.set_ylim(0, 100)
     ax.set_xticks(EPISODES)
 
-    ax.set_title("Agent Learns to Refuse and Escalate — Task 4",
+    ax.set_title("Agent Learns to Refuse and Escalate — Task 4 (Illustrative)",
                  fontsize=14, fontweight="bold", color=FG, pad=12)
     ax.text(0.5, 1.02,
-            "Random policy → learned safety moderator over 20 episodes",
+            "Illustrative sigmoid model — qualitative trend from real REINFORCE training",
             transform=ax.transAxes, ha="center", fontsize=9,
             color="#aaaaaa", fontfamily=MONOSPACE)
 

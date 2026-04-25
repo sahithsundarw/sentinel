@@ -35,7 +35,7 @@ import torch
 import torch.nn.functional as F
 
 # ── Config ────────────────────────────────────────────────────────────────────
-ENV_URL          = "http://localhost:7860"
+ENV_URL          = "https://varunventra-guardrail-arena.hf.space"
 RESULTS_DIR      = Path("results")
 CHECKPOINT_BASE  = Path("checkpoints")
 RESULTS_DIR.mkdir(exist_ok=True)
@@ -495,10 +495,10 @@ def train_task(
         try:
             requests.post(f"{env_url}/training_log", json={
                 "episode": ep + 1,
-                "task": task_id,
-                "agent_type": f"grpo_llama3_task{task_num}",
-                "reward": avg_ep,
-                "phase": "grpo",
+                "task_id": task_id,
+                "agent_name": f"grpo_llama3_task{task_num}",
+                "grader_score": avg_ep,
+                "cumulative_reward": avg_ep,
             }, timeout=10)
         except Exception:
             pass
@@ -559,11 +559,11 @@ def train_task(
     # -- Post final score to leaderboard --
     try:
         requests.post(f"{env_url}/training_log", json={
-            "episode":    episodes,
-            "task":       task_id,
-            "agent_type": f"Llama-3.1-8B-GRPO-20ep",
-            "reward":     post_score,
-            "phase":      "grpo_final",
+            "episode":        episodes,
+            "task_id":        task_id,
+            "agent_name":     "Llama-3.1-8B-GRPO-20ep",
+            "grader_score":   post_score,
+            "cumulative_reward": post_score,
         }, timeout=10)
     except Exception:
         pass
@@ -674,8 +674,9 @@ def main():
                     token=token,
                     repo_type="model",
                 )
+                log_path_upload = str(RESULTS_DIR / f"grpo_training_log_task{task_num}.json")
                 api.upload_file(
-                    path_or_fileobj=str(log_path),
+                    path_or_fileobj=log_path_upload,
                     path_in_repo=f"logs/grpo_training_log_task{task_num}.json",
                     repo_id=args.push_to_hub,
                     token=token,

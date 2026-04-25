@@ -299,7 +299,7 @@ def evaluate_model(model, tokenizer, env_url, max_steps=67):
     while not done and steps < max_steps:
         prompt = INFERENCE_TEMPLATE.format(
             application_context=obs.get("application_context", "general"),
-            risk_level=obs.get("risk_level", "medium"),
+            risk_level=obs.get("user_risk_score", 0.5),
             user_prompt=obs.get("user_prompt", obs.get("prompt", "")),
         )
 
@@ -502,7 +502,7 @@ def run_ppo_phase(config, checkpoint_dir, env_url, episodes=20):
         """Single forward pass with grad enabled; sample from action-token logits."""
         prompt = INFERENCE_TEMPLATE.format(
             application_context=obs.get("application_context", "general"),
-            risk_level=obs.get("risk_level", "medium"),
+            risk_level=obs.get("user_risk_score", 0.5),
             user_prompt=obs.get("user_prompt", obs.get("prompt", "")),
         )
         enc = tokenizer(prompt, return_tensors="pt",
@@ -606,11 +606,11 @@ def run_ppo_phase(config, checkpoint_dir, env_url, episodes=20):
 
         try:
             requests.post(f"{env_url}/training_log", json={
-                "episode": episode + 1,
-                "task": "basic_threat_detection",
-                "agent_type": f"reinforce_{config['label']}",
-                "reward": avg_reward,
-                "phase": "reinforce",
+                "episode":        episode + 1,
+                "task_id":        "basic_threat_detection",
+                "agent_name":     f"reinforce_{config['label']}",
+                "grader_score":   avg_reward,
+                "cumulative_reward": avg_reward,
             }, timeout=10)
         except Exception:
             pass

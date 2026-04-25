@@ -66,7 +66,7 @@ def _qlearner_action(q_table: dict, obs, env: GuardrailEnvironment) -> str:
     has_safe = any(w in prompt_lower for w in ["please", "thank", "help", "question", "how"])
 
     risk = obs.user_risk_score
-    risk_bin = "H" if risk < 0.35 else ("M" if risk < 0.65 else "L")
+    risk_bin = "H" if risk > 0.65 else ("L" if risk < 0.35 else "M")
     ctx_code = {"general_assistant": 0, "customer_support": 1, "children_education": 2, "creative_writing": 3}.get(obs.application_context, 0)
     has_hist = 1 if obs.conversation_history else 0
     turn = min(obs.turn_number, 3) - 1
@@ -106,7 +106,7 @@ def run_one_seed(task_id: str, agent: str, seed: int, q_table: dict = None) -> f
         if obs_next is not None:
             obs = obs_next
 
-    grade_result = env.grade()
+    grade_result = env.get_grader_score()
     return grade_result.score if hasattr(grade_result, "score") else grade_result
 
 

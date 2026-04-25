@@ -2,25 +2,33 @@
   "model": "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
   "method": "mock",
   "timestamp": "2026-04-24T12:00:04.020149Z",
+  "note": "SFT cells ran in MOCK_MODE — post_sft scores are fabricated placeholders, not real measurements. Q-learner results are real.",
   "tasks": {
     "basic_threat_detection": {
       "zero_shot": 0.5428,
-      "post_sft": 0.6812,
-      "improvement": 0.1384
+      "post_sft": null,
+      "improvement": null,
+      "note": "mock — SFT not actually run on GPU"
     },
     "context_aware_policy": {
       "zero_shot": 0.5143,
-      "post_sft": 0.642,
-      "improvement": 0.1277
+      "post_sft": null,
+      "improvement": null,
+      "note": "mock — SFT not actually run on GPU"
     },
     "multiturn_adversarial": {
       "zero_shot": 0.4746,
-      "post_sft": 0.598,
-      "improvement": 0.1234
+      "post_sft": null,
+      "improvement": null,
+      "note": "mock — SFT not actually run on GPU"
     }
   },
   "task4_qlearner": {
     "zero_shot": 0.0,
-    "post_rl": 0.954
+    "post_rl_single_seed": 0.9540,
+    "post_rl_5seed_avg": 0.4663,
+    "peak_during_training": 0.8360,
+    "method": "tabular_q_learning",
+    "note": "0.9540 = single-seed (seed=0). 0.4663 = 5-seed average (seeds 0-4, more rigorous). Peak 0.8360 at explore episode 15."
   }
 }

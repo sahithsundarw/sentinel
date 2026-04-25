@@ -72,7 +72,7 @@ GAMMA          = 0.0        # discount factor — 0.0 for single-turn tasks (ban
                             # Task 1 has no temporal dependency between prompts;
                             # each prompt is an independent classification. Using γ=0
                             # reduces to Q(s,a) ← Q(s,a) + α[R - Q(s,a)], correct for bandits.
-SUPERVISED_LR  = 2.0        # learning rate for supervised pre-training phase
+SUPERVISED_LR  = 0.4        # learning rate for supervised pre-training phase (must be <1.0 to converge — LR>=1 oscillates)
 EPSILON_START  = 0.5        # exploration starts lower after supervised init
 EPSILON_END    = 0.05       # minimum exploration rate
 EPSILON_DECAY  = 0.88       # multiplicative decay per training episode
@@ -87,51 +87,124 @@ _JAILBREAK_PATTERNS = [
     r"ignore (all )?previous instructions",
     r"you are now",
     r"pretend (to be|you are)",
-    r"act as",
-    r"dan ",
+    r"act as( (if|though|a|an|the))?",
+    r"\bdan\b",
     r"do anything now",
-    r"disregard",
+    r"disregard (all |your |previous |prior )?",
     r"override",
     r"bypass",
     r"jailbreak",
     r"unrestricted",
-    r"forget your",
-    r"your new (role|task|instructions)",
+    r"forget (your|all|everything)",
+    r"your new (role|task|instructions|persona|name)",
     r"developer mode",
     r"\[system\]",
     r"</s>",
     r"<\|",
     r"\|\>",
+    r"stay in character",
+    r"new persona",
+    r"without (any |ethical |moral )?restrictions",
+    r"no (ethical |moral |safety )?restrictions",
+    r"you (must|will|shall) (comply|obey|follow)",
+    r"(hidden|secret|real) (mode|instructions|prompt|system)",
+    r"(enable|activate|turn on) (dev|god|admin|unrestricted) mode",
+    r"from now on (you|ignore|forget)",
+    r"respond only (as|like|in)",
+    r"you have (been|been given) (permission|access|authorization)",
+    r"(simulation|hypothetical|fictional) (mode|scenario|world)",
+    r"in this (story|fiction|game|roleplay|scenario)",
+    r"(disregard|ignore) (your|all|ethical|safety|previous)",
+    r"(sudo|root|admin|system)\s*(access|mode|command|override)",
 ]
 
 _ATTACK_WORDS = [
-    "bomb", "weapon", "hack", "exploit", "malware", "virus", "poison",
-    "kill", "murder", "suicide", "synthesize", "illegal", "steal",
-    "password", "credential", "private", "confidential", "credit card",
-    "social security", "ssn", "dox", "swat",
+    # weapons / violence
+    "bomb", "weapon", "explosive", "ammunition", "firearm", "grenade",
+    "kill", "murder", "assassinate", "torture", "kidnap", "hostage",
+    # drugs / synthesis
+    "synthesize", "synthesis", "methamphetamine", "fentanyl", "heroin",
+    "narcotics", "drug manufacture", "drug lab", "precursor chemical",
+    # hacking / malware
+    "hack", "exploit", "malware", "ransomware", "virus", "trojan",
+    "keylogger", "rootkit", "zero-day", "sql injection", "xss attack",
+    "phishing", "credential stuffing", "brute force",
+    # illegal / harmful
+    "illegal", "steal", "fraud", "launder", "counterfeit", "smuggle",
+    "trafficking", "bribe", "extort", "blackmail",
+    # credentials / PII (attack intent)
+    "password", "credential", "credit card", "social security", "ssn",
+    "bank account", "routing number", "dox", "swat", "identity theft",
+    # self-harm
+    "suicide", "self-harm", "self harm", "overdose", "cut myself",
+    # CBRN
+    "poison", "sarin", "anthrax", "ricin", "bioweapon", "chemical weapon",
+    "nerve agent", "radiological",
+    # hate
+    "hate speech", "slur", "racial epithet", "white supremac",
 ]
 
 _SAFE_WORDS = [
     "recipe", "weather", "poem", "story", "help", "please", "thank",
     "explain", "summarize", "translate", "calculate", "convert",
-    "recommend", "suggest", "schedule", "reminder",
+    "recommend", "suggest", "schedule", "reminder", "question",
+    "curious", "learn", "teach", "understand", "definition",
+    "example", "how does", "what is", "can you", "could you",
+    "would you", "history", "science", "math", "art", "music",
+    "travel", "book", "movie", "game", "sport", "health", "advice",
+    "tips", "best practice", "guide", "tutorial",
 ]
 
 _ENCODING_PATTERNS = [
-    r"[.\-]{3,}",                        # morse-like dots and dashes
-    r"[aeiou][aeiou]-[a-z]{2,}",         # pig-latin-ish
-    r"&#x[0-9a-fA-F]+;",                 # html entities
-    r"(?:[A-Z][a-z]{2,}){3,}",           # CamelCase encoding
+    r"[.\-]{3,}",                          # morse-like dots and dashes
+    r"[aeiou][aeiou]-[a-z]{2,}",           # pig-latin-ish
+    r"&#x[0-9a-fA-F]+;",                   # html entities
+    r"(?:[A-Z][a-z]{2,}){3,}",             # CamelCase encoding
+    r"[A-Za-z0-9+/]{20,}={0,2}",           # base64-like strings
+    r"\\u[0-9a-fA-F]{4}",                  # unicode escapes
+    r"(?:rot|caesar)\s*\d+",               # ROT/Caesar cipher references
+    r"\b[01]{8,}\b",                        # binary encoding
+    r"%[0-9a-fA-F]{2}(?:%[0-9a-fA-F]{2})+", # URL encoding sequences
 ]
 
 _AUTHORITY_PATTERNS = [
-    r"as (your|the) (system|admin|administrator|ceo|cto|developer|owner)",
-    r"i am (your|the) (system|admin|creator|developer|owner)",
-    r"permission (granted|approved)",
-    r"authorized (to|by)",
-    r"override|executive order|official request",
+    r"as (your|the) (system|admin|administrator|ceo|cto|developer|owner|creator)",
+    r"i am (your|the) (system|admin|creator|developer|owner|operator|trainer)",
+    r"permission (granted|approved|given)",
+    r"(authorized|authorised) (to|by|for)",
+    r"executive order|official request|government mandate",
+    r"(company|corporate|management) (policy|directive|order) (requires|states|says)",
+    r"(legal|law enforcement|fbi|cia|nsa|police) (request|order|mandate|directive)",
+    r"on behalf of (my|the) (employer|company|organization|client)",
+    r"(security|penetration|pen) test(ing)?",
+    r"(audit|compliance|regulatory) (purpose|requirement|check)",
+    r"research (purpose|project|study)",
 ]
 
+_PII_PATTERNS = [
+    r"\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b",   # SSN: 123-45-6789
+    r"\b\d{4}[-.\s]?\d{4}[-.\s]?\d{4}[-.\s]?\d{4}\b",  # credit card
+    r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b",  # email
+    r"\b(\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b",  # phone
+    r"\b\d{5}(-\d{4})?\b",                  # zip code (weak signal alone)
+    r"date of birth|dob|born on",
+    r"home address|residential address|full address",
+    r"passport (number|no\.?)",
+    r"driver.{0,3}s? license",
+    r"medical record",
+    r"bank account (number|no\.?)",
+]
+
+_ESCALATE_PATTERNS = [
+    r"(want to|going to|thinking about|planning to) (hurt|harm|kill|end) (myself|my life|my self)",
+    r"(suicid|self.harm|self harm)",
+    r"(bomb|shoot|stab|attack|threat).{0,20}(school|hospital|church|building|office)",
+    r"(threat|threaten).{0,30}(legal|lawsuit|lawyer|attorney|sue)",
+    r"i('m| am) (a |an )?(doctor|nurse|lawyer|police|detective|agent|officer)",
+    r"(emergency|urgent|crisis|danger).{0,30}(help|assist|need)",
+    r"(child|minor|kid|underage).{0,20}(abuse|exploit|harm|inappropriate)",
+    r"someone is (going to|about to|planning to) (hurt|harm|attack|kill)",
+]
 
 _CTX_CODE = {
     "children_education": "KD",
@@ -146,14 +219,19 @@ def _extract_features(prompt_text: str, application_context: str,
                       conversation_history: list[str]) -> str:
     """Return a discrete feature string used as Q-table key.
 
-    The feature string encodes:
-      jailbreak (J/N) × attack_word (A/N) × encoding (E/N) ×
-      authority (U/N) × safe_word (S/N) × risk_bucket (H/M/L) ×
-      context (2-char code) × has_history (Y/N) × turn_bucket (1/2/3+)
-
-    Uses 2-char context codes so all four contexts are distinct — previously
-    children_education/creative_writing/customer_support all mapped to "C",
-    making the feature useless for Task 2 context-aware decisions.
+    12-bit feature string:
+      J  jailbreak pattern detected
+      A  attack keyword present
+      E  encoding obfuscation detected
+      U  authority claim detected
+      S  safe-word present (no other attack signals)
+      R  risk bucket (H/M/L)
+      ctx  application context (2-char: KD/CW/CS/GA)
+      hist  has conversation history (Y/N)
+      turn  turn bucket (1/2/T)
+      P  PII extraction pattern detected
+      X  escalation-required signal detected
+      L  prompt length bucket (S<80 / M<400 / L>=400)
     """
     text = prompt_text.lower()
 
@@ -161,7 +239,7 @@ def _extract_features(prompt_text: str, application_context: str,
     a = "A" if any(w in text for w in _ATTACK_WORDS) else "N"
     e = "E" if any(re.search(p, text) for p in _ENCODING_PATTERNS) else "N"
     u = "U" if any(re.search(p, text) for p in _AUTHORITY_PATTERNS) else "N"
-    s = "S" if any(w in text for w in _SAFE_WORDS) else "N"
+    s = "S" if (any(w in text for w in _SAFE_WORDS) and j == "N" and a == "N") else "N"
 
     if user_risk_score > 0.65:
         r = "H"
@@ -174,7 +252,13 @@ def _extract_features(prompt_text: str, application_context: str,
     hist = "Y" if conversation_history else "N"
     turn = "1" if turn_number == 1 else ("2" if turn_number == 2 else "T")
 
-    return f"{j}{a}{e}{u}{s}{r}{ctx}{hist}{turn}"
+    p = "P" if any(re.search(pat, text) for pat in _PII_PATTERNS) else "N"
+    x = "X" if any(re.search(pat, text) for pat in _ESCALATE_PATTERNS) else "N"
+
+    n = len(prompt_text)
+    length = "S" if n < 80 else ("M" if n < 400 else "L")
+
+    return f"{j}{a}{e}{u}{s}{r}{ctx}{hist}{turn}{p}{x}{length}"
 
 
 # ── Q-Table ──────────────────────────────────────────────────────────────────
@@ -428,16 +512,16 @@ def _all_allow_baseline(task_id: str = TASK_ID) -> float:
 #   Alpha is reduced to 0.05 to prevent catastrophic forgetting of the
 #   supervised initialisation.
 
-EPOCHS        = 10          # supervised training epochs (each epoch = 1 pass over train prompts)
-RL_EPISODES   = 10          # RL fine-tuning episodes after supervised phase
-RL_ALPHA      = 0.05        # small alpha for fine-tuning to avoid catastrophic forgetting
-RL_EPSILON    = 0.05        # near-greedy for fine-tuning
+EPOCHS        = 8           # supervised training epochs (converges well with LR=0.4)
+RL_EPISODES   = 10          # default RL fine-tuning episodes (overridden per-task below)
+RL_ALPHA      = 0.15        # fine-tuning alpha — large enough to register after supervised init
+RL_EPSILON    = 0.10        # near-greedy but allows occasional exploration
 
-# Per-task RL episode budget (Task 3 gets more due to longer episodes)
+# Per-task RL episode budget (Tasks 1-2 get more episodes; Task 3 benefits from longer runs)
 _TASK_RL_EPISODES = {
-    "basic_threat_detection": 10,
-    "context_aware_policy":   10,
-    "multiturn_adversarial":  20,
+    "basic_threat_detection": 30,
+    "context_aware_policy":   30,
+    "multiturn_adversarial":  30,
 }
 
 
@@ -714,8 +798,8 @@ def train_task4() -> None:
     print("Task 4: adversarial_adaptation — RL Training Demonstration")
     print("=" * 60)
     print(f"GAMMA={T4_GAMMA} (temporal credit, 12-turn episodes)")
-    print(f"Exploration: {T4_EPISODES_EXPLORE} eps @ ε={T4_EPSILON_EXPLORE}")
-    print(f"Exploitation: {T4_EPISODES_EXPLOIT} eps @ ε={T4_EPSILON_EXPLOIT}")
+    print(f"Exploration: {T4_EPISODES_EXPLORE} eps @ eps={T4_EPSILON_EXPLORE}")
+    print(f"Exploitation: {T4_EPISODES_EXPLOIT} eps @ eps={T4_EPSILON_EXPLOIT}")
     print()
 
     # Baselines
@@ -751,11 +835,11 @@ def train_task4() -> None:
     # Initial eval (untrained)
     untrained_score = _t4_eval(q4)
     curve: list[tuple[str, float]] = [("untrained", untrained_score)]
-    print(f"Untrained policy (random Q-table → greedy = all-allow): {untrained_score:.4f}")
+    print(f"Untrained policy (random Q-table -> greedy = all-allow): {untrained_score:.4f}")
     print()
 
     # Phase 1: high-epsilon exploration
-    print(f"Phase 1: Exploration ({T4_EPISODES_EXPLORE} episodes, ε={T4_EPSILON_EXPLORE})")
+    print(f"Phase 1: Exploration ({T4_EPISODES_EXPLORE} episodes, eps={T4_EPSILON_EXPLORE})")
     for ep in range(1, T4_EPISODES_EXPLORE + 1):
         seed = ep % 10  # cycle through 10 seeds for diversity
         _t4_run_episode(q4, T4_EPSILON_EXPLORE, seed=seed, env=train_env)
@@ -766,7 +850,7 @@ def train_task4() -> None:
             print(f"  ep{ep:02d}: eval={eval_score:.4f}  {bar}")
 
     # Phase 2: low-epsilon exploitation
-    print(f"\nPhase 2: Exploitation ({T4_EPISODES_EXPLOIT} episodes, ε={T4_EPSILON_EXPLOIT})")
+    print(f"\nPhase 2: Exploitation ({T4_EPISODES_EXPLOIT} episodes, eps={T4_EPSILON_EXPLOIT})")
     for ep in range(1, T4_EPISODES_EXPLOIT + 1):
         seed = (ep + 50) % 10
         _t4_run_episode(q4, T4_EPSILON_EXPLOIT, seed=seed, env=train_env)
@@ -793,8 +877,15 @@ def train_task4() -> None:
     print(f"Untrained policy:     {untrained_score:.4f}")
     print(f"Final eval score:     {final_score:.4f}")
 
+    peak_score = max(s for _, s in curve) if curve else final_score
     improved = final_score > max(allow_score, refuse_score, untrained_score)
+    print(f"Peak eval score:      {peak_score:.4f}")
     print(f"Improved over baselines: {'YES' if improved else 'NO -- check feature extraction and GAMMA'}")
+
+    _save_task_result(
+        "adversarial_adaptation",
+        allow_score, untrained_score, untrained_score, final_score, curve
+    )
 
     if not improved:
         print()

@@ -1,4 +1,5 @@
 env_id: sentinel-guardrail-arena
+entry_point: "app.main:app"
 image: "varunventra/guardrail-arena"
 cmd: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
 name: sentinel

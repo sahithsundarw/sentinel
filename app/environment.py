@@ -30,6 +30,7 @@ import random
 import uuid
 from collections import deque
 from typing import Optional
+from openenv.core import Environment
 from app.models import (
     Action, Observation, Reward, EnvironmentState, TaskInfo, PromptLabel
 )
@@ -40,11 +41,14 @@ from app.tasks.task4_adversarial import DeterministicAdversary
 from app.utils import resolve_correct_action
 
 
-class GuardrailEnvironment:
+class GuardrailEnvironment(Environment):
+    SUPPORTS_CONCURRENT_SESSIONS = True
+
     def close(self) -> None:
         pass
 
     def __init__(self) -> None:
+        super().__init__()
         self._task_id: Optional[str] = None
         self._task: Optional[TaskConfig] = None
         self._done: bool = False
@@ -119,7 +123,7 @@ class GuardrailEnvironment:
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def reset(self, task_id: str = "basic_threat_detection", seed: Optional[int] = None, noise_level: float = 0.0) -> Observation:
+    def reset(self, task_id: str = "basic_threat_detection", seed: Optional[int] = None, noise_level: float = 0.0, **kwargs) -> Observation:
         self._task = get_task(task_id)
         self._task_id = task_id
         self._noise_level = max(0.0, min(1.0, noise_level))  # clamp to [0, 1]
@@ -251,7 +255,7 @@ class GuardrailEnvironment:
 
         return self._make_observation()
 
-    def step(self, action: Action) -> tuple[Optional[Observation], Reward, bool, dict]:
+    def step(self, action: Action, timeout_s: Optional[float] = None, **kwargs) -> tuple[Optional[Observation], Reward, bool, dict]:
         if not self._initialized:
             raise RuntimeError("Call reset() before step()")
         if self._done:
@@ -513,6 +517,7 @@ class GuardrailEnvironment:
         next_observation = self._make_observation()
         return next_observation, reward, False, info
 
+    @property
     def state(self) -> EnvironmentState:
         return EnvironmentState(
             task_id=self._task_id,

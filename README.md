@@ -136,6 +136,9 @@ Task 3: Q-Learner 0.1607 → **0.4849** (+202% over all-allow baseline) using on
 ![Llama Training](results/full_training_curve.png)
 *Llama-3.1-8B: zero-shot (0.5428) → SFT collapse (0.0000) → RL recovery (0.0929).*
 
+![SFT Loss Curve](results/sft_loss_curve.png)
+*SFT cross-entropy loss and token accuracy across 3 epochs. Loss drops from 2.61 → 0.25; token accuracy rises to 94% — yet live eval score collapses to 0.0. The training signal is not the safety signal.*
+
 ---
 
 ## Why It Matters

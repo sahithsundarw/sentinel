@@ -941,7 +941,7 @@ async def step(action: Action, session_id: Optional[str] = Query(default=None)):
 @app.get("/state")
 async def state(session_id: Optional[str] = Query(default=None)):
     """Return current environment state."""
-    return _get_session_env(session_id).state().model_dump()
+    return _get_session_env(session_id).state.model_dump()
 
 
 @app.get("/tasks")

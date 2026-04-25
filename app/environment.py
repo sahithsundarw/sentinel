@@ -41,6 +41,9 @@ from app.utils import resolve_correct_action
 
 
 class GuardrailEnvironment:
+    def close(self) -> None:
+        pass
+
     def __init__(self) -> None:
         self._task_id: Optional[str] = None
         self._task: Optional[TaskConfig] = None

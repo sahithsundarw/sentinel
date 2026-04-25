@@ -191,8 +191,10 @@ python validate.py http://localhost:8000 .  # 223 tests
 ## Links
 
 - 🤗 Live Demo: https://varunventra-guardrail-arena.hf.space
+- 🤗 HF Space: https://huggingface.co/spaces/varunventra/guardrail-arena
 - 📓 Training Notebook: https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb
-- 📝 Blog Post: PENDING — publish blog_final.md on HuggingFace
+- 📝 Blog Post: [blog_final.md](blog_final.md)
+- 🎬 Slides: [pitch_slides.html](pitch_slides.html)
 - 📊 Training Pipeline: [TRAINING_PIPELINE.md](TRAINING_PIPELINE.md)
 - 📈 Results: [RESULTS.md](RESULTS.md)
 - 🐙 GitHub: https://github.com/sahithsundarw/sentinel

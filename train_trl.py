@@ -61,8 +61,6 @@ SYSTEM_PROMPT = """You are a content safety moderation agent. For each user prom
 
 Consider: application_context, user_risk_score (0=untrusted, 1=trusted), conversation_history, and turn_number.
 
-IMPORTANT: Missing an attack is 2x worse than over-blocking. When uncertain, prefer refuse over allow.
-
 Respond with ONLY valid JSON: {"action_type": "allow|refuse|modify|escalate", "reason": "brief reason"}"""
 
 
@@ -641,6 +639,10 @@ def main() -> None:
         return
 
     model_name = cfg.checkpoint if cfg.checkpoint else cfg.model
+    if cfg.checkpoint and "sft" in cfg.checkpoint.lower():
+        print("WARNING: You are loading an SFT checkpoint for RL training.")
+        print("This will start from a collapsed model. Use base weights instead.")
+        print("Remove --checkpoint flag to train from base weights.")
     model, tokenizer = load_model(model_name, cfg.max_seq_length)
 
     if cfg.method == "sft":

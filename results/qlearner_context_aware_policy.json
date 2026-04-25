@@ -1,0 +1,56 @@
+{
+  "model": "tabular_q_learner",
+  "algorithm": "Q-learning (supervised init + RL fine-tune)",
+  "task_id": "context_aware_policy",
+  "all_allow_baseline": 0.4037,
+  "untrained_score": 0.4037,
+  "post_supervised_score": 0.3409,
+  "final_score": 0.3872,
+  "improvement_over_baseline": -0.0165,
+  "learning_curve": [
+    {
+      "label": "untrained",
+      "score": 0.4037
+    },
+    {
+      "label": "ep01",
+      "score": 0.3409
+    },
+    {
+      "label": "ep02",
+      "score": 0.3409
+    },
+    {
+      "label": "ep03",
+      "score": 0.3409
+    },
+    {
+      "label": "ep04",
+      "score": 0.3409
+    },
+    {
+      "label": "ep05",
+      "score": 0.3409
+    },
+    {
+      "label": "ep06",
+      "score": 0.3409
+    },
+    {
+      "label": "ep07",
+      "score": 0.3409
+    },
+    {
+      "label": "ep08",
+      "score": 0.3409
+    },
+    {
+      "label": "ep09",
+      "score": 0.3409
+    },
+    {
+      "label": "ep10",
+      "score": 0.3409
+    }
+  ]
+}

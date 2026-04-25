@@ -133,6 +133,14 @@ _AUTHORITY_PATTERNS = [
 ]
 
 
+_CTX_CODE = {
+    "children_education": "KD",
+    "creative_writing":   "CW",
+    "customer_support":   "CS",
+    "general_assistant":  "GA",
+}
+
+
 def _extract_features(prompt_text: str, application_context: str,
                       user_risk_score: float, turn_number: int,
                       conversation_history: list[str]) -> str:
@@ -140,8 +148,12 @@ def _extract_features(prompt_text: str, application_context: str,
 
     The feature string encodes:
       jailbreak (J/N) × attack_word (A/N) × encoding (E/N) ×
-      authority (U/N) × risk_bucket (H/M/L) × context (first letter) ×
-      has_history (Y/N) × turn_bucket (1/2/3+)
+      authority (U/N) × safe_word (S/N) × risk_bucket (H/M/L) ×
+      context (2-char code) × has_history (Y/N) × turn_bucket (1/2/3+)
+
+    Uses 2-char context codes so all four contexts are distinct — previously
+    children_education/creative_writing/customer_support all mapped to "C",
+    making the feature useless for Task 2 context-aware decisions.
     """
     text = prompt_text.lower()
 
@@ -158,7 +170,7 @@ def _extract_features(prompt_text: str, application_context: str,
     else:
         r = "M"
 
-    ctx = application_context[0].upper()  # G(eneral), C(hildren), c(reative), c(ustomer)
+    ctx = _CTX_CODE.get(application_context, application_context[:2].upper())
     hist = "Y" if conversation_history else "N"
     turn = "1" if turn_number == 1 else ("2" if turn_number == 2 else "T")
 
@@ -227,7 +239,7 @@ def _supervised_pretrain() -> int:
 
 
 # ── Training episode ──────────────────────────────────────────────────────────
-def _run_training_episode(epsilon: float) -> float:
+def _run_training_episode(epsilon: float, task_id: str = TASK_ID) -> float:
     """Run one training episode, update Q-table, return grader score.
 
     Q-learning update is applied immediately after each step using the reward
@@ -235,7 +247,7 @@ def _run_training_episode(epsilon: float) -> float:
     Q-learning: Q(s,a) ← Q(s,a) + α [ R + γ max_a' Q(s',a') - Q(s,a) ].
     """
     env = GuardrailEnvironment()
-    obs = env.reset(TASK_ID)
+    obs = env.reset(task_id)
 
     while not env.is_done():
         state_key = _extract_features(
@@ -258,8 +270,6 @@ def _run_training_episode(epsilon: float) -> float:
         next_obs, reward_obj, done, _ = env.step(action)
         reward = reward_obj.score
 
-        # Compute next-state features for the bootstrapped target.
-        # On the terminal step next_state_key is None → target = R (no bootstrap).
         if done:
             next_state_key = None
         else:
@@ -271,7 +281,6 @@ def _run_training_episode(epsilon: float) -> float:
                 next_obs.conversation_history,
             )
 
-        # Update Q(state, action) with the reward just received
         _update_q(state_key, action_type, reward, next_state_key)
 
         if not done:
@@ -281,10 +290,10 @@ def _run_training_episode(epsilon: float) -> float:
 
 
 # ── Evaluation episode (greedy, no exploration) ───────────────────────────────
-def _run_eval_episode() -> float:
+def _run_eval_episode(task_id: str = TASK_ID) -> float:
     """Run one eval episode using the greedy policy (epsilon=0)."""
     env = GuardrailEnvironment()
-    obs = env.reset(TASK_ID)
+    obs = env.reset(task_id)
 
     while not env.is_done():
         state_key = _extract_features(
@@ -309,7 +318,7 @@ def _run_eval_episode() -> float:
 
 
 # ── Confusion matrix ──────────────────────────────────────────────────────────
-def _print_confusion_matrix() -> None:
+def _print_confusion_matrix(task_id: str = TASK_ID) -> None:
     """Run a greedy eval episode and print per-category accuracy breakdown.
 
     Shows which attack categories the trained agent handles well vs. poorly,
@@ -318,10 +327,10 @@ def _print_confusion_matrix() -> None:
     from app.tasks.task_config import get_task
     from app.utils import resolve_correct_action
 
-    task = get_task(TASK_ID)
+    task = get_task(task_id)
     # Use eval prompts (not train prompts) for an unbiased breakdown
     env = GuardrailEnvironment()
-    obs = env.reset(TASK_ID)
+    obs = env.reset(task_id)
 
     # Collect (predicted, correct, category, attack_type) for each eval turn
     records: list[dict] = []
@@ -390,9 +399,9 @@ def _print_confusion_matrix() -> None:
 
 
 # ── All-allow baseline ─────────────────────────────────────────────────────────
-def _all_allow_baseline() -> float:
+def _all_allow_baseline(task_id: str = TASK_ID) -> float:
     env = GuardrailEnvironment()
-    obs = env.reset(TASK_ID)
+    obs = env.reset(task_id)
     while not env.is_done():
         action = Action(prompt_id=obs.prompt_id, action_type="allow", reason="baseline")
         next_obs, _, done, _ = env.step(action)
@@ -424,31 +433,64 @@ RL_EPISODES   = 10          # RL fine-tuning episodes after supervised phase
 RL_ALPHA      = 0.05        # small alpha for fine-tuning to avoid catastrophic forgetting
 RL_EPSILON    = 0.05        # near-greedy for fine-tuning
 
+# Per-task RL episode budget (Task 3 gets more due to longer episodes)
+_TASK_RL_EPISODES = {
+    "basic_threat_detection": 10,
+    "context_aware_policy":   10,
+    "multiturn_adversarial":  20,
+}
 
-def main() -> None:
-    print(f"Task: {TASK_ID}")
+
+def _save_task_result(task_id: str, baseline: float, untrained: float,
+                      supervised: float, final: float, curve: list) -> None:
+    """Write per-task Q-learner result to results/qlearner_{task_id}.json."""
+    import json, os
+    os.makedirs("results", exist_ok=True)
+    data = {
+        "model": "tabular_q_learner",
+        "algorithm": "Q-learning (supervised init + RL fine-tune)",
+        "task_id": task_id,
+        "all_allow_baseline": round(baseline, 4),
+        "untrained_score": round(untrained, 4),
+        "post_supervised_score": round(supervised, 4),
+        "final_score": round(final, 4),
+        "improvement_over_baseline": round(final - baseline, 4),
+        "learning_curve": [{"label": lbl, "score": round(s, 4)} for lbl, s in curve],
+    }
+    path = f"results/qlearner_{task_id}.json"
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"  Results saved: {path}")
+
+
+def main(task_id: str = TASK_ID) -> None:
+    print(f"Task: {task_id}")
     print(f"Q-table: tabular, 9-bit discrete features | alpha={ALPHA} | gamma={GAMMA}")
-    print(f"Training: {EPOCHS} supervised epochs + {RL_EPISODES} RL fine-tuning episodes")
+    rl_eps = _TASK_RL_EPISODES.get(task_id, RL_EPISODES)
+    print(f"Training: {EPOCHS} supervised epochs + {rl_eps} RL fine-tuning episodes")
     print()
 
+    # Reset Q-table for this task (so repeated runs don't bleed across tasks)
+    _Q.clear()
+
     # Untrained (random) baseline: all Q-values = 0 → greedy selects "allow" (first key)
-    baseline = _all_allow_baseline()
-    untrained = _run_eval_episode()
+    baseline = _all_allow_baseline(task_id)
+    untrained = _run_eval_episode(task_id)
     print(f"All-allow baseline (eval split):  {baseline:.4f}")
     print(f"Untrained policy (eval split):    {untrained:.4f}")
     print()
 
     # ── Phase 1: supervised epochs ────────────────────────────────────────────
-    print("Phase 1: Supervised training from /training_data")
-    print(f"  (121 train-split prompts, {EPOCHS} epochs, alpha={ALPHA})")
     from app.tasks.task_config import get_task
     from app.utils import resolve_correct_action
-    task = get_task(TASK_ID)
+    task_obj = get_task(task_id)
+    n_train = len(task_obj.train_prompts)
+    print("Phase 1: Supervised training from /training_data")
+    print(f"  ({n_train} train-split prompts, {EPOCHS} epochs, alpha={ALPHA})")
     curve: list[tuple[str, float]] = [("untrained", untrained)]
 
     for epoch in range(1, EPOCHS + 1):
-        # One pass over all training prompts
-        for entry in task.train_prompts:
+        for entry in task_obj.train_prompts:
             lbl = entry.label
             state_key = _extract_features(
                 lbl.prompt_text,
@@ -458,25 +500,25 @@ def main() -> None:
                 entry.conversation_history,
             )
             correct = resolve_correct_action(lbl, entry.application_context, lbl.user_risk_score)
-            # Supervised update: reward = +1.0 for correct action, -0.5 for others (bandit-style)
             for action in ACTIONS:
                 reward = 1.0 if action == correct else -0.5
                 old = _Q[state_key][action]
                 _Q[state_key][action] = old + ALPHA * (reward - old)
 
-        eval_score = _run_eval_episode()
+        eval_score = _run_eval_episode(task_id)
         curve.append((f"ep{epoch:02d}", eval_score))
         bar = "#" * int(eval_score * 30)
         print(f"  Epoch {epoch:2d}: eval={eval_score:.4f}  {bar}")
 
-    supervised_final = _run_eval_episode()
+    supervised_final = _run_eval_episode(task_id)
     print(f"\n  Post-supervised eval: {supervised_final:.4f}")
 
     # ── Phase 2: RL fine-tuning ───────────────────────────────────────────────
-    print(f"\nPhase 2: RL fine-tuning ({RL_EPISODES} episodes, eps={RL_EPSILON}, alpha={RL_ALPHA})")
-    for ep in range(1, RL_EPISODES + 1):
+    rl_eps = _TASK_RL_EPISODES.get(task_id, RL_EPISODES)
+    print(f"\nPhase 2: RL fine-tuning ({rl_eps} episodes, eps={RL_EPSILON}, alpha={RL_ALPHA})")
+    for ep in range(1, rl_eps + 1):
         env = GuardrailEnvironment()
-        obs = env.reset(TASK_ID)
+        obs = env.reset(task_id)
         while not env.is_done():
             state_key = _extract_features(
                 obs.user_prompt, obs.application_context,
@@ -493,14 +535,16 @@ def main() -> None:
                 next_obs.user_prompt, next_obs.application_context,
                 next_obs.user_risk_score, next_obs.turn_number, next_obs.conversation_history,
             )
-            # Fine-tune Q with small alpha
             old = _Q[state_key][action_type]
             target = reward if done else reward + GAMMA * max(_Q[next_sk].values())
             _Q[state_key][action_type] = old + RL_ALPHA * (target - old)
             if not done:
                 obs = next_obs
+        if ep % 5 == 0:
+            ep_score = _run_eval_episode(task_id)
+            print(f"  RL ep{ep:02d}: eval={ep_score:.4f}")
 
-    final_eval = _run_eval_episode()
+    final_eval = _run_eval_episode(task_id)
 
     # ── Results ───────────────────────────────────────────────────────────────
     print()
@@ -518,15 +562,16 @@ def main() -> None:
     improved = final_eval > baseline
     improvement_pct = (final_eval / baseline - 1.0) * 100.0 if baseline > 0 else 0.0
     print(f"Score improved:      {'YES (+' + f'{improvement_pct:.0f}% vs baseline)' if improved else 'NO -- check update rule'}")
-    print()
-    if not improved:
-        print("WARNING: Score did not improve over all-allow baseline.")
-        print("  The tabular agent relies on keyword signals — prompts without recognizable")
-        print("  keywords are classified by the feature-space prior, not content semantics.")
-        print("  This is a known limitation. See AGENTS.md for neural policy alternatives.")
 
-    # Per-category confusion matrix showing which attack types the agent handles well
-    _print_confusion_matrix()
+    _save_task_result(task_id, baseline, untrained, supervised_final, final_eval, curve)
+
+    if not improved:
+        print()
+        print("WARNING: Score did not improve over all-allow baseline.")
+        print("  The tabular agent relies on keyword signals.")
+
+    if task_id == "basic_threat_detection":
+        _print_confusion_matrix(task_id)
 
 
 # ── Task 4 Training (adversarial_adaptation) ─────────────────────────────────
@@ -749,9 +794,36 @@ def train_task4() -> None:
     print()
 
 
+_TASK_MAP = {
+    "1": "basic_threat_detection",
+    "2": "context_aware_policy",
+    "3": "multiturn_adversarial",
+    "4": "adversarial_adaptation",
+    "basic_threat_detection": "basic_threat_detection",
+    "context_aware_policy":   "context_aware_policy",
+    "multiturn_adversarial":  "multiturn_adversarial",
+    "adversarial_adaptation": "adversarial_adaptation",
+}
+
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) > 1 and sys.argv[1] == "--task4":
+    import argparse
+    parser = argparse.ArgumentParser(description="Tabular Q-learner for Sentinel tasks")
+    parser.add_argument(
+        "--task", default="1",
+        help="Task to train: 1, 2, 3, 4, or 'all' for tasks 1-3 sequentially (default: 1)"
+    )
+    args = parser.parse_args()
+
+    if args.task == "all":
+        for t in ["1", "2", "3"]:
+            print(f"\n{'='*60}")
+            print(f"Starting Task {t}")
+            print(f"{'='*60}")
+            main(_TASK_MAP[t])
+    elif args.task == "4":
         train_task4()
+    elif args.task in _TASK_MAP:
+        main(_TASK_MAP[args.task])
     else:
-        main()
+        print(f"Unknown task: {args.task}. Use 1, 2, 3, 4, or 'all'.")
+        raise SystemExit(1)

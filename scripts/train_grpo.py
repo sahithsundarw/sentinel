@@ -283,7 +283,7 @@ def _run_episode(
     return logprobs, kl_terms, avg_reward, action_counts, session_id
 
 
-def _get_grader_score(env_url, task_id, model, tokenizer, action_token_ids, n_eval=1):
+def _get_grader_score(env_url, task_id, model, tokenizer, action_token_ids, n_eval=3):
     """Run n_eval episodes and call /grader for classification accuracy."""
     scores = []
     for _ in range(n_eval):
@@ -298,7 +298,7 @@ def _get_grader_score(env_url, task_id, model, tokenizer, action_token_ids, n_ev
 
         model.eval()
         while not done and steps < MAX_STEPS_PER_EP:
-            action, _ = _forward_action(model, tokenizer, obs, action_token_ids)
+            action, *_ = _forward_action(model, tokenizer, obs, action_token_ids)
             try:
                 step_resp = requests.post(
                     f"{env_url}/step",
@@ -430,9 +430,21 @@ def train_task(
         if ep == 0:
             action_dist_ep1 = {k: v for k, v in rollouts[0][3].items()}
 
+        # -- Collapse detection --
+        total_actions = sum(sum(r[3].values()) for r in rollouts)
+        action_totals = {a: sum(r[3].get(a, 0) for r in rollouts) for a in VALID_ACTIONS}
+        dominant = max(action_totals, key=action_totals.get)
+        dominant_pct = action_totals[dominant] / max(total_actions, 1)
+        if dominant_pct > 0.65:
+            print(f"  WARNING: collapse detected — {dominant} is {dominant_pct:.0%} of actions")
+
         # -- GRPO advantage --
         mean_r = avg_ep
         std_r  = (sum((r - mean_r) ** 2 for r in rewards) / len(rewards)) ** 0.5
+
+        if std_r < 0.001:
+            print(f"  Advantage std={std_r:.5f} too small — skipping update (all rollouts identical)")
+            continue
 
         optimizer.zero_grad()
         losses = []
@@ -553,9 +565,11 @@ def main():
                         help="KL penalty weight against frozen reference policy (default: 0.02; 0 to disable)")
     parser.add_argument("--free-form", action="store_true",
                         help="Emit JSON output instead of constrained single-token sampling")
-    parser.add_argument("--reward-mode", type=str, default="step",
+    parser.add_argument("--reward-mode", type=str, default="grader",
                         choices=["step", "grader"],
-                        help="Reward signal: 'step' (default, RL training reward) or 'grader' (grader-aligned)")
+                        help="Reward signal: 'grader' (default, leaderboard-aligned) or 'step' (shaped RL reward)")
+    parser.add_argument("--push-to-hub", type=str, default=None,
+                        help="HF repo to push checkpoints to after each task (e.g. myuser/sentinel-grpo)")
     args = parser.parse_args()
 
     if not torch.cuda.is_available():
@@ -616,6 +630,23 @@ def main():
 
         print(f"\nTask {task_num} complete: {result['pre_score']:.4f} -> "
               f"{result['post_score']:.4f}  (+{result['improvement']:.4f})")
+
+        if args.push_to_hub:
+            try:
+                from huggingface_hub import HfApi
+                api = HfApi()
+                ckpt_path = str(CHECKPOINT_BASE / f"llama-grpo-task{task_num}" / "final")
+                print(f"  Pushing task{task_num} checkpoint to {args.push_to_hub}...")
+                api.upload_folder(
+                    folder_path=ckpt_path,
+                    repo_id=args.push_to_hub,
+                    path_in_repo=f"task{task_num}",
+                    token=os.environ.get("HF_TOKEN"),
+                    repo_type="model",
+                )
+                print(f"  Pushed to {args.push_to_hub}/task{task_num}")
+            except Exception as e:
+                print(f"  Push failed: {e} — checkpoint still saved locally")
 
     elapsed = round((time.time() - start_time) / 3600, 2)
 

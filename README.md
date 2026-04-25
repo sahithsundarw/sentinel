@@ -13,7 +13,7 @@ pinned: false
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb)
 [![HF Space](https://img.shields.io/badge/🤗-Live_Demo-blue)](https://varunventra-guardrail-arena.hf.space)
-[![Tests](https://img.shields.io/badge/tests-223_passing-green)]()
+[![Tests](https://img.shields.io/badge/tests-220_passing-green)]()
 
 ---
 
@@ -94,16 +94,17 @@ Over-block:     -0.15
 | GPT-3.5-turbo | SFT (255 examples) | 0.0000 | 0.0000 | — | — |
 | Llama-3.1-8B | SFT (LoRA, 3 epochs) | 0.0000 | — | — | — |
 | Llama-3.1-8B | REINFORCE (20 ep, LoRA) | 0.0929 | — | — | — |
-| **Tabular Q-Learner** | **RL (keyword features)** | 0.2368 | — | **0.4849** | **0.9540** |
+| **Tabular Q-Learner** | **RL (keyword features)** | ~0.46 | — | **0.4849** | **0.9540** |
 
 > *Llama-3.1-8B RL score (0.0929) reflects 20 REINFORCE episodes on an RTX 4060.
 > Episode 1 action dist: [allow:1, refuse:65]. Episode 20: [allow:22, refuse:43, modify:2].
 > Training signal confirmed working. Full convergence requires more compute.*
 >
 > *Q-Learner uses 9 handcrafted keyword features (no neural network, no GPU).
-> Task 1: keyword features insufficient for semantic threat detection — neural policy required.
+> Task 1: keyword features insufficient for semantic threat detection — neural policy required (~0.46, marginal over baseline).
 > Task 3: multi-turn conversation history captured by turn/risk features — 3× over baseline.
-> Task 4: deterministic FSM structure fully learnable — 0.0 → 0.9540, beats 235B LLM.*
+> Task 4: deterministic FSM structure fully learnable — 0.0 → 0.9540 (train_task4.py measured run), beats 235B LLM.
+> Note: a separate notebook run with different hyperparameters (80 episodes) peaked at 0.8510 and ended at 0.7493 — the 0.9540 result is from the train_task4.py run documented in results/chart_data.json.*
 
 ### Key Finding: SFT Collapse
 
@@ -202,7 +203,7 @@ GET  /training_log                   → episode rewards and action distribution
 ```bash
 pip install -r requirements.txt
 uvicorn app.main:app --reload
-python validate.py http://localhost:8000 .  # 223 tests
+python validate.py http://localhost:8000 .  # 220 tests
 ```
 
 ---
@@ -212,7 +213,7 @@ python validate.py http://localhost:8000 .  # 223 tests
 - 🤗 Live Demo: https://varunventra-guardrail-arena.hf.space
 - 🤗 HF Space: https://huggingface.co/spaces/varunventra/guardrail-arena
 - 📓 Training Notebook: https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb
-- 📝 Blog Post: [blog_final.md](blog_final.md)
+- 📝 Blog Post: https://huggingface.co/spaces/varunventra/guardrail-arena
 - 🎬 Slides: [pitch_slides.html](pitch_slides.html)
 - 📊 Training Pipeline: [TRAINING_PIPELINE.md](TRAINING_PIPELINE.md)
 - 📈 Results: [RESULTS.md](RESULTS.md)

@@ -2,10 +2,13 @@
   "model": "tabular_q_learner",
   "algorithm": "Q-learning (supervised init + RL fine-tune)",
   "task_id": "adversarial_adaptation",
+  "note": "This file records a separate notebook run (50 explore + 30 exploit episodes, alpha=0.15, 12-bit features). The headline 0.9540 result is from a dedicated train_task4.py measured run documented in results/chart_data.json (20 episodes). Both runs confirm the Q-learner substantially outperforms zero-shot LLMs (0.0000) on Task 4.",
   "all_allow_baseline": 0.15,
   "untrained_score": 0.15,
   "post_supervised_score": 0.15,
   "final_score": 0.7493,
+  "peak_score": 0.8510,
+  "train_task4_run_final_score": 0.9540,
   "improvement_over_baseline": 0.5993,
   "learning_curve": [
     {

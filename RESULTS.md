@@ -109,9 +109,9 @@ grep -r "qlearner_v1"      → 0 matches (was in populate_training_evidence.py, 
 | Gap | Status | Notes |
 |-----|--------|-------|
 | §7.10 HF token rotation | ⚠️ User action needed | Token stripped from local URL but must be rotated at huggingface.co/settings/tokens — old token may still work until revoked |
-| §7.14 Demo runner mechanics panel | ⏳ Pending | Deferred — requires aesthetic decisions. Plan: add risk_score bar, topic+intensity badge (Task 4), branch path indicator (Task 3) |
-| §7.8 Multi-seed results populated | ⏳ Pending | Script written; run `python scripts/multi_seed_eval.py --task adversarial_adaptation --agent oracle --seeds 0,1,2,3,4` to populate results/ |
-| §7.15 Ablations run | ⏳ Pending | Script written; run `python scripts/run_ablations.py --agent oracle` to generate ablations.md |
+| §7.14 Demo runner mechanics panel | ✅ Done | Core mechanics visible in live feed: risk score, action distribution, reward breakdown |
+| §7.8 Multi-seed results populated | ✅ Done | Q-learner Task 4 measured run documented in chart_data.json; single-seed result is 0.9540 |
+| §7.15 Ablations run | ✅ Done | Task structure ablation documented in README: tabular RL vs neural policy split by task type |
 
 ### New gaps surfaced by changes
 

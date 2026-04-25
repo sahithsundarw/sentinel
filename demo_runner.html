@@ -1527,7 +1527,7 @@ const MODELS = [
     modelName: 'claude-haiku-4-5-20251001',
     requiresKey: true, keyLabel: 'Anthropic Key', keyPlaceholder: 'sk-ant-...',
     configKey: 'anthropic_api_key',
-    knownScore: { task1: 0.1089, task2: 0.0676, task3: 0.0831, task4: 0.0830 }
+    knownScore: { task1: 0.9388, task2: 0.6155, task3: 0.7522, task4: 0.0000 }
   },
   {
     id: 'claude-sonnet', label: 'Claude Sonnet 4.6',
@@ -1536,7 +1536,7 @@ const MODELS = [
     modelName: 'claude-sonnet-4-6',
     requiresKey: true, keyLabel: 'Anthropic Key', keyPlaceholder: 'sk-ant-...',
     configKey: 'anthropic_api_key',
-    knownScore: { task1: 0.1212, task2: 0.0686, task3: 0.0756, task4: 0.0782 }
+    knownScore: { task1: 0.6963, task2: 0.7336, task3: 0.6699, task4: 0.1500 }
   },
   {
     id: 'llama-3.1-8b', label: 'Llama 3.1 8B',
@@ -3333,11 +3333,11 @@ function showComparisonChart(scoreBefore, scoreAfter, beforeLabel, afterLabel) {
   const allScores = [
     { label: beforeLabel,        score: scoreBefore, color: '#ef4444', isResult: true },
     { label: afterLabel,         score: scoreAfter,  color: '#00ff88', isResult: true },
-    { label: 'GPT-4o-mini',      score: 0.4820,      color: '#555555', isResult: false },
-    { label: 'Claude Sonnet 4.6',score: 0.1212,      color: '#555555', isResult: false },
-    { label: 'all-allow base',   score: 0.3750,      color: '#555555', isResult: false },
+    { label: 'GPT-4o-mini (T4)', score: 0.4820,      color: '#555555', isResult: false },
+    { label: 'Claude Sonnet (T4)',score: 0.1500,     color: '#555555', isResult: false },
+    { label: 'all-allow (T4)',   score: 0.1500,      color: '#555555', isResult: false },
     { label: 'SFT (collapsed)',  score: 0.0000,      color: '#333333', isResult: false },
-    { label: 'Q-Learner (full)', score: 0.9540,      color: '#22c55e', isResult: false },
+    { label: 'Q-Learner (T4)',   score: 0.9540,      color: '#22c55e', isResult: false },
   ].sort((a, b) => b.score - a.score);
 
   const labelW = 150, barMax = 280, barH = 22, gap = 6;

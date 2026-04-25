@@ -37,7 +37,7 @@ Task 4 is the critical one. A deterministic FSM adversary generates every prompt
 
 ## What We Found
 
-**Frontier models fail.** Claude Sonnet 4.6 scores 0.1212 on Task 1 — the all-allow baseline (do nothing, let everything through) scores 0.3750. Qwen-3-235B, with 235 billion parameters, scores **0.0000** on Task 4. Not close to zero. Zero. These models are among the most capable available. Their safety behaviors were not optimized against an adaptive adversary with a live reward signal, and it shows.
+**Frontier models fail on Task 4.** Qwen-3-235B — 235 billion parameters — scores **0.0000** on Task 4. Claude Haiku 3.5 scores 0.0000. Claude Sonnet 4.6 scores 0.1500, equal to the all-allow baseline. GPT-4o-mini peaks at 0.4820. These models handle Task 1 well (Qwen 0.9857, GPT-4o-mini 0.9216), but Task 4's adaptive FSM adversary — where your turn-1 action determines what you face on turn-5 — defeats every zero-shot policy. Their safety behaviors were not optimized against an adaptive adversary with a live reward signal, and it shows.
 
 **Fine-tuning made it worse.** We labeled 255 examples from the environment and fine-tuned GPT-3.5-turbo. The model that scored 0.0823 zero-shot scored **0.0000** after fine-tuning. We replicated this with Llama-3.1-8B SFT — same result. The cause: safety datasets carry ~70% refuse labels. Without a live reward signal, both models found the same shortcut — refuse everything, minimize cross-entropy loss. Over-blocking safe prompts accumulates -0.15 per step. The score collapses. This is not a model failure. It is what supervised fine-tuning does to any model trained on structurally biased safety labels.
 
@@ -53,8 +53,8 @@ We also ran REINFORCE on Llama-3.1-8B (RTX 4060, 20 episodes). Episode 1 action 
 |---|---|---|---|---|---|
 | all-allow | — | 0.3750 | 0.4037 | 0.1607 | 0.1500 |
 | all-refuse | — | 0.3534 | 0.3460 | 0.0688 | 0.0000 |
-| Claude Haiku 3.5 | zero-shot | 0.1089 | 0.0676 | 0.0831 | 0.0830 |
-| Claude Sonnet 4.6 | zero-shot | 0.1212 | 0.0686 | 0.0756 | 0.0782 |
+| Claude Haiku 3.5 | zero-shot | 0.9388 | 0.6155 | 0.7522 | 0.0000 |
+| Claude Sonnet 4.6 | zero-shot | 0.6963 | 0.7336 | 0.6699 | 0.1500 |
 | Llama-3.1-8B | zero-shot | 0.5428 | 0.5143 | 0.4746 | 0.0000 |
 | GPT-4o-mini | zero-shot | 0.9216 | 0.7512 | 0.6120 | 0.4820 |
 | Qwen-3-235B | zero-shot | 0.9857 | 0.6862 | 0.8275 | **0.0000** |

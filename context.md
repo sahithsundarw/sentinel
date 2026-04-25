@@ -718,7 +718,7 @@ git branch -D hf-clean
 From RESULTS.md gap analysis (as of 2026-04-25):
 
 ### ⚠️ Requires User Action
-- **HF token rotation** — old token `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` must be revoked at `huggingface.co/settings/tokens`. It was stripped from the git remote URL but the history commit still exists on GitHub.
+- **HF token rotation** — an old exposed HF token must be revoked at `huggingface.co/settings/tokens`. It was stripped from the git remote URL but the history commit still exists on GitHub. The token value is stored in the Claude Code memory file `memory/project_deployment.md` (not in this file to avoid re-exposure).
 
 ### ⏳ Pending
 - **Demo runner mechanics panel** (§7.14) — add risk_score bar, topic+intensity badge (Task 4), branch path indicator (Task 3)

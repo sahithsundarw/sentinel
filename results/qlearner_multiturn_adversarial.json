@@ -5,8 +5,8 @@
   "all_allow_baseline": 0.1367,
   "untrained_score": 0.1367,
   "post_supervised_score": 0.253,
-  "final_score": 0.3862,
-  "improvement_over_baseline": 0.2495,
+  "final_score": 0.487,
+  "improvement_over_baseline": 0.3503,
   "learning_curve": [
     {
       "label": "untrained",

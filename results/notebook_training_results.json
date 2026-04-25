@@ -25,10 +25,9 @@
   },
   "task4_qlearner": {
     "zero_shot": 0.0,
-    "post_rl_single_seed": 0.9540,
-    "post_rl_5seed_avg": 0.4663,
-    "peak_during_training": 0.8360,
+    "post_rl_final": 0.7493,
+    "peak_during_training": 0.8510,
     "method": "tabular_q_learning",
-    "note": "0.9540 = single-seed (seed=0). 0.4663 = 5-seed average (seeds 0-4, more rigorous). Peak 0.8360 at explore episode 15."
+    "note": "12-bit features, 50 explore + 30 exploit episodes, alpha=0.15. Peak 0.8510 at explore episode 35."
   }
 }

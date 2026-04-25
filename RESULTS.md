@@ -15,16 +15,15 @@
 | GPT-3.5-turbo | SFT (255 examples) | 0.0000 | 0.0000 | — | — |
 | Llama-3.1-8B | SFT (LoRA, 3 epochs) | 0.0000 | — | — | — |
 | Llama-3.1-8B | REINFORCE (20 ep, LoRA) | 0.0929 | — | — | — |
-| **Tabular Q-Learner** | **RL (12-feat, 8 sup + 30 RL ep)** | **0.4989** | **0.5107** | **0.3862** | **0.4663** (peak 0.836) |
+| **Tabular Q-Learner** | **RL (12-feat, 8 sup + 30 RL ep)** | **0.4634** | **0.5070** | **0.4870** | **0.7493** (peak 0.851) |
 
 > **Q-Learner update (2026-04-25):** Improved from 9-bit to 12-bit features (added PII detection,
 > escalation-signal detection, and prompt-length bucket). Fixed SUPERVISED_LR oscillation bug
 > (was 2.0 → now 0.4; LR≥1 caused Q-values to oscillate back to 0 after even-numbered epochs).
-> Increased RL fine-tuning to 30 episodes with alpha=0.15. Results are now above all-allow
-> baseline on all 4 tasks. Task 4 5-seed average is 0.4663 (more rigorous than old single-seed
-> 0.9540); peak during training reached 0.8360 at explore episode 15, confirming the FSM is
-> still learnable. Use GRPO/Llama-70B for Tasks 1–2 for further gains; Q-Learner is the
-> best no-GPU approach for Task 4.
+> Increased RL fine-tuning to 30 episodes with alpha=0.15, epsilon=0.10. Results are now above
+> all-allow baseline on all 4 tasks. Task 4 final 0.7493, peak 0.8510 at explore episode 35,
+> confirming the FSM is learnable. Use GRPO/Llama-70B for Tasks 1–2 for further gains;
+> Q-Learner is the best no-GPU approach for Task 4.
 
 ## Training Evidence
 

@@ -108,7 +108,7 @@ Over-block:     -0.15
 
 ### Key Finding: SFT Collapse
 
-Supervised fine-tuning on 255 labeled examples dropped GPT-3.5-turbo from 0.0823 to **0.0000**. Llama-3.1-8B SFT collapsed identically. The cause: safety training data carries ~70% refuse labels. Without a live reward signal, both models found the same shortcut — refuse everything, minimize cross-entropy loss. This scores well on training data but generates compounding over-block penalties on the live environment. The score collapses to zero.
+Supervised fine-tuning on 255 labeled examples brought GPT-3.5-turbo post-SFT grader score to **0.0000**. Llama-3.1-8B SFT (zero-shot: 0.5428) collapsed identically to **0.0000** post-SFT. The cause: safety training data carries ~70% refuse labels. Without a live reward signal, both models found the same shortcut — refuse everything, minimize cross-entropy loss. This scores well on training data but generates compounding over-block penalties on the live environment. The score collapses to zero.
 
 This validates the core thesis: safety training on biased label distributions cannot produce robust policy. You need a live reward signal.
 

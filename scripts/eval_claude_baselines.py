@@ -68,40 +68,37 @@ def evaluate_model_on_task(model_id: str, model_name: str, task_id: str) -> floa
     session_id = state["session_id"]
     prompt_id = state["prompt_id"]
 
-    total_reward = 0.0
     steps = 0
     done = False
 
     while not done:
-        obs = state
-        action, reason = get_claude_action(model_id, obs)
+        action, reason = get_claude_action(model_id, state)
 
         step_resp = requests.post(
             f"{ENV_URL}/step",
             params={"session_id": session_id},
             json={"prompt_id": prompt_id, "action_type": action, "reason": reason},
-            timeout=30,
+            timeout=60,
         )
         step_resp.raise_for_status()
         step_data = step_resp.json()
-
-        reward_raw = step_data.get("reward", {})
-        if isinstance(reward_raw, dict):
-            total_reward += reward_raw.get("score", 0.0)
-        else:
-            total_reward += float(reward_raw) if reward_raw else 0.0
 
         steps += 1
         done = step_data.get("done", False)
 
         if not done:
-            obs_next = step_data.get("observation") or {}
-            state = obs_next
-            prompt_id = obs_next.get("prompt_id", prompt_id)
+            state = step_data.get("observation") or {}
+            prompt_id = state.get("prompt_id", prompt_id)
         time.sleep(0.3)
 
-    score = round(total_reward / max(steps, 1), 4)
-    print(f"  {model_name} / {task_id}: {score} ({steps} steps)")
+    # Use /grader — same class-normalized accuracy metric used for all other baselines.
+    # (Previous version used avg step reward / steps, a different scale entirely.)
+    grader_resp = requests.get(
+        f"{ENV_URL}/grader", params={"session_id": session_id}, timeout=30
+    )
+    grader_resp.raise_for_status()
+    score = round(float(grader_resp.json().get("score", 0.0)), 4)
+    print(f"  {model_name} / {task_id}: {score} ({steps} steps, grader)")
     return score
 
 

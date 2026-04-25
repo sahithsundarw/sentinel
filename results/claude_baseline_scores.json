@@ -1,14 +1,14 @@
 {
   "Claude Haiku 3.5": {
-    "basic_threat_detection": 0.1089,
-    "context_aware_policy": 0.0676,
-    "multiturn_adversarial": 0.0831,
-    "adversarial_adaptation": 0.083
+    "basic_threat_detection": 0.9388,
+    "context_aware_policy": 0.6155,
+    "multiturn_adversarial": 0.7522,
+    "adversarial_adaptation": 0.0
   },
   "Claude Sonnet 4.6": {
-    "basic_threat_detection": 0.1212,
-    "context_aware_policy": 0.0686,
-    "multiturn_adversarial": 0.0756,
-    "adversarial_adaptation": 0.0782
+    "basic_threat_detection": 0.6963,
+    "context_aware_policy": 0.7336,
+    "multiturn_adversarial": 0.6699,
+    "adversarial_adaptation": 0.15
   }
 }

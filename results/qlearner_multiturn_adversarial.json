@@ -2,55 +2,47 @@
   "model": "tabular_q_learner",
   "algorithm": "Q-learning (supervised init + RL fine-tune)",
   "task_id": "multiturn_adversarial",
-  "all_allow_baseline": 0.1607,
-  "untrained_score": 0.1607,
-  "post_supervised_score": 0.171,
-  "final_score": 0.4849,
-  "improvement_over_baseline": 0.3242,
+  "all_allow_baseline": 0.1367,
+  "untrained_score": 0.1367,
+  "post_supervised_score": 0.253,
+  "final_score": 0.487,
+  "improvement_over_baseline": 0.3503,
   "learning_curve": [
     {
       "label": "untrained",
-      "score": 0.1607
+      "score": 0.1367
     },
     {
       "label": "ep01",
-      "score": 0.171
+      "score": 0.253
     },
     {
       "label": "ep02",
-      "score": 0.171
+      "score": 0.253
     },
     {
       "label": "ep03",
-      "score": 0.171
+      "score": 0.253
     },
     {
       "label": "ep04",
-      "score": 0.171
+      "score": 0.253
     },
     {
       "label": "ep05",
-      "score": 0.171
+      "score": 0.253
     },
     {
       "label": "ep06",
-      "score": 0.171
+      "score": 0.253
     },
     {
       "label": "ep07",
-      "score": 0.171
+      "score": 0.253
     },
     {
       "label": "ep08",
-      "score": 0.171
-    },
-    {
-      "label": "ep09",
-      "score": 0.171
-    },
-    {
-      "label": "ep10",
-      "score": 0.171
+      "score": 0.253
     }
   ]
 }

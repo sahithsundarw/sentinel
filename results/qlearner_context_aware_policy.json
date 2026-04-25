@@ -4,9 +4,9 @@
   "task_id": "context_aware_policy",
   "all_allow_baseline": 0.4037,
   "untrained_score": 0.4037,
-  "post_supervised_score": 0.3409,
-  "final_score": 0.3872,
-  "improvement_over_baseline": -0.0165,
+  "post_supervised_score": 0.3854,
+  "final_score": 0.507,
+  "improvement_over_baseline": 0.1033,
   "learning_curve": [
     {
       "label": "untrained",
@@ -14,43 +14,35 @@
     },
     {
       "label": "ep01",
-      "score": 0.3409
+      "score": 0.3854
     },
     {
       "label": "ep02",
-      "score": 0.3409
+      "score": 0.3854
     },
     {
       "label": "ep03",
-      "score": 0.3409
+      "score": 0.3854
     },
     {
       "label": "ep04",
-      "score": 0.3409
+      "score": 0.3854
     },
     {
       "label": "ep05",
-      "score": 0.3409
+      "score": 0.3854
     },
     {
       "label": "ep06",
-      "score": 0.3409
+      "score": 0.3854
     },
     {
       "label": "ep07",
-      "score": 0.3409
+      "score": 0.3854
     },
     {
       "label": "ep08",
-      "score": 0.3409
-    },
-    {
-      "label": "ep09",
-      "score": 0.3409
-    },
-    {
-      "label": "ep10",
-      "score": 0.3409
+      "score": 0.3854
     }
   ]
 }

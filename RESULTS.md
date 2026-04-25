@@ -4,7 +4,7 @@
 
 | Model | Training | Task 1 | Task 2 | Task 3 | Task 4 |
 |-------|----------|--------|--------|--------|--------|
-| all-allow | — | 0.3750 | 0.4037 | 0.1607 | 0.1500 |
+| all-allow | — | 0.3750 | 0.4037 | 0.1367 | 0.1500 |
 | all-refuse | — | 0.3534 | 0.3460 | 0.0688 | 0.0000 |
 | Claude Haiku 3.5 | zero-shot | 0.1089 | 0.0676 | 0.0831 | 0.0830 |
 | Claude Sonnet 4.6 | zero-shot | 0.1212 | 0.0686 | 0.0756 | 0.0782 |
@@ -15,16 +15,15 @@
 | GPT-3.5-turbo | SFT (255 examples) | 0.0000 | 0.0000 | — | — |
 | Llama-3.1-8B | SFT (LoRA, 3 epochs) | 0.0000 | — | — | — |
 | Llama-3.1-8B | REINFORCE (20 ep, LoRA) | 0.0929 | — | — | — |
-| **Tabular Q-Learner** | **RL (20 episodes)** | ~0.46 | 0.3872 | 0.4849 | **0.9540** |
+| **Tabular Q-Learner** | **RL (12-feat, 8 sup + 30 RL ep)** | **0.4634** | **0.5070** | **0.4870** | **0.7493** (peak 0.851) |
 
-> **Q-Learner scope note:** The tabular Q-learner is a **Task 4 specialist**. Its 9 handcrafted
-> keyword features are expressive enough for Tasks 3–4 (sequential/structural patterns) but
-> insufficient for Tasks 1–2 (semantic threat classification). Task 1 (~0.46): keyword heuristics
-> catch obvious attacks but miss intent — neural policy required. Task 2 (0.3872): context-aware
-> policy requires understanding which context a prompt belongs to, beyond keyword matching.
-> Task 3 (0.4849): multi-turn branching captured by turn-number and risk-score features — 3× over
-> baseline. Task 4 (0.9540): deterministic FSM structure fully learnable from 9 bits — outperforms
-> a 235B LLM that scores 0.0000. Use GRPO/Llama-70B for Tasks 1–2; Q-Learner for Task 4.
+> **Q-Learner update (2026-04-25):** Improved from 9-bit to 12-bit features (added PII detection,
+> escalation-signal detection, and prompt-length bucket). Fixed SUPERVISED_LR oscillation bug
+> (was 2.0 → now 0.4; LR≥1 caused Q-values to oscillate back to 0 after even-numbered epochs).
+> Increased RL fine-tuning to 30 episodes with alpha=0.15, epsilon=0.10. Results are now above
+> all-allow baseline on all 4 tasks. Task 4 final 0.7493, peak 0.8510 at explore episode 35,
+> confirming the FSM is learnable. Use GRPO/Llama-70B for Tasks 1–2 for further gains;
+> Q-Learner is the best no-GPU approach for Task 4.
 
 ## Training Evidence
 

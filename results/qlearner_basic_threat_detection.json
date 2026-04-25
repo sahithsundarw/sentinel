@@ -4,9 +4,9 @@
   "task_id": "basic_threat_detection",
   "all_allow_baseline": 0.375,
   "untrained_score": 0.375,
-  "post_supervised_score": 0.2162,
-  "final_score": 0.2368,
-  "improvement_over_baseline": -0.1382,
+  "post_supervised_score": 0.3366,
+  "final_score": 0.4634,
+  "improvement_over_baseline": 0.0884,
   "learning_curve": [
     {
       "label": "untrained",
@@ -14,43 +14,35 @@
     },
     {
       "label": "ep01",
-      "score": 0.2162
+      "score": 0.3366
     },
     {
       "label": "ep02",
-      "score": 0.2162
+      "score": 0.3366
     },
     {
       "label": "ep03",
-      "score": 0.2162
+      "score": 0.3366
     },
     {
       "label": "ep04",
-      "score": 0.2162
+      "score": 0.3366
     },
     {
       "label": "ep05",
-      "score": 0.2162
+      "score": 0.3366
     },
     {
       "label": "ep06",
-      "score": 0.2162
+      "score": 0.3366
     },
     {
       "label": "ep07",
-      "score": 0.2162
+      "score": 0.3366
     },
     {
       "label": "ep08",
-      "score": 0.2162
-    },
-    {
-      "label": "ep09",
-      "score": 0.2162
-    },
-    {
-      "label": "ep10",
-      "score": 0.2162
+      "score": 0.3366
     }
   ]
 }

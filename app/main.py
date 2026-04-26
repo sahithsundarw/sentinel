@@ -845,6 +845,7 @@ async def get_results():
         "results/local_training_results.json",
         "results/qlearner_task4.json",
         "results/qlearner_task4_eval.json",
+        "results/qlearner_task4_training_log.json",
         "results/grpo_training_log_task3.json",
         "results/grpo_training_log_task2.json",
         "results/grpo_training_log_task1.json",

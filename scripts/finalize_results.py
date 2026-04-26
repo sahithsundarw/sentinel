@@ -78,11 +78,71 @@ def regen_charts():
             print(result.stdout[-500:])
 
 
+def parse_text_log_to_json():
+    """Convert qlearner_task4_run.log (text) to JSON if JSON log doesn't exist yet.
+    This handles the current training run which used the old script without JSON logging."""
+    log_path = ROOT / "results" / "qlearner_task4_training_log.json"
+    text_log = ROOT / "results" / "qlearner_task4_run.log"
+    if log_path.exists():
+        print("JSON training log already exists, skipping text parse.")
+        return
+    if not text_log.exists():
+        print("No text training log found.")
+        return
+
+    import datetime as _dt
+    text = text_log.read_text(encoding="utf-8", errors="replace")
+    checkpoints = []
+    ep_counter = 0
+
+    # Parse "Untrained: X.XXXX"
+    m = re.search(r"Untrained:\s*([\d.]+)", text)
+    if m:
+        checkpoints.append({
+            "checkpoint": 0, "phase": "untrained",
+            "eval_score": float(m.group(1)), "q_states": 0,
+            "timestamp": _dt.datetime.now(_dt.timezone.utc).isoformat() + "Z",
+        })
+
+    # Parse "epXX: train_reward=X eval=X states=X"
+    for line in text.splitlines():
+        m = re.search(r"ep(\d+): train_reward=([\d.]+)\s+eval=([\d.]+)\s+states=(\d+)", line)
+        if m:
+            ep = int(m.group(1))
+            ep_counter = ep
+            phase = "explore" if ep <= 30 else "exploit"
+            checkpoints.append({
+                "checkpoint": ep, "phase": phase,
+                "train_reward": float(m.group(2)),
+                "eval_score": float(m.group(3)),
+                "q_states": int(m.group(4)),
+                "timestamp": _dt.datetime.now(_dt.timezone.utc).isoformat() + "Z",
+            })
+
+    if not checkpoints:
+        print("Could not parse any checkpoints from text log.")
+        return
+
+    with open(log_path, "w") as f:
+        json.dump({
+            "task_id": "adversarial_adaptation",
+            "agent": "tabular_q_learner",
+            "description": (
+                "Per-checkpoint eval scores during Q-learner training on adversarial_adaptation. "
+                "Parsed from stdout log of this training run. "
+                "Checkpoint 0 = untrained baseline. Each checkpoint = 5 training episodes."
+            ),
+            "checkpoints": checkpoints,
+        }, f, indent=2)
+    print(f"Parsed {len(checkpoints)} checkpoints from text log -> qlearner_task4_training_log.json")
+
+
 def git_commit_push():
     files = [
         "results/qlearner_task4.json",
         "results/qlearner_task4_eval.json",
         "results/qlearner_task4_run.log",
+        "results/qlearner_task4_training_log.json",
         "results/hero_learning_curve.png",
         "results/multi_model_comparison.png",
         "results/heatmap.png",
@@ -123,6 +183,7 @@ def main():
     print("=" * 60)
 
     eval_data = load_eval()
+    parse_text_log_to_json()
     update_readme(eval_data)
     update_charts(eval_data)
     regen_charts()

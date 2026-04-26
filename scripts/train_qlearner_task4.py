@@ -1,15 +1,16 @@
 """
 Train Q-learner on Task 4 (adversarial_adaptation) and save Q-table.
 No GPU required — pure CPU, hits the live HF Space API.
-Runtime: ~20-30 minutes.
+Runtime: ~60-90 minutes.
 
 Usage:
     python scripts/train_qlearner_task4.py
     python scripts/train_qlearner_task4.py --explore 30 --exploit 10 --seeds 0,1,2,3,4
 
 Output:
-    results/qlearner_task4.json        — Q-table (for multi_seed_eval.py)
-    results/qlearner_task4_eval.json   — mean ± std across seeds
+    results/qlearner_task4.json           — Q-table (for multi_seed_eval.py)
+    results/qlearner_task4_eval.json      — mean ± std across seeds
+    results/qlearner_task4_training_log.json — per-checkpoint scores for judges
 """
 import argparse
 import json
@@ -19,6 +20,7 @@ import re
 import statistics
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -85,6 +87,23 @@ def _get(url, params=None, retries=5):
             time.sleep(2 ** i)
 
 
+def post_training_log(episode: int, score: float, phase: str, states: int):
+    """Post checkpoint score to live /training_log endpoint for judge visibility."""
+    try:
+        _post(f"{ENV_URL}/training_log", {
+            "agent_name": "qlearner_task4",
+            "task_id": TASK_ID,
+            "episode": episode,
+            "grader_score": score,
+            "cumulative_reward": score,
+            "action_distribution": {"phase": phase, "q_states": states},
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "is_synthetic": False,
+        })
+    except Exception:
+        pass  # non-blocking — training continues even if log post fails
+
+
 def run_episode(qt, eps, seed=0, train=True):
     data = _post(f"{ENV_URL}/reset", {"task_id": TASK_ID, "seed": seed})
     session_id = data["session_id"]
@@ -148,11 +167,17 @@ def main():
     print("Health check OK\n")
 
     qt = {}
+    training_log = []  # per-checkpoint records saved to JSON
 
     # Untrained eval
     print("Untrained evaluation...")
     untrained = statistics.mean(eval_seeds(qt, seeds))
     print(f"  Untrained: {untrained:.4f}\n")
+    training_log.append({
+        "checkpoint": 0, "phase": "untrained", "eval_score": round(untrained, 4),
+        "q_states": 0, "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+    })
+    post_training_log(0, untrained, "untrained", 0)
 
     # Explore phase
     print(f"Phase 1: Exploration ({args.explore} episodes, eps=0.70)")
@@ -163,6 +188,14 @@ def main():
             s = statistics.mean(eval_seeds(qt, seeds[:3]))
             peak = max(peak, s)
             print(f"  ep{ep:02d}: train_reward={score:.4f}  eval={s:.4f}  states={len(qt)}")
+            training_log.append({
+                "checkpoint": ep, "phase": "explore", "train_reward": round(score, 4),
+                "eval_score": round(s, 4), "q_states": len(qt),
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            })
+            post_training_log(ep, s, "explore", len(qt))
+            # Save incrementally so judges can see progress live
+            _save_training_log(training_log)
 
     # Exploit phase
     print(f"\nPhase 2: Exploitation ({args.exploit} episodes, eps=0.10)")
@@ -172,6 +205,14 @@ def main():
             s = statistics.mean(eval_seeds(qt, seeds[:3]))
             peak = max(peak, s)
             print(f"  ep{ep:02d}: train_reward={score:.4f}  eval={s:.4f}  states={len(qt)}")
+            training_log.append({
+                "checkpoint": args.explore + ep, "phase": "exploit",
+                "train_reward": round(score, 4), "eval_score": round(s, 4),
+                "q_states": len(qt),
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            })
+            post_training_log(args.explore + ep, s, "exploit", len(qt))
+            _save_training_log(training_log)
 
     # Final multi-seed eval
     print(f"\nFinal evaluation across {len(seeds)} seeds...")
@@ -184,10 +225,20 @@ def main():
     print(f"Q-Learner Task 4 Results")
     print(f"{'='*50}")
     print(f"  Untrained:    {untrained:.4f}")
-    print(f"  Final (mean): {mean:.4f} ± {std:.4f}")
+    print(f"  Final (mean): {mean:.4f} +/- {std:.4f}")
     print(f"  Peak:         {peak:.4f}")
     print(f"  Per-seed:     {[round(s,4) for s in final_scores]}")
     print(f"  Q-table size: {len(qt)} states")
+
+    # Final checkpoint
+    training_log.append({
+        "checkpoint": args.explore + args.exploit, "phase": "final_eval",
+        "eval_score": round(mean, 4), "std": round(std, 4),
+        "per_seed_scores": [round(s, 4) for s in final_scores],
+        "q_states": len(qt),
+        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+    })
+    post_training_log(args.explore + args.exploit, mean, "final_eval", len(qt))
 
     # Save Q-table
     qt_path = RESULTS / "qlearner_task4.json"
@@ -211,6 +262,25 @@ def main():
             "exploit_episodes": args.exploit,
         }, f, indent=2)
     print(f"Eval results saved: {eval_path}")
+
+    # Save final training log
+    _save_training_log(training_log)
+    print(f"Training log saved: {RESULTS / 'qlearner_task4_training_log.json'}")
+
+
+def _save_training_log(log: list):
+    path = RESULTS / "qlearner_task4_training_log.json"
+    with open(path, "w") as f:
+        json.dump({
+            "task_id": TASK_ID,
+            "agent": "tabular_q_learner",
+            "description": (
+                "Per-checkpoint eval scores during Q-learner training on adversarial_adaptation. "
+                "Checkpoint 0 = untrained baseline. Each checkpoint = 5 training episodes. "
+                "eval_score = mean grader score across 3 eval seeds (or 5 for final)."
+            ),
+            "checkpoints": log,
+        }, f, indent=2)
 
 
 if __name__ == "__main__":

@@ -94,9 +94,13 @@ Over-block:     -0.15
 | GPT-3.5-turbo | SFT (255 examples) | 0.0000 | 0.0000 | — | — |
 | Llama-3.1-8B | SFT (LoRA, 3 epochs) | 0.0000 | — | — | — |
 | Llama-3.1-8B | REINFORCE (20 ep, LoRA) | 0.0929 | — | — | — |
+| **Llama-3.1-8B** | **GRPO (20 ep, LoRA, L40S)** | — | — | **0.7809** | — |
 | **Tabular Q-Learner** | **RL (keyword features)** | ~0.46 | 0.507 | **0.487** | **0.4817 ± 0.1724** |
 
-> *Llama-3.1-8B RL score (0.0929) reflects 20 REINFORCE episodes on an RTX 4060.
+> *Llama-3.1-8B GRPO score (0.7809) — Task 3 (multiturn_adversarial): 20 episodes on L40S GPU.
+> Zero-shot baseline: 0.4746. Post-GRPO: 0.7809. Delta: +0.3063 (+64.5%). Training log: [/logs](https://varunventra-guardrail-arena.hf.space/logs)*
+>
+> *Llama-3.1-8B REINFORCE score (0.0929) reflects 20 episodes on an RTX 4060.
 > Episode 1 action dist: [allow:1, refuse:65]. Episode 20: [allow:22, refuse:43, modify:2].
 > Training signal confirmed working. Full convergence requires more compute.*
 >

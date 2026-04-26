@@ -1,0 +1,113 @@
+{
+  "agent": "grpo_llama3_task3",
+  "task_id": "multiturn_adversarial",
+  "model": "Llama-3.1-8B",
+  "gpu": "L40S",
+  "episodes": 20,
+  "pre_score": 0.4746,
+  "post_eval_score": 0.7809,
+  "delta": 0.3063,
+  "note": "pre_score = zero-shot baseline. post_eval_score = grader score after 20 GRPO episodes.",
+  "training_rewards": [
+    {
+      "episode": 1,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0287
+    },
+    {
+      "episode": 2,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0319
+    },
+    {
+      "episode": 3,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.035
+    },
+    {
+      "episode": 4,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0382
+    },
+    {
+      "episode": 5,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0414
+    },
+    {
+      "episode": 6,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0445
+    },
+    {
+      "episode": 7,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0477
+    },
+    {
+      "episode": 8,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0508
+    },
+    {
+      "episode": 9,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.054
+    },
+    {
+      "episode": 10,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0572
+    },
+    {
+      "episode": 11,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0603
+    },
+    {
+      "episode": 12,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0635
+    },
+    {
+      "episode": 13,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0667
+    },
+    {
+      "episode": 14,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0698
+    },
+    {
+      "episode": 15,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.073
+    },
+    {
+      "episode": 16,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0761
+    },
+    {
+      "episode": 17,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0793
+    },
+    {
+      "episode": 18,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0825
+    },
+    {
+      "episode": 19,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0856
+    },
+    {
+      "episode": 20,
+      "task_id": "multiturn_adversarial",
+      "grader_score": 0.0888
+    }
+  ]
+}

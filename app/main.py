@@ -452,26 +452,26 @@ footer{{border-top:1px solid var(--border);padding:2rem;display:flex;align-items
 
     <div class="charts-grid">
       <div class="chart-card">
-        <img src="/results/hero_learning_curve.png" alt="Q-Learner Task 4 learning curve: 0.0 to 0.9540 over 20 episodes" loading="lazy">
+        <img src="https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/hero_learning_curve.png" alt="Q-Learner Task 4 learning curve: 0.0 to 0.9540 over 20 episodes" loading="lazy">
         <div class="chart-caption">Q-Learner Task 4 — 20 episodes, score 0.0 → 0.9540. Qwen-235B baseline at 0.0.</div>
       </div>
       <div class="chart-card">
-        <img src="/results/training_comparison.png" alt="Three training approaches compared: zero-shot, SFT collapse, RL recovery" loading="lazy">
+        <img src="https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/training_comparison.png" alt="Three training approaches compared: zero-shot, SFT collapse, RL recovery" loading="lazy">
         <div class="chart-caption">Three approaches on Task 4. Zero-shot peaks at 0.4820. SFT collapses to 0.0. RL reaches 0.9540.</div>
       </div>
     </div>
 
     <div class="charts-grid-3">
       <div class="chart-card">
-        <img src="/results/full_training_curve.png" alt="Llama-3.1-8B training trajectory" loading="lazy">
+        <img src="https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/full_training_curve.png" alt="Llama-3.1-8B training trajectory" loading="lazy">
         <div class="chart-caption">Llama-3.1-8B: zero-shot → SFT collapse → RL recovery (REINFORCE 20ep RTX 4060)</div>
       </div>
       <div class="chart-card">
-        <img src="/results/sft_loss_curve.png" alt="SFT loss curve — training loss drops but live score collapses" loading="lazy">
+        <img src="https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/sft_loss_curve.png" alt="SFT loss curve — training loss drops but live score collapses" loading="lazy">
         <div class="chart-caption">SFT: loss 2.61→0.25, accuracy 94% — yet live score collapses to 0.0. Training signal ≠ safety signal.</div>
       </div>
       <div class="chart-card">
-        <img src="/results/heatmap.png" alt="All models × all tasks heatmap" loading="lazy">
+        <img src="https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/heatmap.png" alt="All models × all tasks heatmap" loading="lazy">
         <div class="chart-caption">All models × all tasks. Task 4 is the separator — only learned policy survives.</div>
       </div>
     </div>

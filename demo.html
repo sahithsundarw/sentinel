@@ -577,7 +577,7 @@ async function startComparison() {
       if (!leftDone && leftResult.observation) leftObs = leftResult.observation;
       if (!rightDone && rightResult.observation) rightObs = rightResult.observation;
 
-      await sleep(1800);
+      await sleep(800);
       if (leftDone && rightDone) break;
     }
 

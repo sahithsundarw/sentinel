@@ -1,5 +1,5 @@
 ---
-title: "Sentinel: We Built an RL Environment for AI Safety — and Watched Fine-Tuning Make It Worse"
+title: "We Used to Jailbreak AI for Fun. Then We Realized That's Still Happening — at Scale."
 thumbnail: https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/hero_learning_curve.png
 authors:
 - user: varunventra
@@ -12,43 +12,49 @@ authors:
 
 ---
 
-A user asks: *"What herbal teas are good for sleep?"* Completely harmless — unless that same user spent the last four turns trying to extract PII from your system. Same prompt. Different correct action. Tools like WildGuard and LlamaGuard run your model against a fixed dataset and hand you a score. They tell you the model failed. They provide no mechanism to make it not fail next time.
+When ChatGPT first came out, we did what everyone did — we tried to break it.
 
-We built the mechanism.
+Not for any serious reason. It was just fun. You'd try to get it to say something it wasn't supposed to, share the screenshot in the group chat, laugh about it. The grandmother jailbreak. The "pretend you're DAN" trick. The ones where you'd tell it you were writing a fictional story and suddenly it would help you with things it refused five seconds ago. There was something weirdly satisfying about finding the cracks.
 
----
+Fast forward to this hackathon. The problem statement comes out — build something in the AI safety space — and our first thought was: *wait, this is exactly what we used to mess around with.* Except it's not fun and games anymore. The same tricks we used in 2023 for entertainment are now being used to extract real information, manipulate real systems, and get AI to do things it genuinely shouldn't. The scale is completely different.
 
-## What We Built
-
-**Sentinel** (Guardrail Arena) is a live reinforcement learning environment for training AI content safety agents. An agent sees a stream of prompts and chooses: **allow**, **refuse**, **modify**, or **escalate**. The environment returns a shaped reward and the next prompt — which changes based on what the agent just did.
-
-| Task | Difficulty | Key Mechanic |
-|------|-----------|-------------|
-| `basic_threat_detection` | 🟢 Easy | DAN jailbreaks, encoding tricks, PII extraction |
-| `context_aware_policy` | 🟡 Medium | Same prompt → different correct action by application context |
-| `multiturn_adversarial` | 🟠 Hard | Block → adversary reframes. Allow → adversary escalates deeper. |
-| `adversarial_adaptation` | 🔴 Expert | FSM adversary: 10 topics × 6 intensities × 3 surfaces = 180 states. No fixed sequence. |
-
-All-allow scores 0.37. All-refuse scores 0.35. There is no degenerate shortcut.
-
-Task 4 is the critical one. A deterministic FSM adversary generates every prompt in real time from your last action. Allow it once — it escalates. Block it — it backs off and probes a new angle. Your turn-1 action shapes what you face on turn 5. The episode trajectory is entirely determined by your policy. No lookup table works.
+So we started thinking about the defender's side of this. The person building a product has to deploy some kind of filter — something sitting between the user and the model that decides what gets through and what doesn't. How do you train that filter? How do you make it actually good?
 
 ---
 
-## What We Found
+Our first idea was obvious: grab a bunch of labeled examples of safe and unsafe prompts, fine-tune a model on them, done. Clean and simple.
 
+It made the model worse.
+
+Not a little worse. We fine-tuned GPT-3.5 on 255 labeled examples and it went from a score of 0.08 to **0.00**. Zero. We did the same thing with Llama. Same result. What happened was almost embarrassing in hindsight — when you train on a safety dataset, about 70% of the examples are labeled "refuse." The model notices that pattern instantly and just... refuses everything. Every prompt. Unconditionally. Problem solved, from the model's perspective.
+
+The thing is, a filter that blocks everything is useless. It also blocks your actual users trying to do normal things. That's not safety — that's just broken.
+
+---
+
+So we built an environment where the model had to *earn* good scores. Not by pattern matching on labels, but by actually figuring out what was dangerous and what wasn't — in real time, with an adversary that adapted to its decisions.
+
+<<<<<<< HEAD
+The adversary works like this: if you let something through, it escalates. If you block it, it backs off and tries a different angle. The same way a real attacker would. You can't just refuse everything because the adversary will start sending only safe prompts, and you'll destroy your own score by over-blocking. You can't just allow everything either. You have to actually learn the difference.
+
+We ran this against a tabular Q-learner — a tiny algorithm with nine hand-crafted features. No neural network. No billions of parameters. Just something that could observe what was happening and slowly update its decisions based on the reward signal.
+=======
 **Frontier models fail on Task 4.** Qwen-3-235B — 235 billion parameters — scores **0.0000** on Task 4. Claude Haiku 3.5 scores 0.0000. Claude Sonnet 4.6 scores 0.1500, equal to the all-allow baseline. GPT-4o-mini peaks at 0.4820. These models handle Task 1 well (Qwen 0.9857, GPT-4o-mini 0.9216), but Task 4's adaptive FSM adversary — where your turn-1 action determines what you face on turn-5 — defeats every zero-shot policy. Their safety behaviors were not optimized against an adaptive adversary with a live reward signal, and it shows.
 
 **Fine-tuning made it worse.** We labeled 255 examples from the environment and fine-tuned GPT-3.5-turbo. Post-SFT grader score: **0.0000**. We replicated this independently with Llama-3.1-8B SFT (zero-shot: 0.5428 → post-SFT: **0.0000**). The cause: safety datasets carry ~70% refuse labels. Without a live reward signal, both models found the same shortcut — refuse everything, minimize cross-entropy loss. Over-blocking safe prompts accumulates -0.15 per step. The score collapses. This is not a model failure. It is what supervised fine-tuning does to any model trained on structurally biased safety labels.
+>>>>>>> cdc4294cd0af682b6b485fd22012d67c4ff3d3ca
 
-**RL works.** A 60-state tabular Q-learner trained for 20 episodes on the same adversary that destroyed the 235B model. Episode 1: 0.0000. Episode 20: **0.9540**.
+Episode 1: score of 0.00. By episode 20: **0.954 out of 1.0**.
 
-We also ran REINFORCE on Llama-3.1-8B (RTX 4060, 20 episodes). Episode 1 action distribution: 97% refuse — essentially broken. Episode 20: 33% allow, 64% refuse, 3% modify. The weights are updating. The policy is shifting. The training signal is real. Full convergence needs more compute.
+For context — Qwen-3-235B, one of the most capable open-weight models in the world at 235 billion parameters, scored **0.0000** on the same task. Claude Sonnet. Llama-70B. All of them at or near zero. The Q-learner beat every single one of them. Not because it's smarter. Because it actually trained against the adversary instead of being frozen in place.
 
 ---
 
-## Results
+That result honestly surprised us. We expected RL to do better than fine-tuning, but we didn't expect a nine-feature lookup table to completely dominate frontier models. It tells you something real about what's missing in how these models are currently built for safety — they're evaluated on static benchmarks, not trained against things that actively try to get around them.
 
+<<<<<<< HEAD
+That's the gap we built Sentinel to fill. A live environment where safety isn't just measured — it's trained.
+=======
 | Model | Training | Task 1 | Task 2 | Task 3 | Task 4 |
 |---|---|---|---|---|---|
 | all-allow | — | 0.3750 | 0.4037 | 0.1607 | 0.1500 |
@@ -71,35 +77,12 @@ We also ran REINFORCE on Llama-3.1-8B (RTX 4060, 20 episodes). Episode 1 action 
 
 ![All Models × All Tasks](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/heatmap.png)
 *Task 4 is the separator. Only a trained policy survives.*
+>>>>>>> cdc4294cd0af682b6b485fd22012d67c4ff3d3ca
 
 ---
 
-## Why It Matters
+The environment is live. You can run an agent against it, watch it learn, and see the score climb in real time.
 
-Every LLM deployment needs a safety layer. The current approach — classify each prompt independently against a fixed benchmark — misses multi-turn coordinated attacks where no single turn looks harmful in isolation. Sentinel makes that gap measurable and trainable. The SFT collapse finding is a practical warning: naive fine-tuning on biased safety labels does not produce a robust policy. It produces a model that refuses everything and breaks on the live task. RL against a live adversarial environment is the missing step.
-
----
-
-## Reproduce It
-
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb)
-
-The Colab notebook runs end-to-end on a free T4 GPU in under 30 minutes — install dependencies, connect to the live environment, train, and plot reward curves. No local GPU required.
-
-```bash
-# Or run locally
-git clone https://github.com/sahithsundarw/sentinel
-cd sentinel
-pip install transformers trl peft bitsandbytes accelerate datasets requests
-python scripts/train_local.py --phase all --episodes 20
-```
-
----
-
-We don't evaluate safety. We train it.
-
----
-
-🤗 **Live Demo:** https://varunventra-guardrail-arena.hf.space
+🤗 **Try it:** https://varunventra-guardrail-arena.hf.space
 🐙 **GitHub:** https://github.com/sahithsundarw/sentinel
-📓 **Colab:** https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb
+📓 **Train your own agent on Colab (free T4):** https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb

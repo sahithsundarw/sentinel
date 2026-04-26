@@ -491,6 +491,21 @@ def train_task(
             "collapse":      dominant_pct > 0.65,
         })
 
+        # Save partial log after every episode so a crash doesn't lose everything
+        _partial = {
+            "task_id":            task_id,
+            "pre_score":          pre_score,
+            "post_score":         None,
+            "k":                  K,
+            "episodes_completed": ep + 1,
+            "episodes_target":    episodes,
+            "reward_mode":        reward_mode,
+            "timestamp":          datetime.utcnow().isoformat() + "Z",
+            "log":                episode_log,
+        }
+        with open(RESULTS_DIR / f"grpo_training_log_task{task_num}.json", "w") as _f:
+            json.dump(_partial, _f, indent=2)
+
         # -- Post to training_log --
         try:
             requests.post(f"{env_url}/training_log", json={

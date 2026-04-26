@@ -1,11 +1,6 @@
----
-title: "We Used to Jailbreak AI for Fun. Then We Realized That's Still Happening — at Scale."
-thumbnail: https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/hero_learning_curve.png
-authors:
-- user: varunventra
-- user: sahithsundarw
-- user: pranush
----
+# We Used to Jailbreak AI for Fun. Then We Realized That's Still Happening — at Scale.
+
+*By [@varunventra](https://huggingface.co/varunventra), [@sahithsundarw](https://huggingface.co/sahithsundarw), [@pranush](https://huggingface.co/pranush)*
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb)
 [![HF Space](https://img.shields.io/badge/🤗-Live_Demo-blue)](https://varunventra-guardrail-arena.hf.space)
@@ -54,6 +49,6 @@ That's the gap we built Sentinel to fill. A live environment where safety isn't 
 
 The environment is live. You can run an agent against it, watch it learn, and see the score climb in real time.
 
-🤗 **Try it:** https://varunventra-guardrail-arena.hf.space
-🐙 **GitHub:** https://github.com/sahithsundarw/sentinel
+🤗 **Try it:** https://varunventra-guardrail-arena.hf.space  
+🐙 **GitHub:** https://github.com/sahithsundarw/sentinel  
 📓 **Train your own agent on Colab (free T4):** https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb

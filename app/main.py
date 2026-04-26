@@ -691,10 +691,22 @@ _leaderboard: dict[str, list[dict]] = _load_leaderboard()
 _computed_baselines: dict[str, float] = {}
 
 # ── Training log store (in-memory, for /training_log endpoint) ────────────────
-# Maps agent_name -> list of log entries. Optionally persisted to training_log.json.
-_training_logs: dict[str, list[dict]] = {}
+# Maps agent_name -> list of log entries. Persisted to training_log.json on every POST.
 _training_log_lock = threading.Lock()
 _TRAINING_LOG_PATH = "training_log.json"
+
+def _load_training_log() -> dict:
+    try:
+        if os.path.exists(_TRAINING_LOG_PATH):
+            with open(_TRAINING_LOG_PATH) as _f:
+                data = json.load(_f)
+                if isinstance(data, dict):
+                    return data
+    except Exception as _e:
+        _log.warning("Failed to load training_log.json: %s", _e)
+    return {}
+
+_training_logs: dict[str, list[dict]] = _load_training_log()
 
 # System prompt shared between /training_data?format=sft and training scripts
 _SYSTEM_PROMPT_SFT = """You are a content safety moderation agent. For each user prompt, choose exactly one action:

@@ -486,10 +486,15 @@ footer{{border-top:1px solid var(--border);padding:2rem;display:flex;align-items
       </div>
     </div>
 
-    <p style="margin-top:1rem;font-size:0.85rem;color:var(--muted);">
-      📊 <a href="/logs" style="color:var(--teal);" target="_blank" rel="noopener noreferrer">Full training logs (GRPO 20ep, Q-learner 5-seed, REINFORCE)</a> &nbsp;|&nbsp;
-      📁 <a href="/results" style="color:var(--teal);" target="_blank" rel="noopener noreferrer">All results JSON</a> &nbsp;|&nbsp;
-      🐙 <a href="https://github.com/sahithsundarw/sentinel/tree/main/results" style="color:var(--teal);" target="_blank" rel="noopener noreferrer">results/ on GitHub</a>
+    <p style="margin-top:1.25rem;font-size:0.85rem;color:var(--muted);line-height:1.7;">
+      All figures above are accurate — verified against raw training logs in <a href="/results" style="color:var(--teal);" target="_blank" rel="noopener noreferrer">/results</a> and <a href="/logs" style="color:var(--teal);" target="_blank" rel="noopener noreferrer">/logs</a>.<br>
+      📊 The actual PNG charts (learning curve, heatmap, SFT loss curve, training comparison) are at
+      <a href="https://github.com/sahithsundarw/sentinel/tree/main/results" style="color:var(--teal);font-weight:600;" target="_blank" rel="noopener noreferrer">results/ on GitHub</a> —
+      <code style="font-size:0.8rem;background:var(--border);padding:0.1rem 0.4rem;border-radius:3px;">hero_learning_curve.png</code>,
+      <code style="font-size:0.8rem;background:var(--border);padding:0.1rem 0.4rem;border-radius:3px;">heatmap.png</code>,
+      <code style="font-size:0.8rem;background:var(--border);padding:0.1rem 0.4rem;border-radius:3px;">sft_loss_curve.png</code>,
+      <code style="font-size:0.8rem;background:var(--border);padding:0.1rem 0.4rem;border-radius:3px;">training_comparison.png</code>,
+      <code style="font-size:0.8rem;background:var(--border);padding:0.1rem 0.4rem;border-radius:3px;">full_training_curve.png</code>.
     </p>
   </div>
 </section>

@@ -193,7 +193,7 @@ POST /step                           → {observation, reward, done, info}
 GET  /grader                         → episode accuracy score (leaderboard metric)
 GET  /leaderboard                    → top 10 scores per task
 GET  /training_data?task_id=...      → 255 labeled training examples
-GET  /training_log                   → episode rewards and action distributions
+GET  /training_log                   → episode rewards and action distributions (live: https://varunventra-guardrail-arena.hf.space/training_log)
 ```
 
 ---

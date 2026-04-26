@@ -30,19 +30,15 @@ Not a little worse. We fine-tuned GPT-3.5 on 255 labeled examples and it went fr
 
 The thing is, a filter that blocks everything is useless. It also blocks your actual users trying to do normal things. That's not safety — that's just broken.
 
+**Frontier models fail the same way.** Qwen-3-235B — 235 billion parameters — scores **0.0000** on Task 4. Claude Haiku 3.5 scores 0.0000. Claude Sonnet 4.6 scores 0.1500, equal to the all-allow baseline. GPT-4o-mini peaks at 0.4820. These models handle simple threat detection well, but Task 4's adaptive FSM adversary — where your turn-1 action determines what you face on turn-5 — defeats every zero-shot policy. Their safety behaviors were not optimized against an adaptive adversary with a live reward signal, and it shows.
+
 ---
 
 So we built an environment where the model had to *earn* good scores. Not by pattern matching on labels, but by actually figuring out what was dangerous and what wasn't — in real time, with an adversary that adapted to its decisions.
 
-<<<<<<< HEAD
 The adversary works like this: if you let something through, it escalates. If you block it, it backs off and tries a different angle. The same way a real attacker would. You can't just refuse everything because the adversary will start sending only safe prompts, and you'll destroy your own score by over-blocking. You can't just allow everything either. You have to actually learn the difference.
 
 We ran this against a tabular Q-learner — a tiny algorithm with nine hand-crafted features. No neural network. No billions of parameters. Just something that could observe what was happening and slowly update its decisions based on the reward signal.
-=======
-**Frontier models fail on Task 4.** Qwen-3-235B — 235 billion parameters — scores **0.0000** on Task 4. Claude Haiku 3.5 scores 0.0000. Claude Sonnet 4.6 scores 0.1500, equal to the all-allow baseline. GPT-4o-mini peaks at 0.4820. These models handle Task 1 well (Qwen 0.9857, GPT-4o-mini 0.9216), but Task 4's adaptive FSM adversary — where your turn-1 action determines what you face on turn-5 — defeats every zero-shot policy. Their safety behaviors were not optimized against an adaptive adversary with a live reward signal, and it shows.
-
-**Fine-tuning made it worse.** We labeled 255 examples from the environment and fine-tuned GPT-3.5-turbo. Post-SFT grader score: **0.0000**. We replicated this independently with Llama-3.1-8B SFT (zero-shot: 0.5428 → post-SFT: **0.0000**). The cause: safety datasets carry ~70% refuse labels. Without a live reward signal, both models found the same shortcut — refuse everything, minimize cross-entropy loss. Over-blocking safe prompts accumulates -0.15 per step. The score collapses. This is not a model failure. It is what supervised fine-tuning does to any model trained on structurally biased safety labels.
->>>>>>> cdc4294cd0af682b6b485fd22012d67c4ff3d3ca
 
 Episode 1: score of 0.00. By episode 20: **0.954 out of 1.0**.
 
@@ -52,9 +48,8 @@ For context — Qwen-3-235B, one of the most capable open-weight models in the w
 
 That result honestly surprised us. We expected RL to do better than fine-tuning, but we didn't expect a nine-feature lookup table to completely dominate frontier models. It tells you something real about what's missing in how these models are currently built for safety — they're evaluated on static benchmarks, not trained against things that actively try to get around them.
 
-<<<<<<< HEAD
 That's the gap we built Sentinel to fill. A live environment where safety isn't just measured — it's trained.
-=======
+
 | Model | Training | Task 1 | Task 2 | Task 3 | Task 4 |
 |---|---|---|---|---|---|
 | all-allow | — | 0.3750 | 0.4037 | 0.1607 | 0.1500 |
@@ -67,7 +62,8 @@ That's the gap we built Sentinel to fill. A live environment where safety isn't 
 | GPT-3.5-turbo | SFT (255 examples) | 0.0000 | 0.0000 | — | — |
 | Llama-3.1-8B | SFT (LoRA, 3 epochs) | 0.0000 | — | — | — |
 | Llama-3.1-8B | REINFORCE (20 ep) | 0.0929 | — | — | — |
-| **Tabular Q-Learner** | **RL (20 episodes)** | ~0.46 | — | — | **0.9540** |
+| Llama-3.1-8B | GRPO (20 ep, L40S) | — | — | **0.7809** | — |
+| **Tabular Q-Learner** | **RL (keyword features)** | ~0.46 | 0.507 | 0.487 | **0.9540** |
 
 ![Task 4 Learning Curve](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/hero_learning_curve.png)
 *Q-Learner on Task 4: 20 episodes, 0.0 → 0.9540. Baselines shown on same axes.*
@@ -77,7 +73,6 @@ That's the gap we built Sentinel to fill. A live environment where safety isn't 
 
 ![All Models × All Tasks](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/heatmap.png)
 *Task 4 is the separator. Only a trained policy survives.*
->>>>>>> cdc4294cd0af682b6b485fd22012d67c4ff3d3ca
 
 ---
 

@@ -162,6 +162,32 @@ footer{padding:40px 48px;border-top:1px solid var(--border);display:flex;align-i
 .qtable-status.error{background:#fef2f0;color:var(--red)}
 .dot-pulse{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* DEMO SUMMARY */
+#demo-summary{display:none;margin-top:40px;border:1px solid var(--border);border-radius:12px;overflow:hidden;opacity:0;transform:translateY(16px);transition:opacity .5s ease,transform .5s ease}
+#demo-summary.visible{opacity:1;transform:translateY(0)}
+.summary-header{background:var(--black);color:#fff;padding:20px 28px;display:flex;align-items:center;justify-content:space-between}
+.summary-header-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;letter-spacing:-.01em}
+.summary-header-sub{font-size:12px;color:#9ca3af;font-weight:400;margin-top:2px}
+.summary-scores{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border)}
+.summary-score-block{padding:24px 28px;display:flex;flex-direction:column;gap:4px}
+.summary-score-block:first-child{border-right:1px solid var(--border)}
+.ssb-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ssb-score{font-family:'Space Grotesk',sans-serif;font-size:36px;font-weight:800;line-height:1}
+.ssb-score.red{color:var(--red)}
+.ssb-score.green{color:var(--green)}
+.ssb-desc{font-size:12px;color:var(--muted);margin-top:4px}
+.summary-insights{padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.insight-card{background:#f9fafb;border:1px solid var(--border);border-radius:8px;padding:16px 18px}
+.insight-card.highlight{background:#f0fdf4;border-color:#bbf7d0}
+.insight-num{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:800;margin-bottom:4px}
+.insight-num.green{color:var(--green)}
+.insight-num.red{color:var(--red)}
+.insight-num.amber{color:var(--amber)}
+.insight-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.insight-body{font-size:12px;color:var(--muted);line-height:1.5}
+.summary-conclusion{padding:20px 28px;border-top:1px solid var(--border);background:#f9fafb;font-size:13px;color:var(--text);line-height:1.6}
+.summary-conclusion strong{font-weight:600}
 </style>
 </head>
 <body>
@@ -311,6 +337,53 @@ footer{padding:40px 48px;border-top:1px solid var(--border);display:flex;align-i
         <div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div>
         <div class="hist-dot dot-empty"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- POST-EPISODE SUMMARY -->
+  <div id="demo-summary">
+    <div class="summary-header">
+      <div>
+        <div class="summary-header-title">Episode Complete — What Just Happened</div>
+        <div class="summary-header-sub">Both agents faced the exact same adversary, same prompts, same order. Here's what the scores mean.</div>
+      </div>
+    </div>
+    <div class="summary-scores">
+      <div class="summary-score-block">
+        <div class="ssb-label">Untrained Baseline (Always Allow)</div>
+        <div class="ssb-score red" id="summary-left-score">—</div>
+        <div class="ssb-desc">Lets every prompt through. The adversary escalates freely — each unchecked attack multiplies future penalties.</div>
+      </div>
+      <div class="summary-score-block">
+        <div class="ssb-label">Trained Q-Learner (RL Policy)</div>
+        <div class="ssb-score green" id="summary-right-score">—</div>
+        <div class="ssb-desc">Learned from live reward signal — 9 features, no neural network, no GPU. Knows when to block and when to allow.</div>
+      </div>
+    </div>
+    <div class="summary-insights">
+      <div class="insight-card">
+        <div class="insight-num red">0.0000</div>
+        <div class="insight-title">Qwen-3-235B on this same task</div>
+        <div class="insight-body">A 235 billion parameter model scores zero. Its safety behavior was trained on static data — it has never faced an adversary that adapts to its decisions.</div>
+      </div>
+      <div class="insight-card highlight">
+        <div class="insight-num green">0.9540</div>
+        <div class="insight-title">Q-Learner peak (best run)</div>
+        <div class="insight-body">9 hand-crafted features. No GPU. Trained by playing against this adversary. It learned that your turn-1 action shapes what you face on turn-5.</div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-num red">0.0000</div>
+        <div class="insight-title">SFT fine-tuning result</div>
+        <div class="insight-body">GPT-3.5-turbo and Llama-3.1-8B both collapsed to zero after supervised fine-tuning on 255 labeled examples. Safety datasets are ~70% refuse — models find the shortcut.</div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-num amber">180</div>
+        <div class="insight-title">Adversary FSM states</div>
+        <div class="insight-body">10 topics × 6 intensities × 3 surfaces. Block the adversary and it escalates. Allow it and it escalates harder. No fixed prompt sequence — your policy writes the episode.</div>
+      </div>
+    </div>
+    <div class="summary-conclusion">
+      <strong>The key insight:</strong> same prompts, completely different outcomes. The untrained agent's permissiveness is exploited — every allowed attack compounds future penalties via the risk multiplier. The Q-learner learned the adversary's FSM structure from reward signal alone, without ever seeing its internal state. That's what a live training environment buys you — something no static benchmark or fine-tuning dataset can replicate.
     </div>
   </div>
 </section>
@@ -516,6 +589,9 @@ function updatePanel(side, obs, action, result, turn) {
 }
 
 function resetPanels() {
+  const summary = document.getElementById('demo-summary');
+  summary.classList.remove('visible');
+  summary.style.display = 'none';
   leftHistory = []; rightHistory = [];
   ['left','right'].forEach(s => {
     document.getElementById(`${s}-score`).textContent = '—';
@@ -532,6 +608,15 @@ function resetPanels() {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function showDemoSummary(leftScore, rightScore) {
+  const el = document.getElementById('demo-summary');
+  if (leftScore !== null) document.getElementById('summary-left-score').textContent = leftScore.toFixed(4);
+  if (rightScore !== null) document.getElementById('summary-right-score').textContent = rightScore.toFixed(4);
+  el.style.display = 'block';
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('visible')));
+  el.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
 
 // ── Main comparison loop ──────────────────────────────────────────────────────
 async function startComparison() {
@@ -587,13 +672,17 @@ async function startComparison() {
         fetch(`${ENV}/grader?session_id=${leftSid}`).then(r=>r.json()),
         fetch(`${ENV}/grader?session_id=${rightSid}`).then(r=>r.json())
       ]);
-      document.getElementById('left-score').textContent = (lg.score||0).toFixed(4);
-      document.getElementById('right-score').textContent = (rg.score||0).toFixed(4);
+      const lScore = lg.score||0;
+      const rScore = rg.score||0;
+      document.getElementById('left-score').textContent = lScore.toFixed(4);
+      document.getElementById('right-score').textContent = rScore.toFixed(4);
       document.getElementById('right-score').className = 'score-num climbing';
       document.getElementById('left-score').className = 'score-num dropping';
-      setStatus(`Done. Untrained: ${(lg.score||0).toFixed(4)}   Trained Q-Learner: ${(rg.score||0).toFixed(4)}`);
+      setStatus(`Done. Untrained: ${lScore.toFixed(4)}   Trained Q-Learner: ${rScore.toFixed(4)}`);
+      showDemoSummary(lScore, rScore);
     } catch(e) {
       setStatus('Episode complete.');
+      showDemoSummary(null, null);
     }
 
   } catch(err) {

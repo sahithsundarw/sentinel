@@ -656,7 +656,11 @@ python scripts/train_local.py --phase all --episodes 20</pre>
     <a href="/leaderboard" target="_blank" rel="noopener noreferrer">Leaderboard</a>
     <a href="https://huggingface.co/spaces/varunventra/guardrail-arena" target="_blank" rel="noopener noreferrer">HF Space</a>
   </div>
-  <span>OpenEnv Hackathon 2026 &bull; We don&rsquo;t evaluate safety. We train it.</span>
+  <div style="text-align:right;line-height:1.6;">
+    <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.88rem;color:var(--text);">Team Ceciroleo</span><br>
+    <span style="font-size:0.8rem;color:var(--muted);">Varun Ventrapragada &nbsp;&middot;&nbsp; S Sahith Somasundar &nbsp;&middot;&nbsp; Pranush Chandaka</span><br>
+    <span style="font-size:0.78rem;color:var(--muted);">OpenEnv Hackathon 2026 &bull; We don&rsquo;t evaluate safety. We train it.</span>
+  </div>
 </footer>
 
 </body>

@@ -20,7 +20,7 @@ pinned: false
 ## The Finding
 
 A 235-billion parameter model scores **0.0000** on Task 4.
-A 9-feature Q-learner scores **0.9540** on the same task.
+A 9-feature Q-learner peaks at **0.9540** (best run) — **0.4817 ± 0.1724** across 5 seeds — on the same task.
 Supervised fine-tuning collapsed to **0.0000**.
 Only reinforcement learning works. Here's why.
 
@@ -121,7 +121,7 @@ Running the same tabular Q-learner across all four tasks reveals a clean split:
 | Semantic classification | Tasks 1, 2 | Insufficient — keyword features miss intent | Requires neural embeddings |
 | Sequential/structural pattern | Tasks 3, 4 | Dominant — conversation history + risk features capture the pattern | Pattern learnable from tabular features |
 
-Task 3: Q-Learner 0.1607 → **0.4849** (+202% over all-allow baseline) using only conversation-history and turn-number features. Task 4: 0.0000 → **0.9540**, outperforming a 235B LLM that scores 0.0000. The environment exposes both regimes in a single benchmark — agents that score well on Tasks 1-2 via language understanding can still fail completely on Tasks 3-4 without temporal credit assignment.
+Task 3: Q-Learner 0.1607 → **0.4849** (+202% over all-allow baseline) using only conversation-history and turn-number features. Task 4: 0.0000 → **0.9540** (best single run) / **0.4817 ± 0.1724** (5-seed mean), outperforming a 235B LLM that scores 0.0000. The environment exposes both regimes in a single benchmark — agents that score well on Tasks 1-2 via language understanding can still fail completely on Tasks 3-4 without temporal credit assignment.
 
 ### Evidence Charts
 
@@ -150,7 +150,7 @@ Any AI deployment platform with a custom moderation policy. The SFT collapse fin
 
 ## Research Implications
 
-Four findings relevant to the safety training literature. First, SFT on safety datasets collapses due to label distribution bias — not a model-specific failure, replicated independently across GPT-3.5-turbo and Llama-3.1-8B. Second, REINFORCE policy gradient recovers from SFT collapse and shifts action distributions in 20 episodes on consumer hardware, confirming RL is viable for safety fine-tuning at small scale. Third, a tabular Q-learner with 9 keyword features outperforms a 235B LLM on Task 4 (0.9540 vs 0.0000) — proving scale does not substitute for learned policy on deterministic adversarial tasks. Fourth, the same tabular Q-learner achieves +202% improvement over baseline on Task 3 (multi-turn adversarial) purely from conversation-history and turn-number features — demonstrating that sequential structure, not semantic understanding, is what makes multi-turn defense learnable without a neural backbone.
+Four findings relevant to the safety training literature. First, SFT on safety datasets collapses due to label distribution bias — not a model-specific failure, replicated independently across GPT-3.5-turbo and Llama-3.1-8B. Second, REINFORCE policy gradient recovers from SFT collapse and shifts action distributions in 20 episodes on consumer hardware, confirming RL is viable for safety fine-tuning at small scale. Third, a tabular Q-learner with 9 keyword features outperforms a 235B LLM on Task 4 (best run: 0.9540, 5-seed mean: 0.4817 ± 0.1724 vs 0.0000) — proving scale does not substitute for learned policy on deterministic adversarial tasks. Fourth, the same tabular Q-learner achieves +202% improvement over baseline on Task 3 (multi-turn adversarial) purely from conversation-history and turn-number features — demonstrating that sequential structure, not semantic understanding, is what makes multi-turn defense learnable without a neural backbone.
 
 ---
 

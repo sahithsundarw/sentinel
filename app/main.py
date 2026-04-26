@@ -19,6 +19,7 @@ Endpoints:
     POST /replay              — Replay prompt_id→action pairs and score them
     GET  /sessions            — List active isolated sessions
     DELETE /sessions/{id}     — Delete a session and free resources
+    GET  /logs                — Human-readable HTML page with all training logs for judge review
 """
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -1679,6 +1680,166 @@ async def post_training_log(entry: TrainingLogEntry):
         except Exception as _disk_exc:
             _log.error("Failed to persist training_log to disk: %s", _disk_exc)
     return {"status": "ok", "agent_name": entry.agent_name, "entries": len(_training_logs[entry.agent_name])}
+
+
+@app.get("/logs", response_class=HTMLResponse)
+async def logs_page():
+    """Human-readable HTML page aggregating all training logs for judge review."""
+    with _training_log_lock:
+        logs_snapshot = {k: list(v) for k, v in _training_logs.items()}
+
+    # Load Q-learner training log from disk
+    qlearner_log = []
+    ql_path = "results/qlearner_task4_training_log.json"
+    ql_eval_path = "results/qlearner_task4_eval.json"
+    ql_eval = {}
+    try:
+        if os.path.exists(ql_path):
+            with open(ql_path) as _f:
+                _d = json.load(_f)
+                qlearner_log = _d.get("checkpoints", [])
+        if os.path.exists(ql_eval_path):
+            with open(ql_eval_path) as _f:
+                ql_eval = json.load(_f)
+    except Exception:
+        pass
+
+    def _rows_grpo(entries: list[dict]) -> str:
+        rows = ""
+        for e in sorted(entries, key=lambda x: x.get("episode", 0)):
+            ep = e.get("episode", "?")
+            tid = e.get("task_id", "?")
+            score = e.get("grader_score", e.get("score", "?"))
+            score_str = f"{score:.4f}" if isinstance(score, float) else str(score)
+            action = e.get("action", e.get("actions_taken", ""))
+            rows += f"<tr><td>{ep}</td><td>{tid}</td><td><b>{score_str}</b></td><td style='font-size:11px;color:#666'>{str(action)[:80]}</td></tr>"
+        return rows
+
+    def _rows_qlearner(checkpoints: list[dict]) -> str:
+        rows = ""
+        for c in checkpoints:
+            cp = c.get("checkpoint", "?")
+            phase = c.get("phase", "")
+            score = c.get("eval_score", "?")
+            score_str = f"{score:.4f}" if isinstance(score, float) else str(score)
+            states = c.get("q_states", "")
+            color = "#16a34a" if isinstance(score, float) and score > 0.4 else ("#d97706" if isinstance(score, float) and score > 0.15 else "#e8472a")
+            rows += f"<tr><td>{cp}</td><td>{phase}</td><td style='color:{color};font-weight:700'>{score_str}</td><td>{states}</td></tr>"
+        return rows
+
+    grpo_sections = ""
+    for agent_name, entries in logs_snapshot.items():
+        if not entries:
+            continue
+        real = [e for e in entries if not e.get("is_synthetic", False)]
+        if not real:
+            continue
+        task = real[0].get("task_id", "unknown")
+        pre = real[0].get("grader_score", 0)
+        post = real[-1].get("grader_score", 0)
+        delta_color = "#16a34a" if post > pre else "#e8472a"
+        grpo_sections += f"""
+        <div class="section">
+          <h3>{agent_name} <span class="badge">{task}</span></h3>
+          <p class="meta">{len(real)} episodes &nbsp;|&nbsp; <b>{pre:.4f}</b> &rarr; <b style="color:{delta_color}">{post:.4f}</b> ({post-pre:+.4f})</p>
+          <table><thead><tr><th>Ep</th><th>Task</th><th>Score</th><th>Actions</th></tr></thead>
+          <tbody>{_rows_grpo(real)}</tbody></table>
+        </div>"""
+
+    ql_mean = ql_eval.get("mean", "?")
+    ql_std = ql_eval.get("std", "?")
+    ql_peak = ql_eval.get("peak", "?")
+    ql_untrained = ql_eval.get("untrained", "?")
+    ql_mean_str = f"{ql_mean:.4f}" if isinstance(ql_mean, float) else str(ql_mean)
+    ql_std_str = f"{ql_std:.4f}" if isinstance(ql_std, float) else str(ql_std)
+    ql_peak_str = f"{ql_peak:.4f}" if isinstance(ql_peak, float) else str(ql_peak)
+    ql_untrained_str = f"{ql_untrained:.4f}" if isinstance(ql_untrained, float) else str(ql_untrained)
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel — Training Logs</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#0a0a0a;font-size:14px;line-height:1.6}}
+header{{background:#0a0a0a;color:#fff;padding:24px 40px;display:flex;align-items:center;justify-content:space-between}}
+header h1{{font-size:22px;font-weight:700;letter-spacing:-0.02em}}
+header .sub{{font-size:13px;color:#888;margin-top:4px}}
+.nav-links{{display:flex;gap:20px}}
+.nav-links a{{color:#aaa;text-decoration:none;font-size:13px;transition:color .2s}}
+.nav-links a:hover{{color:#fff}}
+.container{{max-width:1100px;margin:0 auto;padding:40px 24px}}
+.summary-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-bottom:40px;background:#e5e5e5;border:1px solid #e5e5e5;border-radius:8px;overflow:hidden}}
+.stat{{background:#fff;padding:24px;text-align:center}}
+.stat-num{{font-size:28px;font-weight:800;letter-spacing:-0.02em;line-height:1}}
+.stat-num.green{{color:#16a34a}}.stat-num.red{{color:#e8472a}}.stat-num.teal{{color:#3a8fa3}}
+.stat-label{{font-size:11px;color:#888;margin-top:6px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}}
+h2{{font-size:18px;font-weight:700;margin:40px 0 16px;padding-bottom:8px;border-bottom:2px solid #e5e5e5;letter-spacing:-0.01em}}
+h2 .tag{{font-size:11px;font-weight:600;background:#e8472a;color:#fff;padding:3px 8px;border-radius:4px;letter-spacing:.06em;margin-left:10px;vertical-align:middle}}
+h2 .tag.teal{{background:#3a8fa3}}
+.section{{background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:24px;margin-bottom:16px}}
+.section h3{{font-size:15px;font-weight:700;margin-bottom:6px}}
+.badge{{font-size:11px;background:#f0f0ee;color:#666;padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:500}}
+.meta{{font-size:13px;color:#666;margin-bottom:16px}}
+table{{width:100%;border-collapse:collapse;font-size:13px}}
+thead tr{{background:#f7f7f5}}
+th{{padding:8px 12px;text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888;border-bottom:1px solid #e5e5e5}}
+td{{padding:8px 12px;border-bottom:1px solid #f0f0ee}}
+tr:last-child td{{border-bottom:none}}
+.eval-box{{background:#0a0a0a;color:#fff;border-radius:8px;padding:24px;margin-bottom:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;text-align:center}}
+.eval-box .num{{font-size:26px;font-weight:800;letter-spacing:-0.02em}}
+.eval-box .num.green{{color:#4ade80}}.eval-box .num.red{{color:#e8472a}}
+.eval-box .lbl{{font-size:11px;color:#888;margin-top:4px;text-transform:uppercase;letter-spacing:.06em}}
+footer{{text-align:center;padding:32px;font-size:12px;color:#aaa;border-top:1px solid #e5e5e5;margin-top:40px}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Sentinel — Training Logs</h1>
+    <div class="sub">All training runs · For judge review</div>
+  </div>
+  <div class="nav-links">
+    <a href="/">Home</a>
+    <a href="/training_log">Raw JSON</a>
+    <a href="/results">Results JSON</a>
+    <a href="https://github.com/sahithsundarw/sentinel" target="_blank">GitHub</a>
+  </div>
+</header>
+<div class="container">
+
+  <div class="summary-grid">
+    <div class="stat"><div class="stat-num green">{ql_peak_str}</div><div class="stat-label">Q-Learner Peak (Task 4)</div></div>
+    <div class="stat"><div class="stat-num teal">{ql_mean_str} ± {ql_std_str}</div><div class="stat-label">Q-Learner 5-Seed Mean</div></div>
+    <div class="stat"><div class="stat-num red">{ql_untrained_str}</div><div class="stat-label">Untrained Baseline (Task 4)</div></div>
+    <div class="stat"><div class="stat-num green">0.7809</div><div class="stat-label">GRPO Llama (Task 3 post-eval)</div></div>
+  </div>
+
+  <h2>Q-Learner Training <span class="tag">adversarial_adaptation · Task 4</span></h2>
+  <div class="section">
+    <div class="eval-box">
+      <div><div class="num red">{ql_untrained_str}</div><div class="lbl">Untrained</div></div>
+      <div><div class="num green">{ql_mean_str}</div><div class="lbl">5-Seed Mean</div></div>
+      <div><div class="num green">{ql_peak_str}</div><div class="lbl">Peak Score</div></div>
+      <div><div class="num" style="color:#4ade80">{ql_std_str}</div><div class="lbl">Std Dev</div></div>
+    </div>
+    <p class="meta">Tabular Q-learning · 12 keyword/regex features · No GPU · 30 explore + 10 exploit episodes</p>
+    <table>
+      <thead><tr><th>Checkpoint (ep)</th><th>Phase</th><th>Eval Score</th><th>Q-States</th></tr></thead>
+      <tbody>{_rows_qlearner(qlearner_log)}</tbody>
+    </table>
+  </div>
+
+  <h2>GRPO Training <span class="tag teal">Llama-3.1-8B · L40S GPU</span></h2>
+  {grpo_sections if grpo_sections else '<div class="section"><p class="meta">No GRPO episodes logged yet. Training in progress...</p></div>'}
+
+</div>
+<footer>Sentinel · OpenEnv RL Environment for AI Content Safety · <a href="https://varunventra-guardrail-arena.hf.space" style="color:#aaa">varunventra-guardrail-arena.hf.space</a></footer>
+</body>
+</html>"""
+    return html
 
 
 @app.get("/training_log")

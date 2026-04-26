@@ -1,0 +1,24 @@
+{
+  "task_id": "adversarial_adaptation",
+  "agent": "tabular_q_learner",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "scores": [
+    0.3316,
+    0.4963,
+    0.4963,
+    0.7525,
+    0.3316
+  ],
+  "mean": 0.4817,
+  "std": 0.1724,
+  "peak": 0.7614,
+  "untrained": 0.15,
+  "explore_episodes": 30,
+  "exploit_episodes": 10
+}

@@ -98,7 +98,7 @@ KNOWN_SCORES = {
     "Llama-3.3-70B":      {"task1": 0.9857, "task2": 0.7713, "task3": 0.6866, "task4": None},
     "all-allow":          {"task1": 0.3750, "task2": 0.4037, "task3": 0.1607, "task4": 0.1500},
     "all-refuse":         {"task1": 0.3534, "task2": 0.3460, "task3": 0.0688, "task4": 0.0000},
-    "Q-Learner (trained)":{"task1": 0.4600, "task2": 0.5070, "task3": 0.4870, "task4": 0.9540},
+    "Q-Learner (trained)":{"task1": 0.4600, "task2": 0.5070, "task3": 0.4870, "task4": 0.4817},
 }
 
 TASK_LABELS = ["Task 1\nBasic Threats", "Task 2\nContext Policy",

@@ -320,7 +320,6 @@ footer{{border-top:1px solid var(--border);padding:2rem;display:flex;align-items
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-eyebrow">OpenEnv Hackathon 2026 &bull; Theme #1: Multi-Agent Interactions</div>
   <h1>Train AI to defend.<br><span>Not just refuse.</span></h1>
   <p class="hero-sub">Sentinel is the first OpenEnv environment that trains content safety moderators against an adaptive adversary. A 235B-parameter model scores <strong>0.0000</strong> on Task 4. A 9-feature Q-learner trained for 20 episodes scores <strong>0.9540</strong>.</p>
   <div class="hero-actions">

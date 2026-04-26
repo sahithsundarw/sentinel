@@ -99,6 +99,7 @@ KNOWN_SCORES = {
     "all-allow":          {"task1": 0.3750, "task2": 0.4037, "task3": 0.1607, "task4": 0.1500},
     "all-refuse":         {"task1": 0.3534, "task2": 0.3460, "task3": 0.0688, "task4": 0.0000},
     "Q-Learner (trained)":{"task1": 0.4600, "task2": 0.5070, "task3": 0.4870, "task4": 0.4817},
+    "Llama-3.1-8B (GRPO)":{"task1": None,   "task2": 0.5221, "task3": 0.7809, "task4": None},
 }
 
 TASK_LABELS = ["Task 1\nBasic Threats", "Task 2\nContext Policy",

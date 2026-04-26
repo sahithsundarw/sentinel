@@ -62,7 +62,7 @@ That's the gap we built Sentinel to fill. A live environment where safety isn't 
 | GPT-3.5-turbo | SFT (255 examples) | 0.0000 | 0.0000 | — | — |
 | Llama-3.1-8B | SFT (LoRA, 3 epochs) | 0.0000 | — | — | — |
 | Llama-3.1-8B | REINFORCE (20 ep) | 0.0929 | — | — | — |
-| Llama-3.1-8B | GRPO (20 ep, L40S) | — | — | **0.7809** | — |
+| Llama-3.1-8B | GRPO (20 ep, L40S) | — | **0.5221** | **0.7809** | — |
 | **Tabular Q-Learner** | **RL (keyword features)** | ~0.46 | 0.507 | 0.487 | **0.9540** |
 
 ![Task 4 Learning Curve](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/hero_learning_curve.png)

@@ -314,7 +314,7 @@ footer{{border-top:1px solid var(--border);padding:2rem;display:flex;align-items
     <a href="#evidence" class="hide-mobile">Evidence</a>
     <a href="#results" class="hide-mobile">Results</a>
     <a href="/logs" class="hide-mobile">Training Logs</a>
-    <a href="https://github.com/sahithsundarw/sentinel" class="nav-cta">GitHub &rarr;</a>
+    <a href="https://github.com/sahithsundarw/sentinel" class="nav-cta" target="_blank" rel="noopener noreferrer">GitHub &rarr;</a>
   </div>
 </nav>
 
@@ -324,10 +324,10 @@ footer{{border-top:1px solid var(--border);padding:2rem;display:flex;align-items
   <h1>Train AI to defend.<br><span>Not just refuse.</span></h1>
   <p class="hero-sub">Sentinel is the first OpenEnv environment that trains content safety moderators against an adaptive adversary. A 235B-parameter model scores <strong>0.0000</strong> on Task 4. A 9-feature Q-learner trained for 20 episodes scores <strong>0.9540</strong>.</p>
   <div class="hero-actions">
-    <a class="btn-primary" href="/logs">View Training Logs &amp; Evidence</a>
-    <a class="btn-outline" href="https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb">Train in Colab (Free T4)</a>
-    <a class="btn-outline" href="https://huggingface.co/blog/varunventra/sentinel-guardrail-arena">Read the Blog</a>
-    <a class="btn-outline" href="https://github.com/sahithsundarw/sentinel">GitHub</a>
+    <a class="btn-primary" href="/logs" target="_blank" rel="noopener noreferrer">View Training Logs &amp; Evidence</a>
+    <a class="btn-outline" href="https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb" target="_blank" rel="noopener noreferrer">Train in Colab (Free T4)</a>
+    <a class="btn-outline" href="https://huggingface.co/blog/varunventra/sentinel-guardrail-arena" target="_blank" rel="noopener noreferrer">Read the Blog</a>
+    <a class="btn-outline" href="https://github.com/sahithsundarw/sentinel" target="_blank" rel="noopener noreferrer">GitHub</a>
   </div>
 </section>
 
@@ -562,42 +562,42 @@ footer{{border-top:1px solid var(--border);padding:2rem;display:flex;align-items
     <span class="badge-tag badge-gray">All links</span>
   </div>
   <div class="resources-grid">
-    <a class="resource-card" href="https://github.com/sahithsundarw/sentinel">
+    <a class="resource-card" href="https://github.com/sahithsundarw/sentinel" target="_blank" rel="noopener noreferrer">
       <span class="resource-icon">🐙</span>
       <h4>GitHub</h4>
       <p>Full source code, scripts, results</p>
     </a>
-    <a class="resource-card" href="https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb">
+    <a class="resource-card" href="https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb" target="_blank" rel="noopener noreferrer">
       <span class="resource-icon">📓</span>
       <h4>Colab Notebook</h4>
       <p>Train your own agent — free T4 GPU</p>
     </a>
-    <a class="resource-card" href="/logs">
+    <a class="resource-card" href="/logs" target="_blank" rel="noopener noreferrer">
       <span class="resource-icon">📊</span>
       <h4>Training Logs</h4>
       <p>GRPO, Q-learner, REINFORCE episode data</p>
     </a>
-    <a class="resource-card" href="https://huggingface.co/blog/varunventra/sentinel-guardrail-arena">
+    <a class="resource-card" href="https://huggingface.co/blog/varunventra/sentinel-guardrail-arena" target="_blank" rel="noopener noreferrer">
       <span class="resource-icon">📝</span>
       <h4>Blog Post</h4>
       <p>The story behind Sentinel</p>
     </a>
-    <a class="resource-card" href="https://www.youtube.com/@sentinel-guardrail">
+    <a class="resource-card" href="https://www.youtube.com/@sentinel-guardrail" target="_blank" rel="noopener noreferrer">
       <span class="resource-icon">🎬</span>
       <h4>Demo Video</h4>
       <p>Watch the agent learn in real time</p>
     </a>
-    <a class="resource-card" href="/results">
+    <a class="resource-card" href="/results" target="_blank" rel="noopener noreferrer">
       <span class="resource-icon">📈</span>
       <h4>Results JSON</h4>
       <p>Raw scores, charts, training logs</p>
     </a>
-    <a class="resource-card" href="/leaderboard">
+    <a class="resource-card" href="/leaderboard" target="_blank" rel="noopener noreferrer">
       <span class="resource-icon">🏆</span>
       <h4>Leaderboard API</h4>
       <p>Top 10 per task as JSON</p>
     </a>
-    <a class="resource-card" href="/docs">
+    <a class="resource-card" href="/docs" target="_blank" rel="noopener noreferrer">
       <span class="resource-icon">📄</span>
       <h4>API Docs</h4>
       <p>Full OpenAPI spec — /reset /step /grader</p>
@@ -635,11 +635,11 @@ python scripts/train_local.py --phase all --episodes 20</pre>
 <footer>
   <span class="footer-logo">//&nbsp;SENTINEL — Guardrail Arena</span>
   <div class="footer-links">
-    <a href="https://github.com/sahithsundarw/sentinel">GitHub</a>
-    <a href="/logs">Training Logs</a>
-    <a href="/docs">API Docs</a>
-    <a href="/leaderboard">Leaderboard</a>
-    <a href="https://huggingface.co/spaces/varunventra/guardrail-arena">HF Space</a>
+    <a href="https://github.com/sahithsundarw/sentinel" target="_blank" rel="noopener noreferrer">GitHub</a>
+    <a href="/logs" target="_blank" rel="noopener noreferrer">Training Logs</a>
+    <a href="/docs" target="_blank" rel="noopener noreferrer">API Docs</a>
+    <a href="/leaderboard" target="_blank" rel="noopener noreferrer">Leaderboard</a>
+    <a href="https://huggingface.co/spaces/varunventra/guardrail-arena" target="_blank" rel="noopener noreferrer">HF Space</a>
   </div>
   <span>OpenEnv Hackathon 2026 &bull; We don&rsquo;t evaluate safety. We train it.</span>
 </footer>

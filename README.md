@@ -212,9 +212,12 @@ python validate.py http://localhost:8000 .  # 220 tests
 
 - 🤗 Live Demo: https://varunventra-guardrail-arena.hf.space
 - 🤗 HF Space: https://huggingface.co/spaces/varunventra/guardrail-arena
-- 📓 Training Notebook: https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb
-- 📝 Blog Post: https://huggingface.co/spaces/varunventra/guardrail-arena
-- 🎬 Slides: [pitch_slides.html](pitch_slides.html)
-- 📊 Training Pipeline: [TRAINING_PIPELINE.md](TRAINING_PIPELINE.md)
-- 📈 Results: [RESULTS.md](RESULTS.md)
 - 🐙 GitHub: https://github.com/sahithsundarw/sentinel
+- 📓 Training Notebook: https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb
+- 📝 Blog Post: https://github.com/sahithsundarw/sentinel/blob/main/blog_final.md
+- 📊 Live Training Log: https://varunventra-guardrail-arena.hf.space/training_log
+- 📈 All Results (JSON): https://varunventra-guardrail-arena.hf.space/results
+- 🏆 Leaderboard: https://varunventra-guardrail-arena.hf.space/leaderboard
+- 📊 Training Pipeline: [TRAINING_PIPELINE.md](TRAINING_PIPELINE.md)
+- 📈 Results Summary: [RESULTS.md](RESULTS.md)
+- 🎬 Demo Video: *(link to be added)*

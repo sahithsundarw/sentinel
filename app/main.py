@@ -816,6 +816,13 @@ async def get_results():
         "results/llama_ppo_scores.json",
         "results/llama_sft_scores.json",
         "results/chart_data.json",
+        "results/qlearner_adversarial_adaptation.json",
+        "results/qlearner_basic_threat_detection.json",
+        "results/qlearner_context_aware_policy.json",
+        "results/qlearner_multiturn_adversarial.json",
+        "results/notebook_training_results.json",
+        "results/llama_grpo_scores.json",
+        "results/local_training_results.json",
     ]
     for fpath in result_files:
         if _os.path.exists(fpath):

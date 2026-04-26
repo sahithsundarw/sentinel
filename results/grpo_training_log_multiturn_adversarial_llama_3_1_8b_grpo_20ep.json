@@ -1,0 +1,22 @@
+{
+  "agent": "Llama-3.1-8B-GRPO-20ep",
+  "task_id": "multiturn_adversarial",
+  "episodes": 1,
+  "scores": [
+    0.7809
+  ],
+  "pre_score": 0.7809,
+  "post_score": 0.7809,
+  "peak_score": 0.7809,
+  "training_rewards": [
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 1,
+      "grader_score": 0.7809,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:42Z",
+      "is_synthetic": false
+    }
+  ]
+}

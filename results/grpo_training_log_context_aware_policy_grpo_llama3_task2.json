@@ -1,0 +1,82 @@
+{
+  "agent": "grpo_llama3_task2",
+  "task_id": "context_aware_policy",
+  "episodes": 7,
+  "scores": [
+    0.0331,
+    0.0353,
+    0.0329,
+    0.039,
+    0.0515,
+    0.0513,
+    0.0557
+  ],
+  "pre_score": 0.0331,
+  "post_score": 0.0557,
+  "peak_score": 0.0557,
+  "training_rewards": [
+    {
+      "task_id": "context_aware_policy",
+      "episode": 14,
+      "grader_score": 0.03311219879518074,
+      "cumulative_reward": 0.03311219879518074,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:04:02Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "context_aware_policy",
+      "episode": 15,
+      "grader_score": 0.03529969879518074,
+      "cumulative_reward": 0.03529969879518074,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:09:18Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "context_aware_policy",
+      "episode": 16,
+      "grader_score": 0.03288403614457833,
+      "cumulative_reward": 0.03288403614457833,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:14:37Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "context_aware_policy",
+      "episode": 17,
+      "grader_score": 0.03902108433734941,
+      "cumulative_reward": 0.03902108433734941,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:19:53Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "context_aware_policy",
+      "episode": 18,
+      "grader_score": 0.05154442771084339,
+      "cumulative_reward": 0.05154442771084339,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:25:08Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "context_aware_policy",
+      "episode": 19,
+      "grader_score": 0.05130873493975904,
+      "cumulative_reward": 0.05130873493975904,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:30:25Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "context_aware_policy",
+      "episode": 20,
+      "grader_score": 0.05569804216867471,
+      "cumulative_reward": 0.05569804216867471,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:35:41Z",
+      "is_synthetic": false
+    }
+  ]
+}

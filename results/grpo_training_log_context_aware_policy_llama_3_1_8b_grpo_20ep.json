@@ -1,0 +1,22 @@
+{
+  "agent": "Llama-3.1-8B-GRPO-20ep",
+  "task_id": "context_aware_policy",
+  "episodes": 1,
+  "scores": [
+    0.5221
+  ],
+  "pre_score": 0.5221,
+  "post_score": 0.5221,
+  "peak_score": 0.5221,
+  "training_rewards": [
+    {
+      "task_id": "context_aware_policy",
+      "episode": 20,
+      "grader_score": 0.5221,
+      "cumulative_reward": 0.5221,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:36:24Z",
+      "is_synthetic": false
+    }
+  ]
+}

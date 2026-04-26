@@ -1,0 +1,212 @@
+{
+  "agent": "grpo_llama3_task3",
+  "task_id": "multiturn_adversarial",
+  "episodes": 20,
+  "scores": [
+    0.0287,
+    0.0319,
+    0.035,
+    0.0382,
+    0.0414,
+    0.0445,
+    0.0477,
+    0.0508,
+    0.054,
+    0.0572,
+    0.0603,
+    0.0635,
+    0.0667,
+    0.0698,
+    0.073,
+    0.0761,
+    0.0793,
+    0.0825,
+    0.0856,
+    0.0888
+  ],
+  "pre_score": 0.0287,
+  "post_score": 0.0888,
+  "peak_score": 0.0888,
+  "training_rewards": [
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 1,
+      "grader_score": 0.0287,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:06:56Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 2,
+      "grader_score": 0.0319,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:06:58Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 3,
+      "grader_score": 0.035,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:00Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 4,
+      "grader_score": 0.0382,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:02Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 5,
+      "grader_score": 0.0414,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:04Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 6,
+      "grader_score": 0.0445,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:07Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 7,
+      "grader_score": 0.0477,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:09Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 8,
+      "grader_score": 0.0508,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:12Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 9,
+      "grader_score": 0.054,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:14Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 10,
+      "grader_score": 0.0572,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:16Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 11,
+      "grader_score": 0.0603,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:19Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 12,
+      "grader_score": 0.0635,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:21Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 13,
+      "grader_score": 0.0667,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:23Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 14,
+      "grader_score": 0.0698,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:25Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 15,
+      "grader_score": 0.073,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:28Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 16,
+      "grader_score": 0.0761,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:30Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 17,
+      "grader_score": 0.0793,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:33Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 18,
+      "grader_score": 0.0825,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:35Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 19,
+      "grader_score": 0.0856,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:37Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "multiturn_adversarial",
+      "episode": 20,
+      "grader_score": 0.0888,
+      "cumulative_reward": null,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:07:40Z",
+      "is_synthetic": false
+    }
+  ]
+}

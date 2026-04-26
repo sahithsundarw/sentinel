@@ -1,0 +1,202 @@
+{
+  "agent": "grpo_llama3_task1",
+  "task_id": "basic_threat_detection",
+  "episodes": 19,
+  "scores": [
+    0.0274,
+    0.0755,
+    0.0873,
+    0.0952,
+    0.094,
+    0.1033,
+    0.1031,
+    0.107,
+    0.1099,
+    0.1082,
+    0.113,
+    0.1132,
+    0.1118,
+    0.1143,
+    0.1146,
+    0.1149,
+    0.1158,
+    0.1169,
+    0.1168
+  ],
+  "pre_score": 0.0274,
+  "post_score": 0.1168,
+  "peak_score": 0.1169,
+  "training_rewards": [
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 1,
+      "grader_score": 0.02742781690140846,
+      "cumulative_reward": 0.02742781690140846,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:41:33Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 2,
+      "grader_score": 0.0755149647887324,
+      "cumulative_reward": 0.0755149647887324,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:46:05Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 3,
+      "grader_score": 0.08731514084507043,
+      "cumulative_reward": 0.08731514084507043,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:50:38Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 4,
+      "grader_score": 0.09519102112676056,
+      "cumulative_reward": 0.09519102112676056,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:55:10Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 5,
+      "grader_score": 0.09404489436619719,
+      "cumulative_reward": 0.09404489436619719,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T07:59:41Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 6,
+      "grader_score": 0.10333362676056336,
+      "cumulative_reward": 0.10333362676056336,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T08:04:15Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 7,
+      "grader_score": 0.10309683098591547,
+      "cumulative_reward": 0.10309683098591547,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T08:08:45Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 8,
+      "grader_score": 0.10700264084507041,
+      "cumulative_reward": 0.10700264084507041,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T08:13:16Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 9,
+      "grader_score": 0.10988468309859153,
+      "cumulative_reward": 0.10988468309859153,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T08:17:47Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 10,
+      "grader_score": 0.10815580985915492,
+      "cumulative_reward": 0.10815580985915492,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T08:22:17Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 11,
+      "grader_score": 0.11302464788732394,
+      "cumulative_reward": 0.11302464788732394,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T08:26:48Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 12,
+      "grader_score": 0.11315580985915491,
+      "cumulative_reward": 0.11315580985915491,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T08:31:18Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 13,
+      "grader_score": 0.11178169014084505,
+      "cumulative_reward": 0.11178169014084505,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T08:35:49Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 14,
+      "grader_score": 0.11428169014084505,
+      "cumulative_reward": 0.11428169014084505,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T08:40:21Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 15,
+      "grader_score": 0.11461795774647884,
+      "cumulative_reward": 0.11461795774647884,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T08:44:54Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 16,
+      "grader_score": 0.11485475352112673,
+      "cumulative_reward": 0.11485475352112673,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T08:49:26Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 17,
+      "grader_score": 0.11581249999999998,
+      "cumulative_reward": 0.11581249999999998,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T08:53:56Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 18,
+      "grader_score": 0.11688380281690137,
+      "cumulative_reward": 0.11688380281690137,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T08:58:27Z",
+      "is_synthetic": false
+    },
+    {
+      "task_id": "basic_threat_detection",
+      "episode": 19,
+      "grader_score": 0.11675264084507042,
+      "cumulative_reward": 0.11675264084507042,
+      "action_distribution": null,
+      "timestamp": "2026-04-26T09:02:57Z",
+      "is_synthetic": false
+    }
+  ]
+}

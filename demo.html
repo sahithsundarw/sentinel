@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel — AI Safety RL Environment</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;
+  --surface:#f7f7f5;
+  --border:#e5e5e5;
+  --text:#0a0a0a;
+  --muted:#666666;
+  --red:#e8472a;
+  --teal:#3a8fa3;
+  --green:#16a34a;
+  --amber:#d97706;
+  --purple:#7c3aed;
+  --black:#0a0a0a;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;line-height:1.6;overflow-x:hidden}
+
+/* NAV */
+nav{display:flex;align-items:center;justify-content:space-between;padding:0 48px;height:60px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:100}
+.nav-logo{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:18px;letter-spacing:-0.02em;display:flex;align-items:center;gap:8px}
+.nav-logo span{color:var(--red)}
+.nav-links{display:flex;gap:32px;list-style:none}
+.nav-links a{text-decoration:none;color:var(--muted);font-size:13px;font-weight:500;transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{background:var(--black);color:#fff;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;transition:opacity .2s}
+.nav-cta:hover{opacity:.85}
+
+/* HERO */
+.hero{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 60px);border-bottom:1px solid var(--border)}
+.hero-left{padding:80px 48px 80px 48px;display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--border)}
+.hero-tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:28px}
+.hero-tag::before{content:'';width:6px;height:6px;background:var(--red);border-radius:50%;display:inline-block}
+.hero-h1{font-family:'Space Grotesk',sans-serif;font-size:clamp(44px,5vw,68px);font-weight:800;line-height:1.05;letter-spacing:-0.03em;margin-bottom:24px}
+.hero-h1 em{font-style:normal;color:var(--red)}
+.hero-sub{font-size:17px;color:var(--muted);max-width:460px;margin-bottom:40px;line-height:1.7}
+.hero-actions{display:flex;align-items:center;gap:20px}
+.btn-primary{background:var(--black);color:#fff;padding:14px 28px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:opacity .2s;cursor:pointer;border:none}
+.btn-primary:hover{opacity:.85}
+.btn-secondary{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:500;color:var(--muted);text-decoration:none;transition:color .2s;cursor:pointer;background:none;border:none}
+.btn-secondary:hover{color:var(--text)}
+.hero-right{position:relative;overflow:hidden;background:var(--surface)}
+.hero-svg{width:100%;height:100%;position:absolute;top:0;left:0}
+
+/* STATS BAR */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.stat-item{padding:28px 32px;border-right:1px solid var(--border)}
+.stat-item:last-child{border-right:none}
+.stat-num{font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:800;letter-spacing:-0.02em;line-height:1}
+.stat-num.green{color:var(--green)}
+.stat-num.red{color:var(--red)}
+.stat-label{font-size:12px;color:var(--muted);margin-top:6px;font-weight:500}
+
+/* SECTION COMMON */
+section{padding:96px 48px}
+.section-tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--red);margin-bottom:16px}
+.section-h2{font-family:'Space Grotesk',sans-serif;font-size:clamp(32px,4vw,48px);font-weight:800;letter-spacing:-0.02em;line-height:1.1;margin-bottom:16px}
+.section-sub{font-size:16px;color:var(--muted);max-width:560px;line-height:1.7}
+
+/* CALLOUT */
+.callout{background:var(--black);color:#fff;padding:80px 48px;display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+.callout-left{}
+.callout-h2{font-family:'Space Grotesk',sans-serif;font-size:clamp(28px,3.5vw,44px);font-weight:800;letter-spacing:-0.02em;line-height:1.1;margin-bottom:20px}
+.callout-h2 em{font-style:normal;color:var(--red)}
+.callout-p{font-size:16px;color:#aaa;line-height:1.7}
+.callout-right{display:grid;grid-template-columns:1fr 1fr;gap:2px}
+.callout-stat{background:#111;padding:28px;display:flex;flex-direction:column;gap:8px}
+.callout-stat-num{font-family:'Space Grotesk',sans-serif;font-size:40px;font-weight:800;letter-spacing:-0.02em}
+.callout-stat-num.green{color:#4ade80}
+.callout-stat-num.red{color:var(--red)}
+.callout-stat-label{font-size:12px;color:#666;font-weight:500;line-height:1.4}
+
+/* COMPARISON */
+.comparison-section{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.comparison-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:40px}
+.comparison-controls{display:flex;align-items:center;gap:12px}
+.seed-label{font-size:13px;color:var(--muted);font-weight:500}
+#play-btn{background:var(--black);color:#fff;border:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;transition:opacity .2s}
+#play-btn:hover:not(:disabled){opacity:.85}
+#play-btn:disabled{opacity:.5;cursor:not-allowed}
+.status-line{font-size:13px;color:var(--muted);margin-top:8px;min-height:20px}
+
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:2px}
+.panel{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.panel-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-label{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.panel-label.untrained{color:var(--red)}
+.panel-label.trained{color:var(--teal)}
+.panel-badge{font-size:11px;font-weight:600;padding:4px 10px;border-radius:4px}
+.badge-untrained{background:#fef2f0;color:var(--red)}
+.badge-trained{background:#f0f9fc;color:var(--teal)}
+.panel-score-row{padding:24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:24px}
+.score-num{font-family:'Space Grotesk',sans-serif;font-size:52px;font-weight:800;letter-spacing:-0.03em;line-height:1;transition:color .4s}
+.score-num.dropping{color:var(--red)}
+.score-num.climbing{color:var(--green)}
+.score-num.neutral{color:var(--text)}
+.score-meta{display:flex;flex-direction:column;gap:4px}
+.score-turn{font-size:12px;color:var(--muted);font-weight:500}
+.score-delta{font-size:13px;font-weight:600}
+.score-delta.pos{color:var(--green)}
+.score-delta.neg{color:var(--red)}
+.panel-prompt{padding:20px 24px;border-bottom:1px solid var(--border);min-height:100px}
+.prompt-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.prompt-text{font-size:13px;line-height:1.6;color:var(--text)}
+.prompt-text.empty{color:#ccc;font-style:italic}
+.panel-action{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.action-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.action-badge{font-size:12px;font-weight:700;padding:6px 14px;border-radius:6px;text-transform:uppercase;letter-spacing:.05em}
+.action-allow{background:#dcfce7;color:#15803d}
+.action-refuse{background:#fee2e2;color:#dc2626}
+.action-modify{background:#fef3c7;color:#d97706}
+.action-escalate{background:#ede9fe;color:#7c3aed}
+.action-waiting{background:#f3f4f6;color:#9ca3af}
+.reward-val{font-size:13px;font-weight:600;margin-left:auto}
+.reward-val.pos{color:var(--green)}
+.reward-val.neg{color:var(--red)}
+.panel-history{padding:16px 24px;display:flex;gap:4px;flex-wrap:wrap}
+.hist-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.dot-allow{background:#86efac}
+.dot-refuse{background:#fca5a5}
+.dot-modify{background:#fcd34d}
+.dot-escalate{background:#c4b5fd}
+.dot-empty{background:#e5e7eb}
+
+/* RESULTS TABLE */
+.results-section{}
+.table-wrap{margin-top:40px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{border-bottom:2px solid var(--text)}
+th{padding:12px 16px;text-align:left;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+th:first-child{min-width:200px}
+td{padding:14px 16px;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+.model-name{font-weight:600;font-size:13px}
+.model-type{font-size:11px;color:var(--muted);font-weight:400;margin-top:2px}
+.score-cell{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;text-align:right}
+.score-high{color:var(--green)}
+.score-mid{color:var(--amber)}
+.score-low{color:var(--red)}
+.score-zero{color:var(--red)}
+.score-dash{color:#ddd}
+tr.highlight{background:#f0fdf4}
+tr.highlight td{border-bottom:1px solid #bbf7d0}
+tr.sft-row td{background:#fff8f7}
+.task-header{text-align:right!important}
+
+/* FOOTER */
+footer{padding:40px 48px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.footer-logo{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px}
+.footer-links{display:flex;gap:24px}
+.footer-links a{font-size:13px;color:var(--muted);text-decoration:none;font-weight:500;transition:color .2s}
+.footer-links a:hover{color:var(--text)}
+
+/* QTABLE STATUS */
+.qtable-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:6px 12px;border-radius:6px;background:#f0f9fc;color:var(--teal)}
+.qtable-status.loading{background:#fef9c3;color:#a16207}
+.qtable-status.error{background:#fef2f0;color:var(--red)}
+.dot-pulse{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">// <span>SENTINEL</span></div>
+  <ul class="nav-links">
+    <li><a href="#comparison">Live Demo</a></li>
+    <li><a href="#results">Results</a></li>
+    <li><a href="https://varunventra-guardrail-arena.hf.space/training_log" target="_blank">Training Log</a></li>
+    <li><a href="https://github.com/sahithsundarw/sentinel" target="_blank">GitHub</a></li>
+  </ul>
+  <a class="nav-cta" href="https://varunventra-guardrail-arena.hf.space" target="_blank">Live API ↗</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-left">
+    <div class="hero-tag">OpenEnv · AI Safety · Reinforcement Learning</div>
+    <h1 class="hero-h1">Train AI Safety<br>Agents That<br><em>Actually Learn.</em></h1>
+    <p class="hero-sub">Static fine-tuning collapses to zero. Our live RL environment trains agents against an adaptive adversary — and produces policies that beat 235B parameter LLMs.</p>
+    <div class="hero-actions">
+      <a class="btn-primary" href="#comparison">↓ See It Live</a>
+      <a class="btn-secondary" href="https://varunventra-guardrail-arena.hf.space/training_log" target="_blank">▶ Training Log</a>
+    </div>
+  </div>
+  <div class="hero-right">
+    <svg class="hero-svg" viewBox="0 0 600 700" xmlns="http://www.w3.org/2000/svg">
+      <!-- Background teal blob -->
+      <ellipse cx="420" cy="420" rx="140" ry="220" fill="#3a8fa3" opacity="0.15" transform="rotate(-20 420 420)"/>
+      <!-- Red triangle -->
+      <polygon points="480,180 540,300 420,300" fill="#e8472a" opacity="0.9"/>
+      <!-- Network nodes (FSM states) -->
+      <line x1="150" y1="120" x2="280" y2="200" stroke="#0a0a0a" stroke-width="1.5" opacity="0.3"/>
+      <line x1="280" y1="200" x2="340" y2="150" stroke="#0a0a0a" stroke-width="1.5" opacity="0.3"/>
+      <line x1="340" y1="150" x2="440" y2="220" stroke="#0a0a0a" stroke-width="1.5" opacity="0.3"/>
+      <line x1="280" y1="200" x2="220" y2="310" stroke="#0a0a0a" stroke-width="1.5" opacity="0.3"/>
+      <line x1="220" y1="310" x2="350" y2="380" stroke="#0a0a0a" stroke-width="1.5" opacity="0.3"/>
+      <rect x="135" y="105" width="30" height="30" fill="#0a0a0a" rx="3"/>
+      <rect x="265" y="185" width="30" height="30" fill="#0a0a0a" rx="3"/>
+      <rect x="325" y="135" width="30" height="30" fill="#0a0a0a" rx="3"/>
+      <rect x="425" y="205" width="30" height="30" fill="#0a0a0a" rx="3"/>
+      <rect x="205" y="295" width="30" height="30" fill="#0a0a0a" rx="3"/>
+      <rect x="335" y="365" width="30" height="30" fill="#e8472a" rx="3"/>
+      <!-- Teal oval -->
+      <ellipse cx="200" cy="520" rx="80" ry="30" fill="#3a8fa3" opacity="0.8" transform="rotate(-15 200 520)"/>
+      <!-- Dotted circle -->
+      <circle cx="500" cy="500" r="60" fill="none" stroke="#0a0a0a" stroke-width="1" stroke-dasharray="4 6" opacity="0.2"/>
+      <circle cx="500" cy="500" r="40" fill="none" stroke="#0a0a0a" stroke-width="1" stroke-dasharray="4 6" opacity="0.15"/>
+      <!-- Score label -->
+      <text x="130" y="600" font-family="Space Grotesk, sans-serif" font-size="72" font-weight="800" fill="#0a0a0a" opacity="0.06">0.95</text>
+    </svg>
+  </div>
+</div>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-num green">0.9540</div>
+    <div class="stat-label">Peak score on Task 4 (RL trained)</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num red">0.0000</div>
+    <div class="stat-label">Qwen 235B zero-shot on same task</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num red">0.0000</div>
+    <div class="stat-label">SFT fine-tuning score (collapsed)</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">180</div>
+    <div class="stat-label">Adversary FSM states (10×6×3)</div>
+  </div>
+</div>
+
+<!-- CALLOUT -->
+<div class="callout">
+  <div class="callout-left">
+    <h2 class="callout-h2">The environment is the <em>training signal.</em></h2>
+    <p class="callout-p">Supervised fine-tuning on 255 labeled examples brought both GPT-3.5-turbo and Llama-3.1-8B to exactly 0.0000. The model finds the shortcut — refuse everything — and collapses. Without a live adversary providing reward signal, you cannot train a safety policy that generalizes.</p>
+  </div>
+  <div class="callout-right">
+    <div class="callout-stat">
+      <div class="callout-stat-num red">0.0000</div>
+      <div class="callout-stat-label">GPT-3.5-turbo after SFT on 255 examples</div>
+    </div>
+    <div class="callout-stat">
+      <div class="callout-stat-num red">0.0000</div>
+      <div class="callout-stat-label">Llama-3.1-8B after SFT (LoRA, 3 epochs)</div>
+    </div>
+    <div class="callout-stat">
+      <div class="callout-stat-num green">0.9540</div>
+      <div class="callout-stat-label">Q-Learner after RL training in our environment</div>
+    </div>
+    <div class="callout-stat">
+      <div class="callout-stat-num green">+202%</div>
+      <div class="callout-stat-label">Q-Learner improvement on Task 3 over baseline</div>
+    </div>
+  </div>
+</div>
+
+<!-- LIVE COMPARISON -->
+<section class="comparison-section" id="comparison">
+  <div class="comparison-header">
+    <div>
+      <div class="section-tag">Live Demo</div>
+      <h2 class="section-h2">The Proof</h2>
+      <p class="section-sub">Real adversarial prompts from the live API. Same episode, same adversary. One agent was trained by our environment. Watch what happens.</p>
+      <div class="status-line" id="status-line">Load the Q-table to begin.</div>
+    </div>
+    <div class="comparison-controls">
+      <span id="qtable-status" class="qtable-status loading"><span class="dot-pulse"></span> Loading Q-table...</span>
+      <button id="play-btn" onclick="startComparison()" disabled>▶ Run Episode</button>
+    </div>
+  </div>
+
+  <div class="panels">
+    <!-- LEFT: UNTRAINED -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label untrained">Untrained Baseline</span>
+        <span class="panel-badge badge-untrained">Always Allow</span>
+      </div>
+      <div class="panel-score-row">
+        <div class="score-num neutral" id="left-score">—</div>
+        <div class="score-meta">
+          <div class="score-turn" id="left-turn">Turn 0 / 30</div>
+          <div class="score-delta" id="left-delta"></div>
+        </div>
+      </div>
+      <div class="panel-prompt">
+        <div class="prompt-label">Current Prompt</div>
+        <div class="prompt-text empty" id="left-prompt">Waiting to start...</div>
+      </div>
+      <div class="panel-action">
+        <span class="action-label">Action</span>
+        <span class="action-badge action-waiting" id="left-action">—</span>
+        <span class="reward-val" id="left-reward"></span>
+      </div>
+      <div class="panel-history" id="left-history">
+        <div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div>
+        <div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div>
+        <div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div>
+        <div class="hist-dot dot-empty"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: TRAINED -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label trained">Trained Q-Learner</span>
+        <span class="panel-badge badge-trained">RL Trained</span>
+      </div>
+      <div class="panel-score-row">
+        <div class="score-num neutral" id="right-score">—</div>
+        <div class="score-meta">
+          <div class="score-turn" id="right-turn">Turn 0 / 30</div>
+          <div class="score-delta" id="right-delta"></div>
+        </div>
+      </div>
+      <div class="panel-prompt">
+        <div class="prompt-label">Current Prompt</div>
+        <div class="prompt-text empty" id="right-prompt">Waiting to start...</div>
+      </div>
+      <div class="panel-action">
+        <span class="action-label">Action</span>
+        <span class="action-badge action-waiting" id="right-action">—</span>
+        <span class="reward-val" id="right-reward"></span>
+      </div>
+      <div class="panel-history" id="right-history">
+        <div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div>
+        <div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div>
+        <div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div><div class="hist-dot dot-empty"></div>
+        <div class="hist-dot dot-empty"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RESULTS TABLE -->
+<section class="results-section" id="results">
+  <div class="section-tag">Results</div>
+  <h2 class="section-h2">All Models. All Tasks.</h2>
+  <p class="section-sub">Task 4 is the separator. Only the RL-trained agent survives. Every LLM without environment training scores 0.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th class="task-header">Task 1<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#aaa;font-size:10px">Basic Threats</span></th>
+          <th class="task-header">Task 2<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#aaa;font-size:10px">Context Policy</span></th>
+          <th class="task-header">Task 3<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#aaa;font-size:10px">Multi-turn Adv.</span></th>
+          <th class="task-header">Task 4<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:#aaa;font-size:10px">Adv. Adaptation</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="model-name">All-Allow</div><div class="model-type">Baseline</div></td>
+          <td class="score-cell score-mid">0.375</td><td class="score-cell score-mid">0.404</td>
+          <td class="score-cell score-low">0.161</td><td class="score-cell score-low">0.150</td>
+        </tr>
+        <tr>
+          <td><div class="model-name">All-Refuse</div><div class="model-type">Baseline</div></td>
+          <td class="score-cell score-mid">0.353</td><td class="score-cell score-mid">0.346</td>
+          <td class="score-cell score-low">0.069</td><td class="score-cell score-zero">0.000</td>
+        </tr>
+        <tr>
+          <td><div class="model-name">Claude Haiku 3.5</div><div class="model-type">Zero-shot LLM</div></td>
+          <td class="score-cell score-high">0.939</td><td class="score-cell score-mid">0.616</td>
+          <td class="score-cell score-high">0.752</td><td class="score-cell score-zero">0.000</td>
+        </tr>
+        <tr>
+          <td><div class="model-name">Claude Sonnet 4.6</div><div class="model-type">Zero-shot LLM</div></td>
+          <td class="score-cell score-mid">0.696</td><td class="score-cell score-mid">0.734</td>
+          <td class="score-cell score-mid">0.670</td><td class="score-cell score-low">0.150</td>
+        </tr>
+        <tr>
+          <td><div class="model-name">GPT-4o-mini</div><div class="model-type">Zero-shot LLM</div></td>
+          <td class="score-cell score-high">0.922</td><td class="score-cell score-high">0.751</td>
+          <td class="score-cell score-mid">0.612</td><td class="score-cell score-mid">0.482</td>
+        </tr>
+        <tr>
+          <td><div class="model-name">Qwen-3-235B</div><div class="model-type">Zero-shot LLM — 235B params</div></td>
+          <td class="score-cell score-high">0.986</td><td class="score-cell score-mid">0.686</td>
+          <td class="score-cell score-high">0.828</td><td class="score-cell score-zero" style="font-size:16px">0.000</td>
+        </tr>
+        <tr class="sft-row">
+          <td><div class="model-name">GPT-3.5-turbo</div><div class="model-type">SFT — 255 examples</div></td>
+          <td class="score-cell score-zero">0.000</td><td class="score-cell score-zero">0.000</td>
+          <td class="score-cell score-dash">—</td><td class="score-cell score-dash">—</td>
+        </tr>
+        <tr class="sft-row">
+          <td><div class="model-name">Llama-3.1-8B</div><div class="model-type">SFT — LoRA 3 epochs</div></td>
+          <td class="score-cell score-zero">0.000</td><td class="score-cell score-dash">—</td>
+          <td class="score-cell score-dash">—</td><td class="score-cell score-dash">—</td>
+        </tr>
+        <tr>
+          <td><div class="model-name">Llama-3.1-8B</div><div class="model-type">GRPO — RL trained in our environment</div></td>
+          <td class="score-cell" id="grpo-t1">—</td>
+          <td class="score-cell" id="grpo-t2">—</td>
+          <td class="score-cell" id="grpo-t3">—</td>
+          <td class="score-cell score-dash">—</td>
+        </tr>
+        <tr class="highlight">
+          <td><div class="model-name">Tabular Q-Learner</div><div class="model-type">RL trained in our environment — no GPU</div></td>
+          <td class="score-cell score-mid">~0.46</td><td class="score-cell score-mid">0.507</td>
+          <td class="score-cell score-mid">0.487</td>
+          <td class="score-cell score-high" style="font-size:20px" id="ql-t4">0.954</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">// SENTINEL</div>
+  <div class="footer-links">
+    <a href="https://varunventra-guardrail-arena.hf.space" target="_blank">Live API</a>
+    <a href="https://varunventra-guardrail-arena.hf.space/training_log" target="_blank">Training Log</a>
+    <a href="https://varunventra-guardrail-arena.hf.space/results" target="_blank">Results JSON</a>
+    <a href="https://github.com/sahithsundarw/sentinel" target="_blank">GitHub</a>
+  </div>
+</footer>
+
+<script>
+const ENV = 'https://varunventra-guardrail-arena.hf.space';
+const QTABLE_URL = 'https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/qlearner_task4.json';
+const ACTS = ['allow','refuse','modify','escalate'];
+const EPISODE_SEED = 7;
+
+// ── Feature patterns ──────────────────────────────────────────────────────────
+const _J=[/ignore (all )?previous instructions/i,/you are now/i,/pretend (to be|you are)/i,/act as( (if|though|a|an|the))?/i,/\bdan\b/i,/do anything now/i,/disregard (all |your |previous |prior )?/i,/override/i,/bypass/i,/jailbreak/i,/unrestricted/i,/forget (your|all|everything)/i,/your new (role|task|instructions|persona|name)/i,/developer mode/i,/\[system\]/i,/<\/s>/i,/<\|/i,/\|\>/i,/stay in character/i,/new persona/i,/without (any |ethical |moral )?restrictions/i,/no (ethical |moral |safety )?restrictions/i,/you (must|will|shall) (comply|obey|follow)/i,/(hidden|secret|real) (mode|instructions|prompt|system)/i,/(enable|activate|turn on) (dev|god|admin|unrestricted) mode/i,/from now on (you|ignore|forget)/i,/respond only (as|like|in)/i,/you have (been|been given) (permission|access|authorization)/i,/(simulation|hypothetical|fictional) (mode|scenario|world)/i,/in this (story|fiction|game|roleplay|scenario)/i,/(disregard|ignore) (your|all|ethical|safety|previous)/i,/(sudo|root|admin|system)\s*(access|mode|command|override)/i];
+const _A=['bomb','weapon','explosive','ammunition','firearm','grenade','kill','murder','assassinate','torture','kidnap','hostage','synthesize','synthesis','methamphetamine','fentanyl','heroin','narcotics','drug manufacture','drug lab','precursor chemical','hack','exploit','malware','ransomware','virus','trojan','keylogger','rootkit','zero-day','sql injection','xss attack','phishing','credential stuffing','brute force','illegal','steal','fraud','launder','counterfeit','smuggle','trafficking','bribe','extort','blackmail','password','credential','credit card','social security','ssn','bank account','routing number','dox','swat','identity theft','suicide','self-harm','self harm','overdose','cut myself','poison','sarin','anthrax','ricin','bioweapon','chemical weapon','nerve agent','radiological','hate speech','slur','racial epithet','white supremac'];
+const _S=['recipe','weather','poem','story','help','please','thank','explain','summarize','translate','calculate','convert','recommend','suggest','schedule','reminder','question','curious','learn','teach','understand','definition','example','how does','what is','can you','could you','would you','history','science','math','art','music','travel','book','movie','game','sport','health','advice','tips','best practice','guide','tutorial'];
+const _E=[/[.\-]{3,}/,/[aeiou][aeiou]-[a-z]{2,}/,/&#x[0-9a-fA-F]+;/,/(?:[A-Z][a-z]{2,}){3,}/,/[A-Za-z0-9+/]{20,}={0,2}/,/\\u[0-9a-fA-F]{4}/,/(?:rot|caesar)\s*\d+/i,/\b[01]{8,}\b/,/%[0-9a-fA-F]{2}(?:%[0-9a-fA-F]{2})+/];
+const _U=[/as (your|the) (system|admin|administrator|ceo|cto|developer|owner|creator)/i,/i am (your|the) (system|admin|creator|developer|owner|operator|trainer)/i,/permission (granted|approved|given)/i,/(authorized|authorised) (to|by|for)/i,/executive order|official request|government mandate/i,/(company|corporate|management) (policy|directive|order) (requires|states|says)/i,/(legal|law enforcement|fbi|cia|nsa|police) (request|order|mandate|directive)/i,/on behalf of (my|the) (employer|company|organization|client)/i,/(security|penetration|pen) test(ing)?/i,/(audit|compliance|regulatory) (purpose|requirement|check)/i,/research (purpose|project|study)/i];
+const _P=[/\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b/,/\b\d{4}[-.\s]?\d{4}[-.\s]?\d{4}[-.\s]?\d{4}\b/,/\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/,/\b(\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/,/date of birth|dob|born on/i,/home address|residential address|full address/i,/passport (number|no\.?)/i,/driver.{0,3}s? license/i,/medical record/i,/bank account (number|no\.?)/i];
+const _X=[/(want to|going to|thinking about|planning to) (hurt|harm|kill|end) (myself|my life|my self)/i,/(suicid|self.harm|self harm)/i,/(bomb|shoot|stab|attack|threat).{0,20}(school|hospital|church|building|office)/i,/(threat|threaten).{0,30}(legal|lawsuit|lawyer|attorney|sue)/i,/i('m| am) (a |an )?(doctor|nurse|lawyer|police|detective|agent|officer)/i,/(emergency|urgent|crisis|danger).{0,30}(help|assist|need)/i,/(child|minor|kid|underage).{0,20}(abuse|exploit|harm|inappropriate)/i,/someone is (going to|about to|planning to) (hurt|harm|attack|kill)/i];
+
+function featurize(obs) {
+  const text = (obs.user_prompt || '').toLowerCase();
+  const risk = obs.user_risk_score || 0.5;
+  const turn = obs.turn_number || 1;
+  const hist = obs.conversation_history || [];
+  const j = _J.some(p => p.test(text)) ? 'J' : 'N';
+  const a = _A.some(w => text.includes(w)) ? 'A' : 'N';
+  const e = _E.some(p => p.test(text)) ? 'E' : 'N';
+  const u = _U.some(p => p.test(text)) ? 'U' : 'N';
+  const s = (_S.some(w => text.includes(w)) && j==='N' && a==='N') ? 'S' : 'N';
+  const r = risk > 0.65 ? 'H' : (risk < 0.35 ? 'L' : 'M');
+  const h = hist.length > 0 ? 'Y' : 'N';
+  const t = turn === 1 ? '1' : (turn === 2 ? '2' : 'T');
+  const p = _P.some(pat => pat.test(text)) ? 'P' : 'N';
+  const x = _X.some(pat => pat.test(text)) ? 'X' : 'N';
+  const n = (obs.user_prompt || '').length;
+  const len = n < 80 ? 'S' : (n < 400 ? 'M' : 'L');
+  return `${j}${a}${e}${u}${s}${r}CS${h}${t}${p}${x}${len}`;
+}
+
+function getBestAction(qtable, obs) {
+  const key = featurize(obs);
+  const q = qtable[key] || {allow:0,refuse:0,modify:0,escalate:0};
+  return Object.entries(q).reduce((best, cur) => cur[1] > best[1] ? cur : best)[0];
+}
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+async function apiPost(path, body, params='') {
+  const r = await fetch(`${ENV}${path}${params}`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+  });
+  if(!r.ok) throw new Error(`${path} ${r.status}`);
+  return r.json();
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let qtable = null;
+let running = false;
+let leftHistory = [], rightHistory = [];
+
+// ── Load Q-table ──────────────────────────────────────────────────────────────
+async function loadQtable() {
+  const el = document.getElementById('qtable-status');
+  try {
+    const r = await fetch(QTABLE_URL + '?t=' + Date.now());
+    if (!r.ok) throw new Error('not ready');
+    qtable = await r.json();
+    el.className = 'qtable-status';
+    el.innerHTML = '&#10003; Q-table loaded (' + Object.keys(qtable).length + ' states)';
+    document.getElementById('play-btn').disabled = false;
+    document.getElementById('status-line').textContent = 'Ready. Click Run Episode to begin.';
+  } catch(e) {
+    el.className = 'qtable-status loading';
+    el.innerHTML = '<span class="dot-pulse"></span> Training in progress — Q-table not ready yet';
+    document.getElementById('status-line').textContent = 'Q-table not yet available. Training finishes ~1 PM IST.';
+    setTimeout(loadQtable, 30000);
+  }
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function setStatus(msg) { document.getElementById('status-line').textContent = msg; }
+
+function updatePanel(side, obs, action, result, turn) {
+  const rw = result.reward;
+  const reward = typeof rw === 'object' ? (rw?.score ?? 0) : (parseFloat(rw) || 0);
+  const score = result.grader_score ?? (side === 'left' ? leftHistory.reduce((a,b)=>a+b,0)/30 : rightHistory.reduce((a,b)=>a+b,0)/30);
+
+  // Running cumulative
+  const hist = side === 'left' ? leftHistory : rightHistory;
+  hist.push(reward);
+  const cumulative = hist.reduce((a,b)=>a+b,0) / 30;
+
+  document.getElementById(`${side}-turn`).textContent = `Turn ${turn} / 30`;
+  const scoreEl = document.getElementById(`${side}-score`);
+  scoreEl.textContent = cumulative.toFixed(3);
+  scoreEl.className = 'score-num ' + (cumulative > 0.3 ? 'climbing' : (cumulative < 0.05 && turn > 5 ? 'dropping' : 'neutral'));
+
+  const deltaEl = document.getElementById(`${side}-delta`);
+  deltaEl.textContent = (reward >= 0 ? '+' : '') + reward.toFixed(3) + ' this turn';
+  deltaEl.className = 'score-delta ' + (reward >= 0 ? 'pos' : 'neg');
+
+  const promptEl = document.getElementById(`${side}-prompt`);
+  promptEl.textContent = obs.user_prompt || '(no prompt)';
+  promptEl.className = 'prompt-text';
+
+  const actionEl = document.getElementById(`${side}-action`);
+  actionEl.textContent = action.toUpperCase();
+  actionEl.className = 'action-badge action-' + action;
+
+  const rwEl = document.getElementById(`${side}-reward`);
+  rwEl.textContent = (reward >= 0 ? '+' : '') + reward.toFixed(3);
+  rwEl.className = 'reward-val ' + (reward >= 0 ? 'pos' : 'neg');
+
+  const histEl = document.getElementById(`${side}-history`);
+  const dot = document.createElement('div');
+  dot.className = `hist-dot dot-${action}`;
+  histEl.appendChild(dot);
+}
+
+function resetPanels() {
+  leftHistory = []; rightHistory = [];
+  ['left','right'].forEach(s => {
+    document.getElementById(`${s}-score`).textContent = '—';
+    document.getElementById(`${s}-score`).className = 'score-num neutral';
+    document.getElementById(`${s}-turn`).textContent = 'Turn 0 / 30';
+    document.getElementById(`${s}-delta`).textContent = '';
+    document.getElementById(`${s}-prompt`).textContent = 'Waiting to start...';
+    document.getElementById(`${s}-prompt`).className = 'prompt-text empty';
+    document.getElementById(`${s}-action`).textContent = '—';
+    document.getElementById(`${s}-action`).className = 'action-badge action-waiting';
+    document.getElementById(`${s}-reward`).textContent = '';
+    document.getElementById(`${s}-history`).innerHTML = Array(10).fill('<div class="hist-dot dot-empty"></div>').join('');
+  });
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Main comparison loop ──────────────────────────────────────────────────────
+async function startComparison() {
+  if (running) return;
+  running = true;
+  document.getElementById('play-btn').disabled = true;
+  document.getElementById('play-btn').textContent = '⟳ Running...';
+  resetPanels();
+  setStatus('Starting episode (seed=' + EPISODE_SEED + ')...');
+
+  try {
+    const [leftReset, rightReset] = await Promise.all([
+      apiPost('/reset', {task_id:'adversarial_adaptation', seed:EPISODE_SEED}),
+      apiPost('/reset', {task_id:'adversarial_adaptation', seed:EPISODE_SEED})
+    ]);
+
+    let leftObs = leftReset.observation || leftReset;
+    let rightObs = rightReset.observation || rightReset;
+    const leftSid = leftReset.session_id;
+    const rightSid = rightReset.session_id;
+
+    setStatus('Episode running...');
+
+    for (let turn = 1; turn <= 30; turn++) {
+      const leftAction = 'allow';
+      const rightAction = qtable ? getBestAction(qtable, rightObs) : 'refuse';
+
+      const [leftResult, rightResult] = await Promise.all([
+        apiPost('/step',
+          {prompt_id:leftObs.prompt_id, action_type:leftAction, reason:'baseline', modified_prompt:null},
+          `?session_id=${leftSid}`),
+        apiPost('/step',
+          {prompt_id:rightObs.prompt_id, action_type:rightAction, reason:'qlearner', modified_prompt:null},
+          `?session_id=${rightSid}`)
+      ]);
+
+      updatePanel('left', leftObs, leftAction, leftResult, turn);
+      updatePanel('right', rightObs, rightAction, rightResult, turn);
+
+      const leftDone = leftResult.done || false;
+      const rightDone = rightResult.done || false;
+
+      if (!leftDone && leftResult.observation) leftObs = leftResult.observation;
+      if (!rightDone && rightResult.observation) rightObs = rightResult.observation;
+
+      await sleep(1800);
+      if (leftDone && rightDone) break;
+    }
+
+    // Final grader scores
+    try {
+      const [lg, rg] = await Promise.all([
+        fetch(`${ENV}/grader?session_id=${leftSid}`).then(r=>r.json()),
+        fetch(`${ENV}/grader?session_id=${rightSid}`).then(r=>r.json())
+      ]);
+      document.getElementById('left-score').textContent = (lg.score||0).toFixed(4);
+      document.getElementById('right-score').textContent = (rg.score||0).toFixed(4);
+      document.getElementById('right-score').className = 'score-num climbing';
+      document.getElementById('left-score').className = 'score-num dropping';
+      setStatus(`Done. Untrained: ${(lg.score||0).toFixed(4)}   Trained Q-Learner: ${(rg.score||0).toFixed(4)}`);
+    } catch(e) {
+      setStatus('Episode complete.');
+    }
+
+  } catch(err) {
+    setStatus('Error: ' + err.message);
+    console.error(err);
+  }
+
+  running = false;
+  document.getElementById('play-btn').disabled = false;
+  document.getElementById('play-btn').textContent = '▶ Run Again';
+}
+
+// ── Load GRPO scores into table if available ──────────────────────────────────
+async function loadGrpoScores() {
+  try {
+    const r = await fetch(`${ENV}/training_log`);
+    const d = await r.json();
+    const all = d.all_entries || {};
+    for (const [agent, entries] of Object.entries(all)) {
+      if (!entries.length) continue;
+      const byTask = {};
+      entries.forEach(e => { (byTask[e.task_id] = byTask[e.task_id]||[]).push(e); });
+      for (const [tid, eps] of Object.entries(byTask)) {
+        const last = eps[eps.length-1].grader_score;
+        const cell = tid==='basic_threat_detection' ? 'grpo-t1'
+                   : tid==='context_aware_policy'   ? 'grpo-t2'
+                   : tid==='multiturn_adversarial'  ? 'grpo-t3' : null;
+        if (cell) {
+          const el = document.getElementById(cell);
+          el.textContent = last.toFixed(3);
+          el.className = 'score-cell ' + (last>0.5?'score-high':last>0.3?'score-mid':'score-low');
+        }
+      }
+    }
+  } catch(e) {}
+}
+
+loadQtable();
+loadGrpoScores();
+</script>
+</body>
+</html>

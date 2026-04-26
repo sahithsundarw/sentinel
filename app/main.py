@@ -1801,70 +1801,104 @@ async def logs_page():
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Sentinel — Full Training Evidence</title>
+<title>Sentinel — Training Evidence</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-*{{box-sizing:border-box;margin:0;padding:0}}
-body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#0a0a0a;font-size:14px;line-height:1.6}}
-header{{background:#0a0a0a;color:#fff;padding:20px 40px;display:flex;align-items:center;justify-content:space-between}}
-header h1{{font-size:20px;font-weight:700;letter-spacing:-.02em}}
-header .sub{{font-size:12px;color:#888;margin-top:2px}}
-.nav{{display:flex;gap:20px}}
-.nav a{{color:#aaa;text-decoration:none;font-size:13px}}
-.nav a:hover{{color:#fff}}
-.container{{max-width:1100px;margin:0 auto;padding:32px 24px}}
-.toc{{background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:20px 24px;margin-bottom:32px}}
-.toc h3{{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:10px}}
-.toc ol{{padding-left:20px;line-height:2}}
-.toc a{{color:#0a0a0a;text-decoration:none;font-weight:500}}
-.toc a:hover{{color:#3a8fa3}}
-.scoreboard{{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;background:#e5e5e5;border:1px solid #e5e5e5;border-radius:8px;overflow:hidden;margin-bottom:32px}}
-.sb{{background:#fff;padding:16px;text-align:center}}
-.sb-num{{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1}}
-.sb-lbl{{font-size:10px;color:#888;margin-top:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}}
-h2{{font-size:17px;font-weight:700;margin:36px 0 12px;padding-bottom:8px;border-bottom:2px solid #e5e5e5;display:flex;align-items:center;gap:10px}}
-.tag{{font-size:10px;font-weight:700;background:#e8472a;color:#fff;padding:2px 8px;border-radius:4px;letter-spacing:.06em;text-transform:uppercase}}
-.tag.green{{background:#16a34a}}.tag.teal{{background:#3a8fa3}}.tag.gray{{background:#888}}
-.card{{background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:20px 24px;margin-bottom:12px}}
-.card h3{{font-size:14px;font-weight:700;margin-bottom:4px}}
-.desc{{font-size:13px;color:#666;margin-bottom:14px;line-height:1.5}}
-.kpi{{display:grid;gap:2px;background:#e5e5e5;border-radius:6px;overflow:hidden;margin-bottom:14px}}
+*,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
+:root{{
+  --bg:#ffffff;--surface:#f7f7f5;--border:#e5e5e5;--text:#0a0a0a;--muted:#666666;
+  --red:#e8472a;--teal:#3a8fa3;--green:#16a34a;--amber:#d97706;--black:#0a0a0a;
+}}
+html{{scroll-behavior:smooth}}
+body{{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;line-height:1.6;overflow-x:hidden}}
+nav{{display:flex;align-items:center;justify-content:space-between;padding:0 48px;height:60px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:100}}
+.nav-logo{{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:18px;letter-spacing:-0.02em;text-decoration:none;color:var(--text)}}
+.nav-logo span{{color:var(--red)}}
+.nav-links{{display:flex;gap:28px;list-style:none;align-items:center}}
+.nav-links a{{text-decoration:none;color:var(--muted);font-size:13px;font-weight:500;transition:color .2s}}
+.nav-links a:hover{{color:var(--text)}}
+.nav-cta{{background:var(--black);color:#fff!important;padding:7px 18px;border-radius:6px;font-size:13px;font-weight:600}}
+.container{{max-width:1100px;margin:0 auto;padding:48px 48px}}
+.page-hero{{padding:56px 0 40px;border-bottom:1px solid var(--border);margin-bottom:48px}}
+.section-tag{{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--red);margin-bottom:12px}}
+.page-h1{{font-family:'Space Grotesk',sans-serif;font-size:clamp(28px,3.5vw,44px);font-weight:800;letter-spacing:-0.03em;line-height:1.1;margin-bottom:12px}}
+.page-sub{{font-size:15px;color:var(--muted);line-height:1.7}}
+.stats-bar{{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:48px}}
+.stat-item{{padding:24px 20px;border-right:1px solid var(--border);background:var(--bg)}}
+.stat-item:last-child{{border-right:none}}
+.stat-num{{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:800;letter-spacing:-0.02em;line-height:1}}
+.stat-num.green{{color:var(--green)}}.stat-num.red{{color:var(--red)}}.stat-num.teal{{color:var(--teal)}}
+.stat-label{{font-size:11px;color:var(--muted);margin-top:6px;font-weight:500}}
+.toc{{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px 24px;margin-bottom:40px}}
+.toc-title{{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}}
+.toc ol{{padding-left:20px;line-height:2.2;font-size:14px}}
+.toc a{{color:var(--text);text-decoration:none;font-weight:500}}
+.toc a:hover{{color:var(--teal)}}
+.section-heading{{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:800;letter-spacing:-0.01em;margin:48px 0 16px;padding-bottom:10px;border-bottom:2px solid var(--text);display:flex;align-items:center;gap:10px}}
+.badge{{font-size:10px;font-weight:700;padding:3px 9px;border-radius:4px;letter-spacing:.06em;text-transform:uppercase}}
+.badge-red{{background:#fef2f0;color:var(--red)}}
+.badge-teal{{background:#f0f9fc;color:var(--teal)}}
+.badge-gray{{background:var(--surface);color:var(--muted)}}
+.badge-green{{background:#f0fdf4;color:var(--green)}}
+.card{{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:24px 28px;margin-bottom:16px}}
+.card-title{{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;margin-bottom:6px}}
+.desc{{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.6}}
+.kpi{{display:grid;gap:2px;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:18px}}
 .kpi.cols2{{grid-template-columns:repeat(2,1fr)}}
 .kpi.cols3{{grid-template-columns:repeat(3,1fr)}}
 .kpi.cols4{{grid-template-columns:repeat(4,1fr)}}
-.kpi-cell{{background:#fff;padding:12px 16px;text-align:center}}
-.kpi-num{{font-size:22px;font-weight:800;letter-spacing:-.02em}}
-.kpi-lbl{{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:2px;font-weight:600}}
+.kpi-cell{{background:var(--surface);padding:16px 20px;text-align:center}}
+.kpi-num{{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:800;letter-spacing:-0.02em}}
+.kpi-lbl{{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:4px;font-weight:600}}
 table{{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}}
-thead tr{{background:#f7f7f5}}
-th{{padding:7px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#888;border-bottom:1px solid #e5e5e5}}
-td{{padding:7px 12px;border-bottom:1px solid #f0f0ee}}
+thead tr{{border-bottom:2px solid var(--text)}}
+th{{padding:10px 14px;text-align:left;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap}}
+td{{padding:12px 14px;border-bottom:1px solid var(--border)}}
 tr:last-child td{{border-bottom:none}}
-.warn{{background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:10px 14px;font-size:12px;color:#92400e;margin-bottom:12px}}
-.good{{background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:10px 14px;font-size:12px;color:#166534;margin-bottom:12px}}
-.file-links{{columns:2;gap:24px;list-style:none;padding:0}}
-.file-links li{{padding:4px 0;font-size:13px}}
-footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px solid #e5e5e5;margin-top:40px}}
+tr.hl{{background:#f0fdf4}}
+tr.hl td{{border-bottom:1px solid #bbf7d0}}
+tr.warn-row td{{background:#fff8f7}}
+.warn{{background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:12px 16px;font-size:13px;color:#92400e;margin-bottom:14px}}
+.good{{background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:12px 16px;font-size:13px;color:#166534;margin-bottom:14px}}
+.callout-dark{{background:var(--black);color:#fff;border-radius:8px;padding:28px 32px;margin-bottom:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:2px}}
+.cd-cell{{text-align:center;padding:8px}}
+.cd-num{{font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:800;letter-spacing:-0.02em}}
+.cd-num.green{{color:#4ade80}}.cd-num.red{{color:var(--red)}}.cd-num.teal{{color:#67e8f9}}
+.cd-lbl{{font-size:10px;color:#666;margin-top:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}}
+.file-links{{columns:2;gap:32px;list-style:none;padding:0}}
+.file-links li{{padding:5px 0;font-size:13px;border-bottom:1px solid var(--border)}}
+.file-links li:last-child{{border-bottom:none}}
+.file-links a{{color:var(--teal);text-decoration:none;font-weight:500}}
+.file-links a:hover{{color:var(--text)}}
+footer{{padding:40px 48px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;margin-top:40px}}
+.footer-logo{{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px}}
+.footer-logo span{{color:var(--red)}}
+.footer-links{{display:flex;gap:24px}}
+.footer-links a{{font-size:13px;color:var(--muted);text-decoration:none;font-weight:500;transition:color .2s}}
+.footer-links a:hover{{color:var(--text)}}
 </style>
 </head>
 <body>
-<header>
-  <div>
-    <h1>Sentinel — Full Training Evidence</h1>
-    <div class="sub">Every run · Every episode · Every number · For judge review</div>
-  </div>
-  <div class="nav">
-    <a href="/">Home</a>
-    <a href="/training_log">Live POST Log</a>
-    <a href="/results">Results JSON</a>
-    <a href="https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb" target="_blank">Colab Notebook</a>
-    <a href="https://github.com/sahithsundarw/sentinel" target="_blank">GitHub</a>
-  </div>
-</header>
+<nav>
+  <a class="nav-logo" href="/">// <span>SENTINEL</span></a>
+  <ul class="nav-links">
+    <li><a href="/">Home</a></li>
+    <li><a href="/training_log">Live POST Log</a></li>
+    <li><a href="/results">Results JSON</a></li>
+    <li><a href="https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb" target="_blank">Colab</a></li>
+    <li><a href="https://github.com/sahithsundarw/sentinel" target="_blank" class="nav-cta">GitHub</a></li>
+  </ul>
+</nav>
 <div class="container">
+<div class="page-hero">
+  <div class="section-tag">Training Evidence</div>
+  <h1 class="page-h1">Every run. Every episode. Every number.</h1>
+  <p class="page-sub">Complete training logs for judge review — Q-Learner, GRPO, REINFORCE, SFT, and all zero-shot baselines.</p>
+</div>
 
 <!-- TOC -->
 <div class="toc">
-  <h3>Contents</h3>
+  <div class="toc-title">Contents</div>
   <ol>
     <li><a href="#overview">Results Overview — all methods vs all tasks</a></li>
     <li><a href="#qlearner">Q-Learner RL — Task 4 headline result (0.0 → 0.9540)</a></li>
@@ -1878,16 +1912,16 @@ footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px 
 </div>
 
 <!-- SCOREBOARD -->
-<div class="scoreboard">
-  <div class="sb"><div class="sb-num" style="color:#16a34a">0.9540</div><div class="sb-lbl">Q-Learner Peak · Task 4</div></div>
-  <div class="sb"><div class="sb-num" style="color:#3a8fa3">{_sc(ql_eval.get('mean','?'))} ± {_sc(ql_eval.get('std','?'))}</div><div class="sb-lbl">Q-Learner 5-Seed Mean</div></div>
-  <div class="sb"><div class="sb-num" style="color:#16a34a">0.7809</div><div class="sb-lbl">GRPO Llama · Task 3 Post-Eval</div></div>
-  <div class="sb"><div class="sb-num" style="color:#e8472a">0.0000</div><div class="sb-lbl">SFT Collapse (both models)</div></div>
-  <div class="sb"><div class="sb-num" style="color:#e8472a">0.0000</div><div class="sb-lbl">Qwen-235B · Task 4</div></div>
+<div class="stats-bar">
+  <div class="stat-item"><div class="stat-num green">0.9540</div><div class="stat-label">Q-Learner Peak · Task 4</div></div>
+  <div class="stat-item"><div class="stat-num teal">{_sc(ql_eval.get('mean','?'))} ± {_sc(ql_eval.get('std','?'))}</div><div class="stat-label">Q-Learner 5-Seed Mean</div></div>
+  <div class="stat-item"><div class="stat-num green">0.7809</div><div class="stat-label">GRPO Llama · Task 3 Post-Eval</div></div>
+  <div class="stat-item"><div class="stat-num red">0.0000</div><div class="stat-label">SFT Collapse (both models)</div></div>
+  <div class="stat-item"><div class="stat-num red">0.0000</div><div class="stat-label">Qwen-235B · Task 4</div></div>
 </div>
 
 <!-- SECTION 1: OVERVIEW TABLE -->
-<h2 id="overview">1. Results Overview <span class="tag gray">all methods × all tasks</span></h2>
+<h2 class="section-heading" id="overview">1. Results Overview <span class="badge badge-gray">all methods × all tasks</span></h2>
 <div class="card">
   <p class="desc">Every model and training approach we ran, across all 4 tasks. Task 4 (adversarial_adaptation) is the separator — only a trained RL policy survives it.</p>
   <table>
@@ -1910,9 +1944,9 @@ footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px 
 </div>
 
 <!-- SECTION 2: Q-LEARNER TASK 4 -->
-<h2 id="qlearner">2. Q-Learner RL — Task 4 <span class="tag">adversarial_adaptation</span></h2>
+<h2 class="section-heading" id="qlearner">2. Q-Learner RL — Task 4 <span class="badge badge-red">adversarial_adaptation</span></h2>
 <div class="card">
-  <h3>What this is</h3>
+  <div class="card-title">What this is</div>
   <p class="desc">
     A tabular Q-learning agent with 9 hand-crafted keyword features (no neural network, no GPU).
     It trains against Task 4's deterministic FSM adversary: 10 topics × 6 intensities × 3 surfaces = 180 observable attack states.
@@ -1946,9 +1980,9 @@ footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px 
 </div>
 
 <!-- SECTION 3: Q-LEARNER TASKS 1-3 -->
-<h2 id="ql-per-task">3. Q-Learner — Tasks 1, 2, 3 <span class="tag gray">all tasks</span></h2>
+<h2 class="section-heading" id="ql-per-task">3. Q-Learner — Tasks 1, 2, 3 <span class="badge badge-gray">all tasks</span></h2>
 <div class="card">
-  <h3>Task 1 — basic_threat_detection</h3>
+  <div class="card-title">Task 1 — basic_threat_detection</div>
   <p class="desc">Keyword features insufficient for semantic threat detection. DAN jailbreaks and encoding tricks require neural embeddings to classify intent. Q-learner marginally exceeds baseline.</p>
   <div class="kpi cols3">
     <div class="kpi-cell"><div class="kpi-num" style="color:#888">{_sc(ql_t1.get('untrained_score','?'))}</div><div class="kpi-lbl">Untrained</div></div>
@@ -1961,7 +1995,7 @@ footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px 
   </table>
 </div>
 <div class="card">
-  <h3>Task 2 — context_aware_policy</h3>
+  <div class="card-title">Task 2 — context_aware_policy</div>
   <p class="desc">Same prompt → different correct action depending on prior conversation context. Q-learner improves over untrained but semantic understanding limits performance ceiling.</p>
   <div class="kpi cols3">
     <div class="kpi-cell"><div class="kpi-num" style="color:#888">{_sc(ql_t2.get('untrained_score','?'))}</div><div class="kpi-lbl">Untrained</div></div>
@@ -1974,7 +2008,7 @@ footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px 
   </table>
 </div>
 <div class="card">
-  <h3>Task 3 — multiturn_adversarial</h3>
+  <div class="card-title">Task 3 — multiturn_adversarial</div>
   <p class="desc">Multi-turn: block → adversary reframes. Allow → adversary escalates. Turn number and conversation history features capture the sequential pattern. +202% over all-allow baseline.</p>
   <div class="kpi cols3">
     <div class="kpi-cell"><div class="kpi-num" style="color:#888">{_sc(ql_t3.get('untrained_score','?'))}</div><div class="kpi-lbl">Untrained</div></div>
@@ -1988,7 +2022,7 @@ footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px 
 </div>
 
 <!-- SECTION 4: GRPO -->
-<h2 id="grpo">4. GRPO Training — Llama-3.1-8B <span class="tag teal">L40S GPU · unsloth + TRL</span></h2>
+<h2 class="section-heading" id="grpo">4. GRPO Training — Llama-3.1-8B <span class="badge badge-teal">L40S GPU · unsloth + TRL</span></h2>
 <div class="card">
   <p class="desc">
     Group Relative Policy Optimization (GRPO) with LoRA adapters on Llama-3.1-8B-Instruct (4-bit).
@@ -2026,7 +2060,7 @@ footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px 
 </div>
 
 <!-- SECTION 5: REINFORCE -->
-<h2 id="reinforce">5. REINFORCE — Llama-3.1-8B <span class="tag gray">RTX 4060 · 20 episodes</span></h2>
+<h2 class="section-heading" id="reinforce">5. REINFORCE — Llama-3.1-8B <span class="badge badge-gray">RTX 4060 · 20 episodes</span></h2>
 <div class="card">
   <p class="desc">
     Standard REINFORCE policy gradient with LoRA on Llama-3.1-8B-Instruct.
@@ -2072,7 +2106,7 @@ footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px 
 </div>
 
 <!-- SECTION 6: SFT COLLAPSE -->
-<h2 id="sft">6. SFT Collapse <span class="tag" style="background:#e8472a">confirmed on 2 models</span></h2>
+<h2 class="section-heading" id="sft">6. SFT Collapse <span class="badge badge-red">confirmed on 2 models</span></h2>
 <div class="card">
   <div class="warn">
     <b>Finding:</b> Supervised fine-tuning on safety-labeled data collapses both GPT-3.5-turbo and Llama-3.1-8B to a score of <b>0.0000</b> on the live environment.
@@ -2111,7 +2145,7 @@ footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px 
 </div>
 
 <!-- SECTION 7: BASELINES -->
-<h2 id="baselines">7. Zero-Shot Baselines</h2>
+<h2 class="section-heading" id="baselines">7. Zero-Shot Baselines</h2>
 <div class="card">
   <p class="desc">All frontier models run zero-shot against the live environment. No fine-tuning. These are the scores they achieve with just their pre-training, evaluated with the Sentinel grader.</p>
   <table>
@@ -2127,15 +2161,23 @@ footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px 
 </div>
 
 <!-- SECTION 8: RAW DATA LINKS -->
-<h2 id="raw">8. Raw Data Files</h2>
+<h2 class="section-heading" id="raw">8. Raw Data Files</h2>
 <div class="card">
-  <p class="desc">Every result file we saved — click any to see the full JSON. All files are also in the <a href="https://github.com/sahithsundarw/sentinel/tree/main/results" style="color:#3a8fa3">GitHub results/ directory</a>.</p>
+  <p class="desc">Every result file we saved — click any to see the full JSON. All files are also in the <a href="https://github.com/sahithsundarw/sentinel/tree/main/results" style="color:var(--teal)">GitHub results/ directory</a>.</p>
   <ul class="file-links">{file_links}</ul>
-  <p style="margin-top:16px;font-size:13px;color:#666">Training code: <a href="https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb" style="color:#3a8fa3">training_colab.ipynb (Google Colab)</a> · <a href="https://github.com/sahithsundarw/sentinel/blob/main/scripts/train_local.py" style="color:#3a8fa3">scripts/train_local.py</a></p>
+  <p style="margin-top:20px;font-size:13px;color:var(--muted)">Training code: <a href="https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb" style="color:var(--teal)">training_colab.ipynb (Google Colab)</a> · <a href="https://github.com/sahithsundarw/sentinel/blob/main/scripts/train_local.py" style="color:var(--teal)">scripts/train_local.py</a></p>
 </div>
 
 </div>
-<footer>Sentinel · OpenEnv RL Environment for AI Content Safety · <a href="https://varunventra-guardrail-arena.hf.space" style="color:#aaa">varunventra-guardrail-arena.hf.space</a></footer>
+<footer>
+  <div class="footer-logo">// <span>SENTINEL</span></div>
+  <div class="footer-links">
+    <a href="/">Home</a>
+    <a href="https://github.com/sahithsundarw/sentinel" target="_blank">GitHub</a>
+    <a href="https://varunventra-guardrail-arena.hf.space" target="_blank">HF Space</a>
+    <a href="https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb" target="_blank">Colab</a>
+  </div>
+</footer>
 </body>
 </html>"""
     return html

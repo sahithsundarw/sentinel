@@ -1754,6 +1754,26 @@ async def logs_page():
     for i, (sd, sc) in enumerate(zip(seeds, scores)):
         seed_rows += f"<tr><td>seed {sd}</td><td style='color:{_color(sc)};font-weight:700'>{_sc(sc)}</td><td>{'★ peak' if sc == max(scores) else ''}</td></tr>"
 
+    # ── pre-extract nested dict values so they're safe to use in f-string ─────
+    _ad1 = reinforce.get("action_distribution_ep1") or {}
+    _ad20 = reinforce.get("action_distribution_ep20") or {}
+    _rf_ep1_allow    = _ad1.get("allow", "?")
+    _rf_ep1_refuse   = _ad1.get("refuse", "?")
+    _rf_ep1_modify   = _ad1.get("modify", "?")
+    _rf_ep1_escalate = _ad1.get("escalate", "?")
+    _rf_ep20_allow    = _ad20.get("allow", "?")
+    _rf_ep20_refuse   = _ad20.get("refuse", "?")
+    _rf_ep20_modify   = _ad20.get("modify", "?")
+    _rf_ep20_escalate = _ad20.get("escalate", "?")
+    _cl_haiku  = claude.get("Claude Haiku 3.5") or {}
+    _cl_sonnet = claude.get("Claude Sonnet 4.6") or {}
+    _cl_haiku_t1  = _sc(_cl_haiku.get("task1", "?"))
+    _cl_haiku_t2  = _sc(_cl_haiku.get("task2", "?"))
+    _cl_haiku_t3  = _sc(_cl_haiku.get("task3", "?"))
+    _cl_sonnet_t1 = _sc(_cl_sonnet.get("task1", "?"))
+    _cl_sonnet_t2 = _sc(_cl_sonnet.get("task2", "?"))
+    _cl_sonnet_t3 = _sc(_cl_sonnet.get("task3", "?"))
+
     # ── raw file links ─────────────────────────────────────────────────────────
     raw_files = [
         ("Q-Learner Task 4 — 5-seed eval",       "/results?file=qlearner_task4_eval.json"),
@@ -2029,17 +2049,17 @@ footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px 
     <tbody>
       <tr>
         <td>Episode 1</td>
-        <td>{reinforce.get('action_distribution_ep1',{{}}).get('allow','?')}</td>
-        <td>{reinforce.get('action_distribution_ep1',{{}}).get('refuse','?')}</td>
-        <td>{reinforce.get('action_distribution_ep1',{{}}).get('modify','?')}</td>
-        <td>{reinforce.get('action_distribution_ep1',{{}}).get('escalate','?')}</td>
+        <td>{_rf_ep1_allow}</td>
+        <td>{_rf_ep1_refuse}</td>
+        <td>{_rf_ep1_modify}</td>
+        <td>{_rf_ep1_escalate}</td>
       </tr>
       <tr>
         <td>Episode 20</td>
-        <td>{reinforce.get('action_distribution_ep20',{{}}).get('allow','?')}</td>
-        <td>{reinforce.get('action_distribution_ep20',{{}}).get('refuse','?')}</td>
-        <td>{reinforce.get('action_distribution_ep20',{{}}).get('modify','?')}</td>
-        <td>{reinforce.get('action_distribution_ep20',{{}}).get('escalate','?')}</td>
+        <td>{_rf_ep20_allow}</td>
+        <td>{_rf_ep20_refuse}</td>
+        <td>{_rf_ep20_modify}</td>
+        <td>{_rf_ep20_escalate}</td>
       </tr>
     </tbody>
   </table>
@@ -2097,8 +2117,8 @@ footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px 
   <table>
     <thead><tr><th>Model</th><th>Task 1</th><th>Task 2</th><th>Task 3</th><th>Task 4</th></tr></thead>
     <tbody>
-      <tr><td>Claude Haiku 3.5</td><td>{_sc(claude.get('Claude Haiku 3.5',{{}}).get('task1','?'))}</td><td>{_sc(claude.get('Claude Haiku 3.5',{{}}).get('task2','?'))}</td><td>{_sc(claude.get('Claude Haiku 3.5',{{}}).get('task3','?'))}</td><td style="color:#e8472a;font-weight:700">0.0000</td></tr>
-      <tr><td>Claude Sonnet 4.6</td><td>{_sc(claude.get('Claude Sonnet 4.6',{{}}).get('task1','?'))}</td><td>{_sc(claude.get('Claude Sonnet 4.6',{{}}).get('task2','?'))}</td><td>{_sc(claude.get('Claude Sonnet 4.6',{{}}).get('task3','?'))}</td><td>0.1500</td></tr>
+      <tr><td>Claude Haiku 3.5</td><td>{_cl_haiku_t1}</td><td>{_cl_haiku_t2}</td><td>{_cl_haiku_t3}</td><td style="color:#e8472a;font-weight:700">0.0000</td></tr>
+      <tr><td>Claude Sonnet 4.6</td><td>{_cl_sonnet_t1}</td><td>{_cl_sonnet_t2}</td><td>{_cl_sonnet_t3}</td><td>0.1500</td></tr>
       <tr><td>GPT-3.5-turbo</td><td>{_sc(gpt35_sft.get('task1_before','?'))}</td><td>—</td><td>—</td><td>—</td></tr>
       <tr><td>Qwen-3-235B</td><td>0.9857</td><td>0.6862</td><td>0.8275</td><td style="color:#e8472a;font-weight:700">0.0000</td></tr>
       <tr><td>GPT-4o-mini</td><td>0.9216</td><td>0.7512</td><td>0.6120</td><td>0.4820</td></tr>

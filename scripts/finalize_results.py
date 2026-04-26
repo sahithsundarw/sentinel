@@ -60,7 +60,7 @@ def update_charts(eval_data):
     updated = text.replace(old, new)
     if updated != text:
         CHARTS_PY.write_text(updated, encoding="utf-8")
-        print(f"generate_charts.py updated: Q-Learner task4 → {mean:.4f}")
+        print(f"generate_charts.py updated: Q-Learner task4 -> {mean:.4f}")
     else:
         print("generate_charts.py: KNOWN_SCORES already matches or pattern not found.")
 

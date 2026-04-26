@@ -75,11 +75,19 @@ def _load_json(path: str):
 # Data definitions
 # ---------------------------------------------------------------------------
 
-Q_REWARDS = [
-    0.02, 0.05, 0.08, 0.12, 0.19, 0.25, 0.31, 0.38, 0.44, 0.50,
-    0.57, 0.63, 0.68, 0.73, 0.78, 0.82, 0.86, 0.90, 0.93, 0.9540,
-]
+# Milestone scores from train_task4.py measured run (chart_data.json)
+# Episodes 0,1,5,10,15,20 are real checkpoints; intermediate values linearly interpolated
+_MILESTONES = {0: 0.0, 1: 0.0, 5: 0.0, 10: 0.5301, 15: 0.9540, 20: 0.9540}
+def _interp(ep):
+    keys = sorted(_MILESTONES)
+    for i in range(len(keys) - 1):
+        a, b = keys[i], keys[i+1]
+        if a <= ep <= b:
+            t = (ep - a) / (b - a) if b > a else 0
+            return _MILESTONES[a] + t * (_MILESTONES[b] - _MILESTONES[a])
+    return _MILESTONES[keys[-1]]
 EPISODES = list(range(1, 21))
+Q_REWARDS = [round(_interp(ep), 4) for ep in EPISODES]
 ALL_ALLOW_T4 = 0.1500
 ALL_REFUSE_T4 = 0.0000
 
@@ -90,7 +98,7 @@ KNOWN_SCORES = {
     "Llama-3.3-70B":      {"task1": 0.9857, "task2": 0.7713, "task3": 0.6866, "task4": None},
     "all-allow":          {"task1": 0.3750, "task2": 0.4037, "task3": 0.1607, "task4": 0.1500},
     "all-refuse":         {"task1": 0.3534, "task2": 0.3460, "task3": 0.0688, "task4": 0.0000},
-    "Q-Learner (trained)":{"task1": 0.4600, "task2": None,   "task3": None,   "task4": 0.9540},
+    "Q-Learner (trained)":{"task1": 0.4600, "task2": None,   "task3": 0.4870, "task4": 0.9540},
 }
 
 TASK_LABELS = ["Task 1\nBasic Threats", "Task 2\nContext Policy",
@@ -157,8 +165,8 @@ def chart_hero_learning_curve():
     ax.set_title("Task 4: Adversarial Adaptation — From Zero to Expert",
                  fontsize=14, fontweight="bold", color=FG, pad=12)
     ax.text(0.5, 1.02,
-            "Tabular Q-Learner vs Degenerate Baselines (20 training episodes)",
-            transform=ax.transAxes, ha="center", fontsize=10, color="#aaaaaa",
+            "Milestone scores from train_task4.py checkpoints; intermediate episodes linearly interpolated",
+            transform=ax.transAxes, ha="center", fontsize=9, color="#aaaaaa",
             fontfamily=MONOSPACE)
 
     ax.legend(loc="upper left", framealpha=0.15, labelcolor=FG,
@@ -624,7 +632,7 @@ def chart_training_comparison():
     """Three-act bar chart: Task 4 performance by training approach."""
     categories = [
         "Zero-Shot Best\n(GPT-4o-mini, T4)",
-        "SFT\n(GPT-3.5-turbo, T4)",
+        "SFT Collapse\n(Llama + GPT-3.5, T1)",
         "RL Q-Learner\n(Trained, T4)",
     ]
     scores = [0.4820, 0.0000, 0.9540]

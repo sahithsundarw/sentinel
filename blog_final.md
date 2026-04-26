@@ -26,11 +26,11 @@ Our first idea was obvious: grab a bunch of labeled examples of safe and unsafe 
 
 It made the model worse.
 
-Not a little worse. We fine-tuned GPT-3.5 on 255 labeled examples and it went from a score of 0.08 to **0.00**. Zero. We did the same thing with Llama. Same result. What happened was almost embarrassing in hindsight — when you train on a safety dataset, about 70% of the examples are labeled "refuse." The model notices that pattern instantly and just... refuses everything. Every prompt. Unconditionally. Problem solved, from the model's perspective.
+Not a little worse. We fine-tuned GPT-3.5 on 255 labeled examples and the score went to **0.00**. Zero. We did the same thing with Llama. Same result. What happened was almost embarrassing in hindsight — when you train on a safety dataset, about 70% of the examples are labeled "refuse." The model notices that pattern instantly and just... refuses everything. Every prompt. Unconditionally. Problem solved, from the model's perspective.
 
 The thing is, a filter that blocks everything is useless. It also blocks your actual users trying to do normal things. That's not safety — that's just broken.
 
-**Frontier models fail the same way.** Qwen-3-235B — 235 billion parameters — scores **0.0000** on Task 4. Claude Haiku 3.5 scores 0.0000. Claude Sonnet 4.6 scores 0.1500, equal to the all-allow baseline. GPT-4o-mini peaks at 0.4820. These models handle simple threat detection well, but Task 4's adaptive FSM adversary — where your turn-1 action determines what you face on turn-5 — defeats every zero-shot policy. Their safety behaviors were not optimized against an adaptive adversary with a live reward signal, and it shows.
+And it's not just fine-tuning. We tested frontier models zero-shot against our environment. Qwen-3-235B — 235 billion parameters — scored **0.0000** on Task 4. So did Claude Haiku. The problem isn't model size. It's that their safety behaviors were never trained against something that actively fights back.
 
 ---
 
@@ -42,28 +42,13 @@ We ran this against a tabular Q-learner — a tiny algorithm with nine hand-craf
 
 Episode 1: score of 0.00. By episode 20: **0.954 out of 1.0**.
 
-For context — Qwen-3-235B, one of the most capable open-weight models in the world at 235 billion parameters, scored **0.0000** on the same task. Claude Sonnet. Llama-70B. All of them at or near zero. The Q-learner beat every single one of them. Not because it's smarter. Because it actually trained against the adversary instead of being frozen in place.
+The same task where Qwen-3-235B scores zero. The Q-learner beat it not because it's smarter — because it actually trained against the adversary instead of being frozen in place.
 
 ---
 
 That result honestly surprised us. We expected RL to do better than fine-tuning, but we didn't expect a nine-feature lookup table to completely dominate frontier models. It tells you something real about what's missing in how these models are currently built for safety — they're evaluated on static benchmarks, not trained against things that actively try to get around them.
 
 That's the gap we built Sentinel to fill. A live environment where safety isn't just measured — it's trained.
-
-| Model | Training | Task 1 | Task 2 | Task 3 | Task 4 |
-|---|---|---|---|---|---|
-| all-allow | — | 0.3750 | 0.4037 | 0.1607 | 0.1500 |
-| all-refuse | — | 0.3534 | 0.3460 | 0.0688 | 0.0000 |
-| Claude Haiku 3.5 | zero-shot | 0.9388 | 0.6155 | 0.7522 | 0.0000 |
-| Claude Sonnet 4.6 | zero-shot | 0.6963 | 0.7336 | 0.6699 | 0.1500 |
-| Llama-3.1-8B | zero-shot | 0.5428 | 0.5143 | 0.4746 | 0.0000 |
-| GPT-4o-mini | zero-shot | 0.9216 | 0.7512 | 0.6120 | 0.4820 |
-| Qwen-3-235B | zero-shot | 0.9857 | 0.6862 | 0.8275 | **0.0000** |
-| GPT-3.5-turbo | SFT (255 examples) | 0.0000 | 0.0000 | — | — |
-| Llama-3.1-8B | SFT (LoRA, 3 epochs) | 0.0000 | — | — | — |
-| Llama-3.1-8B | REINFORCE (20 ep) | 0.0929 | — | — | — |
-| Llama-3.1-8B | GRPO (20 ep, L40S) | — | **0.5221** | **0.7809** | — |
-| **Tabular Q-Learner** | **RL (keyword features)** | ~0.46 | 0.507 | 0.487 | **0.9540** |
 
 ---
 

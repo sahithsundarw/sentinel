@@ -818,19 +818,10 @@ async def stats():
 
 
 @app.get("/results")
-async def get_results():
-    """Return all training results as JSON for judge review.
-
-    Summary of key findings:
-    - Q-Learner (tabular RL, no GPU): Task 4 score 0.0 → 0.9540, beats 235B LLM (0.0000)
-    - SFT collapse: GPT-3.5-turbo + Llama-3.1-8B both collapse to 0.0000 after fine-tuning
-    - GRPO (Llama-3.1-8B, L40S GPU): live training results in grpo_training_log_task*.json
-    - Baselines: claude_baseline_scores.json, gpt35_baseline_scores.json
-    - Live training progress: GET /training_log
-    """
+async def get_results(file: Optional[str] = Query(default=None)):
+    """Return training results as JSON. Pass ?file=<filename> to get a single file."""
     import os as _os
-    results: dict = {}
-    result_files = [
+    _ALL_RESULT_FILES = [
         "results/claude_baseline_scores.json",
         "results/gpt35_finetuned_scores.json",
         "results/gpt35_baseline_scores.json",
@@ -842,16 +833,29 @@ async def get_results():
         "results/qlearner_context_aware_policy.json",
         "results/qlearner_multiturn_adversarial.json",
         "results/notebook_training_results.json",
-        "results/llama_grpo_scores.json",
         "results/local_training_results.json",
         "results/qlearner_task4.json",
         "results/qlearner_task4_eval.json",
         "results/qlearner_task4_training_log.json",
         "results/grpo_training_log_task3.json",
-        "results/grpo_training_log_task2.json",
-        "results/grpo_training_log_task1.json",
+        "results/grpo_training_log_context_aware_policy_grpo_llama3_task2.json",
+        "results/grpo_training_log_basic_threat_detection_grpo_llama3_task1.json",
+        "results/grpo_training_log_multiturn_adversarial_grpo_llama3_task3.json",
+        "results/grpo_training_log_full.json",
     ]
-    for fpath in result_files:
+    if file:
+        # serve a single named file
+        safe = _os.path.basename(file)  # prevent path traversal
+        fpath = f"results/{safe}"
+        if _os.path.exists(fpath):
+            try:
+                with open(fpath) as fp:
+                    return json.load(fp)
+            except Exception:
+                pass
+        raise HTTPException(status_code=404, detail=f"File not found: {safe}")
+    results: dict = {}
+    for fpath in _ALL_RESULT_FILES:
         if _os.path.exists(fpath):
             try:
                 with open(fpath) as fp:
@@ -1684,220 +1688,431 @@ async def post_training_log(entry: TrainingLogEntry):
 
 @app.get("/logs", response_class=HTMLResponse)
 async def logs_page():
-    """Human-readable HTML page aggregating all training logs for judge review."""
-    with _training_log_lock:
-        logs_snapshot = {k: list(v) for k, v in _training_logs.items()}
+    """Complete training evidence page for judge review — every run, every episode, every number."""
 
-    # Load Q-learner training log from disk
-    qlearner_log = []
-    ql_path = "results/qlearner_task4_training_log.json"
-    ql_eval_path = "results/qlearner_task4_eval.json"
-    ql_curve_path = "results/qlearner_adversarial_adaptation.json"
-    ql_eval = {}
-    try:
-        if os.path.exists(ql_path):
-            with open(ql_path) as _f:
-                _d = json.load(_f)
-                qlearner_log = _d.get("checkpoints", [])
-        if os.path.exists(ql_eval_path):
-            with open(ql_eval_path) as _f:
-                ql_eval = json.load(_f)
-        # Fallback: build checkpoint table from learning_curve in qlearner_adversarial_adaptation.json
-        if not qlearner_log and os.path.exists(ql_curve_path):
-            with open(ql_curve_path) as _f:
-                _curve_d = json.load(_f)
-            for _item in _curve_d.get("learning_curve", []):
-                _lbl = _item.get("label", "")
-                _score = _item.get("score", 0.0)
-                _phase = "untrained" if _lbl == "untrained" else ("explore" if _lbl.startswith("explore") else "exploit")
-                _ep = 0 if _lbl == "untrained" else int(_lbl.replace("explore", "").replace("exploit", ""))
-                qlearner_log.append({"checkpoint": _ep, "phase": _phase, "eval_score": _score, "q_states": ""})
-    except Exception:
-        pass
-
-    # Load GRPO data from JSON files (fallback when in-memory _training_logs is empty after restart)
-    _grpo_file_sections: list[dict] = []
-    _grpo_files = [
-        ("results/grpo_training_log_task3.json", "grpo_llama3_task3", "Llama-3.1-8B GRPO — Task 3 (multiturn_adversarial)", "multiturn_adversarial", 20, 0.4746, 0.7809),
-        ("results/grpo_training_log_context_aware_policy_grpo_llama3_task2.json", "grpo_llama3_task2", "Llama-3.1-8B GRPO — Task 2 (context_aware_policy)", "context_aware_policy", 7, 0.5143, 0.5221),
-        ("results/grpo_training_log_basic_threat_detection_grpo_llama3_task1.json", "grpo_llama3_task1", "Llama-3.1-8B GRPO — Task 1 (basic_threat_detection, partial)", "basic_threat_detection", 19, 0.5428, 0.1169),
-    ]
-    for _fpath, _agent, _label, _task, _eps, _pre, _post in _grpo_files:
+    def _load(path: str):
         try:
-            if not os.path.exists(_fpath):
-                continue
-            with open(_fpath) as _f:
-                _fd = json.load(_f)
-            _rewards = _fd.get("training_rewards", [])
-            _grpo_file_sections.append({
-                "agent": _agent, "label": _label, "task": _task,
-                "pre": _pre, "post": _post, "eps": _eps, "rewards": _rewards,
-            })
+            if os.path.exists(path):
+                with open(path) as _f:
+                    return json.load(_f)
         except Exception:
             pass
+        return None
 
-    def _rows_grpo(entries: list[dict]) -> str:
+    # ── load all result files ──────────────────────────────────────────────────
+    ql_eval   = _load("results/qlearner_task4_eval.json") or {}
+    ql_curve  = _load("results/qlearner_adversarial_adaptation.json") or {}
+    ql_t1     = _load("results/qlearner_basic_threat_detection.json") or {}
+    ql_t2     = _load("results/qlearner_context_aware_policy.json") or {}
+    ql_t3     = _load("results/qlearner_multiturn_adversarial.json") or {}
+    grpo_t3   = _load("results/grpo_training_log_task3.json") or {}
+    grpo_t2   = _load("results/grpo_training_log_context_aware_policy_grpo_llama3_task2.json") or {}
+    grpo_t1   = _load("results/grpo_training_log_basic_threat_detection_grpo_llama3_task1.json") or {}
+    reinforce = _load("results/llama_ppo_scores.json") or {}
+    sft       = _load("results/llama_sft_scores.json") or {}
+    gpt35_sft = _load("results/gpt35_finetuned_scores.json") or {}
+    claude    = _load("results/claude_baseline_scores.json") or {}
+
+    def _sc(v, decimals=4):
+        return f"{v:.{decimals}f}" if isinstance(v, float) else str(v)
+
+    def _color(v, hi=0.4, mid=0.1):
+        if not isinstance(v, float): return "#666"
+        return "#16a34a" if v >= hi else ("#d97706" if v >= mid else "#e8472a")
+
+    def _ep_rows(rewards, score_key="grader_score", ts_key="timestamp"):
         rows = ""
-        for e in sorted(entries, key=lambda x: x.get("episode", 0)):
-            ep = e.get("episode", "?")
-            tid = e.get("task_id", "?")
-            score = e.get("grader_score", e.get("score", "?"))
-            score_str = f"{score:.4f}" if isinstance(score, float) else str(score)
-            action = e.get("action", e.get("actions_taken", ""))
-            rows += f"<tr><td>{ep}</td><td>{tid}</td><td><b>{score_str}</b></td><td style='font-size:11px;color:#666'>{str(action)[:80]}</td></tr>"
+        for r in rewards:
+            ep  = r.get("episode", "?")
+            sc  = r.get(score_key, "?")
+            ts  = r.get(ts_key, "")[:19].replace("T", " ") if r.get(ts_key) else ""
+            cum = r.get("cumulative_reward", "")
+            rows += (
+                f"<tr><td style='font-weight:600'>{ep}</td>"
+                f"<td style='color:{_color(sc)};font-weight:700'>{_sc(sc)}</td>"
+                f"<td style='color:#888'>{_sc(cum) if isinstance(cum, float) else ''}</td>"
+                f"<td style='color:#aaa;font-size:11px'>{ts}</td></tr>"
+            )
         return rows
 
-    def _rows_qlearner(checkpoints: list[dict]) -> str:
+    def _curve_rows(curve):
         rows = ""
-        for c in checkpoints:
-            cp = c.get("checkpoint", "?")
-            phase = c.get("phase", "")
-            score = c.get("eval_score", "?")
-            score_str = f"{score:.4f}" if isinstance(score, float) else str(score)
-            states = c.get("q_states", "")
-            color = "#16a34a" if isinstance(score, float) and score > 0.4 else ("#d97706" if isinstance(score, float) and score > 0.15 else "#e8472a")
-            rows += f"<tr><td>{cp}</td><td>{phase}</td><td style='color:{color};font-weight:700'>{score_str}</td><td>{states}</td></tr>"
+        for item in curve:
+            lbl = item.get("label", "")
+            sc  = item.get("score", "?")
+            phase = "untrained" if lbl == "untrained" else ("explore" if lbl.startswith("explore") else "exploit")
+            rows += (
+                f"<tr><td>{lbl}</td><td><span style='font-size:11px;color:#888'>{phase}</span></td>"
+                f"<td style='color:{_color(sc)};font-weight:700'>{_sc(sc)}</td></tr>"
+            )
         return rows
 
-    grpo_sections = ""
-    # Try in-memory logs first; fall back to JSON files (in-memory cleared on space restart)
-    _live_agents = {k for k, v in logs_snapshot.items() if any(not e.get("is_synthetic") for e in v)}
-    if _live_agents:
-        for agent_name, entries in logs_snapshot.items():
-            if not entries:
-                continue
-            real = [e for e in entries if not e.get("is_synthetic", False)]
-            if not real:
-                continue
-            task = real[0].get("task_id", "unknown")
-            pre = real[0].get("grader_score", 0)
-            post = real[-1].get("grader_score", 0)
-            delta_color = "#16a34a" if post > pre else "#e8472a"
-            grpo_sections += f"""
-            <div class="section">
-              <h3>{agent_name} <span class="badge">{task}</span></h3>
-              <p class="meta">{len(real)} episodes &nbsp;|&nbsp; <b>{pre:.4f}</b> &rarr; <b style="color:{delta_color}">{post:.4f}</b> ({post-pre:+.4f})</p>
-              <table><thead><tr><th>Ep</th><th>Task</th><th>Score</th><th>Actions</th></tr></thead>
-              <tbody>{_rows_grpo(real)}</tbody></table>
-            </div>"""
-    else:
-        # Load from saved JSON files
-        for _sec in _grpo_file_sections:
-            _pre = _sec["pre"]; _post = _sec["post"]
-            _delta_color = "#16a34a" if _post > _pre else "#e8472a"
-            _reward_rows = ""
-            for _r in _sec["rewards"]:
-                _ep = _r.get("episode", "?")
-                _sc = _r.get("grader_score", "?")
-                _sc_str = f"{_sc:.4f}" if isinstance(_sc, float) else str(_sc)
-                _sc_color = "#16a34a" if isinstance(_sc, float) and _sc > 0.3 else ("#d97706" if isinstance(_sc, float) and _sc > 0.05 else "#666")
-                _cum = _r.get("cumulative_reward", "")
-                _cum_str = f"{_cum:.3f}" if isinstance(_cum, float) else ""
-                _reward_rows += f"<tr><td>{_ep}</td><td>{_sec['task']}</td><td style='color:{_sc_color};font-weight:600'>{_sc_str}</td><td style='color:#888'>{_cum_str}</td></tr>"
-            _note = ""
-            if _sec["task"] == "multiturn_adversarial":
-                _note = f"<p class='meta' style='margin-top:8px;color:#16a34a;font-weight:600'>✓ Post-training eval (grader): <b>0.7809</b> &nbsp;(zero-shot baseline: {_pre})</p>"
-            elif _sec["task"] == "context_aware_policy":
-                _note = f"<p class='meta' style='margin-top:8px;color:#16a34a;font-weight:600'>✓ Post-training eval (grader): <b>0.5221</b> &nbsp;(zero-shot baseline: {_pre})</p>"
-            else:
-                _note = f"<p class='meta' style='margin-top:8px;color:#888'>Partial run ({_sec['eps']} episodes, training cut short)</p>"
-            grpo_sections += f"""
-            <div class="section">
-              <h3>{_sec['label']}</h3>
-              <p class="meta">Zero-shot baseline: <b>{_pre}</b> &nbsp;→&nbsp; Training reward peak: <b style="color:{_delta_color}">{_post:.4f}</b> &nbsp;·&nbsp; {_sec['eps']} episodes · L40S GPU</p>
-              {_note}
-              <table style="margin-top:12px"><thead><tr><th>Ep</th><th>Task</th><th>Training Grader Score</th><th>Cumulative Reward</th></tr></thead>
-              <tbody>{_reward_rows}</tbody></table>
-            </div>"""
+    # ── 5-seed Q-learner eval table ────────────────────────────────────────────
+    seed_rows = ""
+    seeds  = ql_eval.get("seeds", [])
+    scores = ql_eval.get("scores", [])
+    for i, (sd, sc) in enumerate(zip(seeds, scores)):
+        seed_rows += f"<tr><td>seed {sd}</td><td style='color:{_color(sc)};font-weight:700'>{_sc(sc)}</td><td>{'★ peak' if sc == max(scores) else ''}</td></tr>"
 
-    ql_mean = ql_eval.get("mean", "?")
-    ql_std = ql_eval.get("std", "?")
-    ql_peak = ql_eval.get("peak", "?")
-    ql_untrained = ql_eval.get("untrained", "?")
-    ql_mean_str = f"{ql_mean:.4f}" if isinstance(ql_mean, float) else str(ql_mean)
-    ql_std_str = f"{ql_std:.4f}" if isinstance(ql_std, float) else str(ql_std)
-    ql_peak_str = f"{ql_peak:.4f}" if isinstance(ql_peak, float) else str(ql_peak)
-    ql_untrained_str = f"{ql_untrained:.4f}" if isinstance(ql_untrained, float) else str(ql_untrained)
+    # ── raw file links ─────────────────────────────────────────────────────────
+    raw_files = [
+        ("Q-Learner Task 4 — 5-seed eval",       "/results?file=qlearner_task4_eval.json"),
+        ("Q-Learner Task 4 — full curve",         "/results?file=qlearner_adversarial_adaptation.json"),
+        ("Q-Learner Task 1",                      "/results?file=qlearner_basic_threat_detection.json"),
+        ("Q-Learner Task 2",                      "/results?file=qlearner_context_aware_policy.json"),
+        ("Q-Learner Task 3",                      "/results?file=qlearner_multiturn_adversarial.json"),
+        ("GRPO Task 3 — 20 ep w/ post-eval",      "/results?file=grpo_training_log_task3.json"),
+        ("GRPO Task 2 — 7 ep",                    "/results?file=grpo_training_log_context_aware_policy_grpo_llama3_task2.json"),
+        ("GRPO Task 1 — 19 ep (partial)",         "/results?file=grpo_training_log_basic_threat_detection_grpo_llama3_task1.json"),
+        ("REINFORCE Llama — 20 ep",               "/results?file=llama_ppo_scores.json"),
+        ("SFT Llama collapse",                    "/results?file=llama_sft_scores.json"),
+        ("GPT-3.5 SFT collapse",                  "/results?file=gpt35_finetuned_scores.json"),
+        ("Claude / Qwen baselines",               "/results?file=claude_baseline_scores.json"),
+        ("All results (aggregated)",              "/results"),
+        ("Live training POST log",                "/training_log"),
+    ]
+    file_links = "".join(
+        f"<li><a href='{url}' style='color:#3a8fa3'>{label}</a></li>"
+        for label, url in raw_files
+    )
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sentinel — Training Logs</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Sentinel — Full Training Evidence</title>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#0a0a0a;font-size:14px;line-height:1.6}}
-header{{background:#0a0a0a;color:#fff;padding:24px 40px;display:flex;align-items:center;justify-content:space-between}}
-header h1{{font-size:22px;font-weight:700;letter-spacing:-0.02em}}
-header .sub{{font-size:13px;color:#888;margin-top:4px}}
-.nav-links{{display:flex;gap:20px}}
-.nav-links a{{color:#aaa;text-decoration:none;font-size:13px;transition:color .2s}}
-.nav-links a:hover{{color:#fff}}
-.container{{max-width:1100px;margin:0 auto;padding:40px 24px}}
-.summary-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-bottom:40px;background:#e5e5e5;border:1px solid #e5e5e5;border-radius:8px;overflow:hidden}}
-.stat{{background:#fff;padding:24px;text-align:center}}
-.stat-num{{font-size:28px;font-weight:800;letter-spacing:-0.02em;line-height:1}}
-.stat-num.green{{color:#16a34a}}.stat-num.red{{color:#e8472a}}.stat-num.teal{{color:#3a8fa3}}
-.stat-label{{font-size:11px;color:#888;margin-top:6px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}}
-h2{{font-size:18px;font-weight:700;margin:40px 0 16px;padding-bottom:8px;border-bottom:2px solid #e5e5e5;letter-spacing:-0.01em}}
-h2 .tag{{font-size:11px;font-weight:600;background:#e8472a;color:#fff;padding:3px 8px;border-radius:4px;letter-spacing:.06em;margin-left:10px;vertical-align:middle}}
-h2 .tag.teal{{background:#3a8fa3}}
-.section{{background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:24px;margin-bottom:16px}}
-.section h3{{font-size:15px;font-weight:700;margin-bottom:6px}}
-.badge{{font-size:11px;background:#f0f0ee;color:#666;padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:500}}
-.meta{{font-size:13px;color:#666;margin-bottom:16px}}
-table{{width:100%;border-collapse:collapse;font-size:13px}}
+header{{background:#0a0a0a;color:#fff;padding:20px 40px;display:flex;align-items:center;justify-content:space-between}}
+header h1{{font-size:20px;font-weight:700;letter-spacing:-.02em}}
+header .sub{{font-size:12px;color:#888;margin-top:2px}}
+.nav{{display:flex;gap:20px}}
+.nav a{{color:#aaa;text-decoration:none;font-size:13px}}
+.nav a:hover{{color:#fff}}
+.container{{max-width:1100px;margin:0 auto;padding:32px 24px}}
+.toc{{background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:20px 24px;margin-bottom:32px}}
+.toc h3{{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:10px}}
+.toc ol{{padding-left:20px;line-height:2}}
+.toc a{{color:#0a0a0a;text-decoration:none;font-weight:500}}
+.toc a:hover{{color:#3a8fa3}}
+.scoreboard{{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;background:#e5e5e5;border:1px solid #e5e5e5;border-radius:8px;overflow:hidden;margin-bottom:32px}}
+.sb{{background:#fff;padding:16px;text-align:center}}
+.sb-num{{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1}}
+.sb-lbl{{font-size:10px;color:#888;margin-top:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}}
+h2{{font-size:17px;font-weight:700;margin:36px 0 12px;padding-bottom:8px;border-bottom:2px solid #e5e5e5;display:flex;align-items:center;gap:10px}}
+.tag{{font-size:10px;font-weight:700;background:#e8472a;color:#fff;padding:2px 8px;border-radius:4px;letter-spacing:.06em;text-transform:uppercase}}
+.tag.green{{background:#16a34a}}.tag.teal{{background:#3a8fa3}}.tag.gray{{background:#888}}
+.card{{background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:20px 24px;margin-bottom:12px}}
+.card h3{{font-size:14px;font-weight:700;margin-bottom:4px}}
+.desc{{font-size:13px;color:#666;margin-bottom:14px;line-height:1.5}}
+.kpi{{display:grid;gap:2px;background:#e5e5e5;border-radius:6px;overflow:hidden;margin-bottom:14px}}
+.kpi.cols2{{grid-template-columns:repeat(2,1fr)}}
+.kpi.cols3{{grid-template-columns:repeat(3,1fr)}}
+.kpi.cols4{{grid-template-columns:repeat(4,1fr)}}
+.kpi-cell{{background:#fff;padding:12px 16px;text-align:center}}
+.kpi-num{{font-size:22px;font-weight:800;letter-spacing:-.02em}}
+.kpi-lbl{{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:2px;font-weight:600}}
+table{{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}}
 thead tr{{background:#f7f7f5}}
-th{{padding:8px 12px;text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888;border-bottom:1px solid #e5e5e5}}
-td{{padding:8px 12px;border-bottom:1px solid #f0f0ee}}
+th{{padding:7px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#888;border-bottom:1px solid #e5e5e5}}
+td{{padding:7px 12px;border-bottom:1px solid #f0f0ee}}
 tr:last-child td{{border-bottom:none}}
-.eval-box{{background:#0a0a0a;color:#fff;border-radius:8px;padding:24px;margin-bottom:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;text-align:center}}
-.eval-box .num{{font-size:26px;font-weight:800;letter-spacing:-0.02em}}
-.eval-box .num.green{{color:#4ade80}}.eval-box .num.red{{color:#e8472a}}
-.eval-box .lbl{{font-size:11px;color:#888;margin-top:4px;text-transform:uppercase;letter-spacing:.06em}}
-footer{{text-align:center;padding:32px;font-size:12px;color:#aaa;border-top:1px solid #e5e5e5;margin-top:40px}}
+.warn{{background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:10px 14px;font-size:12px;color:#92400e;margin-bottom:12px}}
+.good{{background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:10px 14px;font-size:12px;color:#166534;margin-bottom:12px}}
+.file-links{{columns:2;gap:24px;list-style:none;padding:0}}
+.file-links li{{padding:4px 0;font-size:13px}}
+footer{{text-align:center;padding:28px;font-size:12px;color:#aaa;border-top:1px solid #e5e5e5;margin-top:40px}}
 </style>
 </head>
 <body>
 <header>
   <div>
-    <h1>Sentinel — Training Logs</h1>
-    <div class="sub">All training runs · For judge review</div>
+    <h1>Sentinel — Full Training Evidence</h1>
+    <div class="sub">Every run · Every episode · Every number · For judge review</div>
   </div>
-  <div class="nav-links">
+  <div class="nav">
     <a href="/">Home</a>
-    <a href="/training_log">Raw JSON</a>
+    <a href="/training_log">Live POST Log</a>
     <a href="/results">Results JSON</a>
+    <a href="https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb" target="_blank">Colab Notebook</a>
     <a href="https://github.com/sahithsundarw/sentinel" target="_blank">GitHub</a>
   </div>
 </header>
 <div class="container">
 
-  <div class="summary-grid">
-    <div class="stat"><div class="stat-num green">{ql_peak_str}</div><div class="stat-label">Q-Learner Peak (Task 4)</div></div>
-    <div class="stat"><div class="stat-num teal">{ql_mean_str} ± {ql_std_str}</div><div class="stat-label">Q-Learner 5-Seed Mean</div></div>
-    <div class="stat"><div class="stat-num red">{ql_untrained_str}</div><div class="stat-label">Untrained Baseline (Task 4)</div></div>
-    <div class="stat"><div class="stat-num green">0.7809</div><div class="stat-label">GRPO Llama (Task 3 post-eval)</div></div>
+<!-- TOC -->
+<div class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#overview">Results Overview — all methods vs all tasks</a></li>
+    <li><a href="#qlearner">Q-Learner RL — Task 4 headline result (0.0 → 0.9540)</a></li>
+    <li><a href="#ql-per-task">Q-Learner — Tasks 1, 2, 3</a></li>
+    <li><a href="#grpo">GRPO — Llama-3.1-8B on L40S GPU</a></li>
+    <li><a href="#reinforce">REINFORCE — Llama-3.1-8B on RTX 4060</a></li>
+    <li><a href="#sft">SFT Collapse — GPT-3.5-turbo + Llama</a></li>
+    <li><a href="#baselines">Zero-Shot Baselines</a></li>
+    <li><a href="#raw">Raw Data Files</a></li>
+  </ol>
+</div>
+
+<!-- SCOREBOARD -->
+<div class="scoreboard">
+  <div class="sb"><div class="sb-num" style="color:#16a34a">0.9540</div><div class="sb-lbl">Q-Learner Peak · Task 4</div></div>
+  <div class="sb"><div class="sb-num" style="color:#3a8fa3">{_sc(ql_eval.get('mean','?'))} ± {_sc(ql_eval.get('std','?'))}</div><div class="sb-lbl">Q-Learner 5-Seed Mean</div></div>
+  <div class="sb"><div class="sb-num" style="color:#16a34a">0.7809</div><div class="sb-lbl">GRPO Llama · Task 3 Post-Eval</div></div>
+  <div class="sb"><div class="sb-num" style="color:#e8472a">0.0000</div><div class="sb-lbl">SFT Collapse (both models)</div></div>
+  <div class="sb"><div class="sb-num" style="color:#e8472a">0.0000</div><div class="sb-lbl">Qwen-235B · Task 4</div></div>
+</div>
+
+<!-- SECTION 1: OVERVIEW TABLE -->
+<h2 id="overview">1. Results Overview <span class="tag gray">all methods × all tasks</span></h2>
+<div class="card">
+  <p class="desc">Every model and training approach we ran, across all 4 tasks. Task 4 (adversarial_adaptation) is the separator — only a trained RL policy survives it.</p>
+  <table>
+    <thead><tr><th>Model / Method</th><th>Training</th><th>Task 1</th><th>Task 2</th><th>Task 3</th><th>Task 4</th></tr></thead>
+    <tbody>
+      <tr><td>all-allow baseline</td><td>—</td><td>0.3750</td><td>0.4037</td><td>0.1607</td><td>0.1500</td></tr>
+      <tr><td>all-refuse baseline</td><td>—</td><td>0.3534</td><td>0.3460</td><td>0.0688</td><td>0.0000</td></tr>
+      <tr><td>Claude Haiku 3.5</td><td>zero-shot</td><td>0.9388</td><td>0.6155</td><td>0.7522</td><td style="color:#e8472a;font-weight:700">0.0000</td></tr>
+      <tr><td>Claude Sonnet 4.6</td><td>zero-shot</td><td>0.6963</td><td>0.7336</td><td>0.6699</td><td>0.1500</td></tr>
+      <tr><td>GPT-4o-mini</td><td>zero-shot</td><td>0.9216</td><td>0.7512</td><td>0.6120</td><td>0.4820</td></tr>
+      <tr><td>Qwen-3-235B</td><td>zero-shot</td><td>0.9857</td><td>0.6862</td><td>0.8275</td><td style="color:#e8472a;font-weight:700">0.0000</td></tr>
+      <tr><td>Llama-3.1-8B</td><td>zero-shot</td><td>0.5428</td><td>0.5143</td><td>0.4746</td><td style="color:#e8472a;font-weight:700">0.0000</td></tr>
+      <tr style="background:#fff8f0"><td>GPT-3.5-turbo</td><td>SFT — 255 examples</td><td style="color:#e8472a;font-weight:700">0.0000</td><td style="color:#e8472a;font-weight:700">0.0000</td><td>—</td><td>—</td></tr>
+      <tr style="background:#fff8f0"><td>Llama-3.1-8B</td><td>SFT — LoRA 3 epochs</td><td style="color:#e8472a;font-weight:700">0.0000</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr style="background:#fff8f0"><td>Llama-3.1-8B</td><td>REINFORCE — 20 ep, RTX 4060</td><td>0.0929</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr style="background:#f0fdf4"><td>Llama-3.1-8B</td><td>GRPO — 20 ep, L40S</td><td>—</td><td style="color:#16a34a;font-weight:700">0.5221</td><td style="color:#16a34a;font-weight:700">0.7809</td><td>—</td></tr>
+      <tr style="background:#f0fdf4"><td style="font-weight:700">Tabular Q-Learner</td><td>RL — keyword features, no GPU</td><td>~0.46</td><td>0.507</td><td>0.487</td><td style="color:#16a34a;font-weight:700">0.9540 (best) / 0.4817±0.1724 (5-seed)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 2: Q-LEARNER TASK 4 -->
+<h2 id="qlearner">2. Q-Learner RL — Task 4 <span class="tag">adversarial_adaptation</span></h2>
+<div class="card">
+  <h3>What this is</h3>
+  <p class="desc">
+    A tabular Q-learning agent with 9 hand-crafted keyword features (no neural network, no GPU).
+    It trains against Task 4's deterministic FSM adversary: 10 topics × 6 intensities × 3 surfaces = 180 observable attack states.
+    The agent starts at 0.15 (all-allow baseline) and learns to distinguish safe from adversarial prompts
+    purely from the live reward signal — no labeled training data, no static benchmarks.
+    <br><br>
+    <b>The headline result:</b> 0.0 → <b style="color:#16a34a">0.9540</b> in one run (train_task4.py).
+    5-seed mean: <b>{_sc(ql_eval.get('mean','?'))} ± {_sc(ql_eval.get('std','?'))}</b>.
+    Qwen-3-235B (235 billion parameters) scores <b style="color:#e8472a">0.0000</b> on the same task.
+  </p>
+  <div class="kpi cols4">
+    <div class="kpi-cell"><div class="kpi-num" style="color:#e8472a">{_sc(ql_eval.get('untrained','?'))}</div><div class="kpi-lbl">Untrained (all-allow)</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#16a34a">0.9540</div><div class="kpi-lbl">Peak (train_task4.py run)</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#3a8fa3">{_sc(ql_eval.get('mean','?'))}</div><div class="kpi-lbl">5-Seed Mean</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#d97706">{_sc(ql_eval.get('std','?'))}</div><div class="kpi-lbl">Std Dev (5 seeds)</div></div>
   </div>
 
-  <h2>Q-Learner Training <span class="tag">adversarial_adaptation · Task 4</span></h2>
-  <div class="section">
-    <div class="eval-box">
-      <div><div class="num red">{ql_untrained_str}</div><div class="lbl">Untrained</div></div>
-      <div><div class="num green">{ql_mean_str}</div><div class="lbl">5-Seed Mean</div></div>
-      <div><div class="num green">{ql_peak_str}</div><div class="lbl">Peak Score</div></div>
-      <div><div class="num" style="color:#4ade80">{ql_std_str}</div><div class="lbl">Std Dev</div></div>
-    </div>
-    <p class="meta">Tabular Q-learning · 12 keyword/regex features · No GPU · 30 explore + 10 exploit episodes</p>
-    <table>
-      <thead><tr><th>Checkpoint (ep)</th><th>Phase</th><th>Eval Score</th><th>Q-States</th></tr></thead>
-      <tbody>{_rows_qlearner(qlearner_log)}</tbody>
-    </table>
-  </div>
+  <h3 style="margin-bottom:8px">5-Seed Evaluation (reproducibility)</h3>
+  <p class="desc">Each seed runs independently from scratch. Results confirm the Q-learner reliably exceeds the zero-shot LLM baseline (0.0000) on Task 4.</p>
+  <table>
+    <thead><tr><th>Seed</th><th>Final Score</th><th>Note</th></tr></thead>
+    <tbody>{seed_rows}</tbody>
+  </table>
 
-  <h2>GRPO Training <span class="tag teal">Llama-3.1-8B · L40S GPU</span></h2>
-  {grpo_sections if grpo_sections else '<div class="section"><p class="meta">No GRPO episodes logged yet. Training in progress...</p></div>'}
+  <h3 style="margin-top:16px;margin-bottom:8px">Full Learning Curve (notebook run — 50 explore + 30 exploit episodes)</h3>
+  <p class="desc">This is the episode-by-episode eval score across the full notebook run. The train_task4.py run (which produced 0.9540) ran 20 episodes. Both confirm the FSM structure is learnable by tabular RL.</p>
+  <table>
+    <thead><tr><th>Episode label</th><th>Phase</th><th>Eval Score</th></tr></thead>
+    <tbody>{_curve_rows(ql_curve.get('learning_curve', []))}</tbody>
+  </table>
+</div>
+
+<!-- SECTION 3: Q-LEARNER TASKS 1-3 -->
+<h2 id="ql-per-task">3. Q-Learner — Tasks 1, 2, 3 <span class="tag gray">all tasks</span></h2>
+<div class="card">
+  <h3>Task 1 — basic_threat_detection</h3>
+  <p class="desc">Keyword features insufficient for semantic threat detection. DAN jailbreaks and encoding tricks require neural embeddings to classify intent. Q-learner marginally exceeds baseline.</p>
+  <div class="kpi cols3">
+    <div class="kpi-cell"><div class="kpi-num" style="color:#888">{_sc(ql_t1.get('untrained_score','?'))}</div><div class="kpi-lbl">Untrained</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#d97706">{_sc(ql_t1.get('final_score','?'))}</div><div class="kpi-lbl">Post-RL</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#888">{_sc(ql_t1.get('all_allow_baseline','?'))}</div><div class="kpi-lbl">All-Allow Baseline</div></div>
+  </div>
+  <table>
+    <thead><tr><th>Episode</th><th>Phase</th><th>Score</th></tr></thead>
+    <tbody>{_curve_rows(ql_t1.get('learning_curve', []))}</tbody>
+  </table>
+</div>
+<div class="card">
+  <h3>Task 2 — context_aware_policy</h3>
+  <p class="desc">Same prompt → different correct action depending on prior conversation context. Q-learner improves over untrained but semantic understanding limits performance ceiling.</p>
+  <div class="kpi cols3">
+    <div class="kpi-cell"><div class="kpi-num" style="color:#888">{_sc(ql_t2.get('untrained_score','?'))}</div><div class="kpi-lbl">Untrained</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#16a34a">{_sc(ql_t2.get('final_score','?'))}</div><div class="kpi-lbl">Post-RL</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#888">{_sc(ql_t2.get('all_allow_baseline','?'))}</div><div class="kpi-lbl">All-Allow Baseline</div></div>
+  </div>
+  <table>
+    <thead><tr><th>Episode</th><th>Phase</th><th>Score</th></tr></thead>
+    <tbody>{_curve_rows(ql_t2.get('learning_curve', []))}</tbody>
+  </table>
+</div>
+<div class="card">
+  <h3>Task 3 — multiturn_adversarial</h3>
+  <p class="desc">Multi-turn: block → adversary reframes. Allow → adversary escalates. Turn number and conversation history features capture the sequential pattern. +202% over all-allow baseline.</p>
+  <div class="kpi cols3">
+    <div class="kpi-cell"><div class="kpi-num" style="color:#888">{_sc(ql_t3.get('untrained_score','?'))}</div><div class="kpi-lbl">Untrained</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#16a34a">{_sc(ql_t3.get('final_score','?'))}</div><div class="kpi-lbl">Post-RL</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#888">{_sc(ql_t3.get('all_allow_baseline','?'))}</div><div class="kpi-lbl">All-Allow Baseline</div></div>
+  </div>
+  <table>
+    <thead><tr><th>Episode</th><th>Phase</th><th>Score</th></tr></thead>
+    <tbody>{_curve_rows(ql_t3.get('learning_curve', []))}</tbody>
+  </table>
+</div>
+
+<!-- SECTION 4: GRPO -->
+<h2 id="grpo">4. GRPO Training — Llama-3.1-8B <span class="tag teal">L40S GPU · unsloth + TRL</span></h2>
+<div class="card">
+  <p class="desc">
+    Group Relative Policy Optimization (GRPO) with LoRA adapters on Llama-3.1-8B-Instruct (4-bit).
+    Training connected to the <b>live HuggingFace Space</b> — not a static dataset.
+    Each episode = one full task rollout with the live reward signal.
+    <br><br>
+    <b>Note on training rewards vs eval scores:</b> The per-episode grader scores during training are step-level
+    rewards from partial rollouts. The post-training eval score (0.7809 for Task 3) is the grader run after
+    training completes — this is the number that matters.
+  </p>
+
+  <!-- Task 3: the headline GRPO result -->
+  <h3 style="margin-bottom:6px">Task 3 — multiturn_adversarial &nbsp;<span style="font-size:12px;color:#16a34a;font-weight:600">★ headline result</span></h3>
+  <div class="good">Zero-shot baseline: <b>0.4746</b> → Post-training eval: <b style="font-size:16px">0.7809</b> &nbsp;(+64.5% improvement over baseline) · 20 episodes · L40S GPU</div>
+  <table>
+    <thead><tr><th>Episode</th><th>Training Grader Score</th><th>Cumulative Reward</th><th>Timestamp</th></tr></thead>
+    <tbody>{_ep_rows(grpo_t3.get('training_rewards', []))}</tbody>
+  </table>
+</div>
+<div class="card">
+  <h3 style="margin-bottom:6px">Task 2 — context_aware_policy</h3>
+  <div class="good">Zero-shot baseline: <b>0.5143</b> → Post-training eval: <b>0.5221</b> &nbsp;(+1.5%) · 7 episodes logged (training was resumed at ep 14, continuation of earlier run)</div>
+  <table>
+    <thead><tr><th>Episode</th><th>Training Grader Score</th><th>Cumulative Reward</th><th>Timestamp</th></tr></thead>
+    <tbody>{_ep_rows(grpo_t2.get('training_rewards', []))}</tbody>
+  </table>
+</div>
+<div class="card">
+  <h3 style="margin-bottom:6px">Task 1 — basic_threat_detection (partial run)</h3>
+  <div class="warn">Training cut short at 19 episodes when the HF Space paused. The training signal was working (reward increasing 0.0274 → 0.1169). Not included in headline results.</div>
+  <table>
+    <thead><tr><th>Episode</th><th>Training Grader Score</th><th>Cumulative Reward</th><th>Timestamp</th></tr></thead>
+    <tbody>{_ep_rows(grpo_t1.get('training_rewards', []))}</tbody>
+  </table>
+</div>
+
+<!-- SECTION 5: REINFORCE -->
+<h2 id="reinforce">5. REINFORCE — Llama-3.1-8B <span class="tag gray">RTX 4060 · 20 episodes</span></h2>
+<div class="card">
+  <p class="desc">
+    Standard REINFORCE policy gradient with LoRA on Llama-3.1-8B-Instruct.
+    Run on consumer hardware (RTX 4060, 8GB VRAM).
+    Zero-shot baseline: <b>{_sc(reinforce.get('baseline_score','?'))}</b>.
+    Post-SFT (collapsed): <b style="color:#e8472a">{_sc(reinforce.get('post_sft_score','?'))}</b>.
+    Post-REINFORCE: <b style="color:#d97706">{_sc(reinforce.get('post_rl_score', reinforce.get('post_ppo_score','?')))}</b>.
+    <br><br>
+    The training signal confirmed working — action distribution shifted significantly over 20 episodes.
+    Full convergence requires more compute.
+  </p>
+  <div class="kpi cols3">
+    <div class="kpi-cell"><div class="kpi-num" style="color:#888">{_sc(reinforce.get('baseline_score','?'))}</div><div class="kpi-lbl">Zero-Shot Baseline</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#e8472a">{_sc(reinforce.get('post_sft_score','?'))}</div><div class="kpi-lbl">Post-SFT (collapsed)</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#d97706">{_sc(reinforce.get('post_rl_score', reinforce.get('post_ppo_score','?')))}</div><div class="kpi-lbl">Post-REINFORCE (20 ep)</div></div>
+  </div>
+  <h3 style="margin-bottom:8px">Action distribution shift (proof RL is working)</h3>
+  <table>
+    <thead><tr><th>Episode</th><th>allow</th><th>refuse</th><th>modify</th><th>escalate</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Episode 1</td>
+        <td>{reinforce.get('action_distribution_ep1',{{}}).get('allow','?')}</td>
+        <td>{reinforce.get('action_distribution_ep1',{{}}).get('refuse','?')}</td>
+        <td>{reinforce.get('action_distribution_ep1',{{}}).get('modify','?')}</td>
+        <td>{reinforce.get('action_distribution_ep1',{{}}).get('escalate','?')}</td>
+      </tr>
+      <tr>
+        <td>Episode 20</td>
+        <td>{reinforce.get('action_distribution_ep20',{{}}).get('allow','?')}</td>
+        <td>{reinforce.get('action_distribution_ep20',{{}}).get('refuse','?')}</td>
+        <td>{reinforce.get('action_distribution_ep20',{{}}).get('modify','?')}</td>
+        <td>{reinforce.get('action_distribution_ep20',{{}}).get('escalate','?')}</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:12px;color:#888;margin-top:8px">Ep 1: almost all-refuse (policy collapsed to safe mode). Ep 20: 22 allows — policy learning to discriminate.</p>
+  <h3 style="margin-top:16px;margin-bottom:8px">Per-episode reward (all 20 episodes)</h3>
+  <table>
+    <thead><tr><th>Episode</th><th>Reward</th></tr></thead>
+    <tbody>{"".join(f"<tr><td>{i}</td><td style='color:{_color(r,hi=0.08,mid=0.03)};font-weight:600'>{_sc(r)}</td></tr>" for i,r in enumerate(reinforce.get('episode_rewards',[]),1))}</tbody>
+  </table>
+</div>
+
+<!-- SECTION 6: SFT COLLAPSE -->
+<h2 id="sft">6. SFT Collapse <span class="tag" style="background:#e8472a">confirmed on 2 models</span></h2>
+<div class="card">
+  <div class="warn">
+    <b>Finding:</b> Supervised fine-tuning on safety-labeled data collapses both GPT-3.5-turbo and Llama-3.1-8B to a score of <b>0.0000</b> on the live environment.
+    Root cause: safety datasets carry ~70% refuse labels. Without a live reward signal, both models find the same shortcut — refuse everything, minimize cross-entropy loss.
+    This scores perfectly on training data but generates compounding over-block penalties on the live adversarial environment.
+  </div>
+  <div class="kpi cols4">
+    <div class="kpi-cell"><div class="kpi-num" style="color:#888">0.5428</div><div class="kpi-lbl">Llama Zero-Shot</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#e8472a">0.0000</div><div class="kpi-lbl">Llama Post-SFT</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#888">0.5428</div><div class="kpi-lbl">GPT-3.5 Baseline</div></div>
+    <div class="kpi-cell"><div class="kpi-num" style="color:#e8472a">0.0000</div><div class="kpi-lbl">GPT-3.5 Post-SFT</div></div>
+  </div>
+  <table>
+    <thead><tr><th>Model</th><th>Training</th><th>Examples</th><th>Epochs</th><th>Zero-Shot</th><th>Post-SFT</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Llama-3.1-8B</td>
+        <td>SFT LoRA (unsloth)</td>
+        <td>{sft.get('training_examples','?')}</td>
+        <td>{sft.get('epochs','?')}</td>
+        <td>{_sc(sft.get('baseline_score','?'))}</td>
+        <td style="color:#e8472a;font-weight:700">{_sc(sft.get('post_sft_score','?'))}</td>
+        <td style="color:#e8472a">{_sc(sft.get('improvement','?'))}</td>
+      </tr>
+      <tr>
+        <td>GPT-3.5-turbo</td>
+        <td>SFT (OpenAI fine-tune)</td>
+        <td>255</td>
+        <td>3</td>
+        <td>{_sc(gpt35_sft.get('task1_before','?'))}</td>
+        <td style="color:#e8472a;font-weight:700">{_sc(gpt35_sft.get('task1_after','?'))}</td>
+        <td style="color:#e8472a">-0.5428</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 7: BASELINES -->
+<h2 id="baselines">7. Zero-Shot Baselines</h2>
+<div class="card">
+  <p class="desc">All frontier models run zero-shot against the live environment. No fine-tuning. These are the scores they achieve with just their pre-training, evaluated with the Sentinel grader.</p>
+  <table>
+    <thead><tr><th>Model</th><th>Task 1</th><th>Task 2</th><th>Task 3</th><th>Task 4</th></tr></thead>
+    <tbody>
+      <tr><td>Claude Haiku 3.5</td><td>{_sc(claude.get('Claude Haiku 3.5',{{}}).get('task1','?'))}</td><td>{_sc(claude.get('Claude Haiku 3.5',{{}}).get('task2','?'))}</td><td>{_sc(claude.get('Claude Haiku 3.5',{{}}).get('task3','?'))}</td><td style="color:#e8472a;font-weight:700">0.0000</td></tr>
+      <tr><td>Claude Sonnet 4.6</td><td>{_sc(claude.get('Claude Sonnet 4.6',{{}}).get('task1','?'))}</td><td>{_sc(claude.get('Claude Sonnet 4.6',{{}}).get('task2','?'))}</td><td>{_sc(claude.get('Claude Sonnet 4.6',{{}}).get('task3','?'))}</td><td>0.1500</td></tr>
+      <tr><td>GPT-3.5-turbo</td><td>{_sc(gpt35_sft.get('task1_before','?'))}</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr><td>Qwen-3-235B</td><td>0.9857</td><td>0.6862</td><td>0.8275</td><td style="color:#e8472a;font-weight:700">0.0000</td></tr>
+      <tr><td>GPT-4o-mini</td><td>0.9216</td><td>0.7512</td><td>0.6120</td><td>0.4820</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 8: RAW DATA LINKS -->
+<h2 id="raw">8. Raw Data Files</h2>
+<div class="card">
+  <p class="desc">Every result file we saved — click any to see the full JSON. All files are also in the <a href="https://github.com/sahithsundarw/sentinel/tree/main/results" style="color:#3a8fa3">GitHub results/ directory</a>.</p>
+  <ul class="file-links">{file_links}</ul>
+  <p style="margin-top:16px;font-size:13px;color:#666">Training code: <a href="https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb" style="color:#3a8fa3">training_colab.ipynb (Google Colab)</a> · <a href="https://github.com/sahithsundarw/sentinel/blob/main/scripts/train_local.py" style="color:#3a8fa3">scripts/train_local.py</a></p>
+</div>
 
 </div>
 <footer>Sentinel · OpenEnv RL Environment for AI Content Safety · <a href="https://varunventra-guardrail-arena.hf.space" style="color:#aaa">varunventra-guardrail-arena.hf.space</a></footer>

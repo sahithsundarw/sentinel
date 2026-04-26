@@ -486,7 +486,7 @@ footer{{border-top:1px solid var(--border);padding:2rem;display:flex;align-items
       </div>
     </div>
 
-    <p style="margin-top:1.25rem;font-size:0.85rem;color:var(--muted);line-height:1.7;">
+    <p style="margin-top:1.25rem;font-size:0.95rem;color:var(--muted);line-height:1.7;">
       All figures above are accurate — verified against raw training logs in <a href="/results" style="color:var(--teal);" target="_blank" rel="noopener noreferrer">/results</a> and <a href="/logs" style="color:var(--teal);" target="_blank" rel="noopener noreferrer">/logs</a>.<br>
       📊 The actual PNG charts (learning curve, heatmap, SFT loss curve, training comparison) are at
       <a href="https://github.com/sahithsundarw/sentinel/tree/main/results" style="color:var(--teal);font-weight:600;" target="_blank" rel="noopener noreferrer">results/ on GitHub</a> —

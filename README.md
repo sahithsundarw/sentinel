@@ -219,10 +219,11 @@ python validate.py http://localhost:8000 .  # 220 tests
 - 🤗 HF Space: https://huggingface.co/spaces/varunventra/guardrail-arena
 - 🐙 GitHub: https://github.com/sahithsundarw/sentinel
 - 📓 Training Notebook: https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb
-- 📝 Blog Post: https://github.com/sahithsundarw/sentinel/blob/main/blog_final.md
+- 📝 Blog Post: https://huggingface.co/spaces/varunventra/guardrail-arena/blob/main/blog_final.md
+- 🎬 Demo Video: *(link to be added)*
 - 📊 Live Training Log: https://varunventra-guardrail-arena.hf.space/training_log
+- 📊 All Training Logs (JSON): https://github.com/sahithsundarw/sentinel/tree/main/results
 - 📈 All Results (JSON): https://varunventra-guardrail-arena.hf.space/results
 - 🏆 Leaderboard: https://varunventra-guardrail-arena.hf.space/leaderboard
 - 📊 Training Pipeline: [TRAINING_PIPELINE.md](TRAINING_PIPELINE.md)
 - 📈 Results Summary: [RESULTS.md](RESULTS.md)
-- 🎬 Demo Video: *(link to be added)*

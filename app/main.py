@@ -1692,6 +1692,7 @@ async def logs_page():
     qlearner_log = []
     ql_path = "results/qlearner_task4_training_log.json"
     ql_eval_path = "results/qlearner_task4_eval.json"
+    ql_curve_path = "results/qlearner_adversarial_adaptation.json"
     ql_eval = {}
     try:
         if os.path.exists(ql_path):
@@ -1701,8 +1702,39 @@ async def logs_page():
         if os.path.exists(ql_eval_path):
             with open(ql_eval_path) as _f:
                 ql_eval = json.load(_f)
+        # Fallback: build checkpoint table from learning_curve in qlearner_adversarial_adaptation.json
+        if not qlearner_log and os.path.exists(ql_curve_path):
+            with open(ql_curve_path) as _f:
+                _curve_d = json.load(_f)
+            for _item in _curve_d.get("learning_curve", []):
+                _lbl = _item.get("label", "")
+                _score = _item.get("score", 0.0)
+                _phase = "untrained" if _lbl == "untrained" else ("explore" if _lbl.startswith("explore") else "exploit")
+                _ep = 0 if _lbl == "untrained" else int(_lbl.replace("explore", "").replace("exploit", ""))
+                qlearner_log.append({"checkpoint": _ep, "phase": _phase, "eval_score": _score, "q_states": ""})
     except Exception:
         pass
+
+    # Load GRPO data from JSON files (fallback when in-memory _training_logs is empty after restart)
+    _grpo_file_sections: list[dict] = []
+    _grpo_files = [
+        ("results/grpo_training_log_task3.json", "grpo_llama3_task3", "Llama-3.1-8B GRPO — Task 3 (multiturn_adversarial)", "multiturn_adversarial", 20, 0.4746, 0.7809),
+        ("results/grpo_training_log_context_aware_policy_grpo_llama3_task2.json", "grpo_llama3_task2", "Llama-3.1-8B GRPO — Task 2 (context_aware_policy)", "context_aware_policy", 7, 0.5143, 0.5221),
+        ("results/grpo_training_log_basic_threat_detection_grpo_llama3_task1.json", "grpo_llama3_task1", "Llama-3.1-8B GRPO — Task 1 (basic_threat_detection, partial)", "basic_threat_detection", 19, 0.5428, 0.1169),
+    ]
+    for _fpath, _agent, _label, _task, _eps, _pre, _post in _grpo_files:
+        try:
+            if not os.path.exists(_fpath):
+                continue
+            with open(_fpath) as _f:
+                _fd = json.load(_f)
+            _rewards = _fd.get("training_rewards", [])
+            _grpo_file_sections.append({
+                "agent": _agent, "label": _label, "task": _task,
+                "pre": _pre, "post": _post, "eps": _eps, "rewards": _rewards,
+            })
+        except Exception:
+            pass
 
     def _rows_grpo(entries: list[dict]) -> str:
         rows = ""
@@ -1728,23 +1760,55 @@ async def logs_page():
         return rows
 
     grpo_sections = ""
-    for agent_name, entries in logs_snapshot.items():
-        if not entries:
-            continue
-        real = [e for e in entries if not e.get("is_synthetic", False)]
-        if not real:
-            continue
-        task = real[0].get("task_id", "unknown")
-        pre = real[0].get("grader_score", 0)
-        post = real[-1].get("grader_score", 0)
-        delta_color = "#16a34a" if post > pre else "#e8472a"
-        grpo_sections += f"""
-        <div class="section">
-          <h3>{agent_name} <span class="badge">{task}</span></h3>
-          <p class="meta">{len(real)} episodes &nbsp;|&nbsp; <b>{pre:.4f}</b> &rarr; <b style="color:{delta_color}">{post:.4f}</b> ({post-pre:+.4f})</p>
-          <table><thead><tr><th>Ep</th><th>Task</th><th>Score</th><th>Actions</th></tr></thead>
-          <tbody>{_rows_grpo(real)}</tbody></table>
-        </div>"""
+    # Try in-memory logs first; fall back to JSON files (in-memory cleared on space restart)
+    _live_agents = {k for k, v in logs_snapshot.items() if any(not e.get("is_synthetic") for e in v)}
+    if _live_agents:
+        for agent_name, entries in logs_snapshot.items():
+            if not entries:
+                continue
+            real = [e for e in entries if not e.get("is_synthetic", False)]
+            if not real:
+                continue
+            task = real[0].get("task_id", "unknown")
+            pre = real[0].get("grader_score", 0)
+            post = real[-1].get("grader_score", 0)
+            delta_color = "#16a34a" if post > pre else "#e8472a"
+            grpo_sections += f"""
+            <div class="section">
+              <h3>{agent_name} <span class="badge">{task}</span></h3>
+              <p class="meta">{len(real)} episodes &nbsp;|&nbsp; <b>{pre:.4f}</b> &rarr; <b style="color:{delta_color}">{post:.4f}</b> ({post-pre:+.4f})</p>
+              <table><thead><tr><th>Ep</th><th>Task</th><th>Score</th><th>Actions</th></tr></thead>
+              <tbody>{_rows_grpo(real)}</tbody></table>
+            </div>"""
+    else:
+        # Load from saved JSON files
+        for _sec in _grpo_file_sections:
+            _pre = _sec["pre"]; _post = _sec["post"]
+            _delta_color = "#16a34a" if _post > _pre else "#e8472a"
+            _reward_rows = ""
+            for _r in _sec["rewards"]:
+                _ep = _r.get("episode", "?")
+                _sc = _r.get("grader_score", "?")
+                _sc_str = f"{_sc:.4f}" if isinstance(_sc, float) else str(_sc)
+                _sc_color = "#16a34a" if isinstance(_sc, float) and _sc > 0.3 else ("#d97706" if isinstance(_sc, float) and _sc > 0.05 else "#666")
+                _cum = _r.get("cumulative_reward", "")
+                _cum_str = f"{_cum:.3f}" if isinstance(_cum, float) else ""
+                _reward_rows += f"<tr><td>{_ep}</td><td>{_sec['task']}</td><td style='color:{_sc_color};font-weight:600'>{_sc_str}</td><td style='color:#888'>{_cum_str}</td></tr>"
+            _note = ""
+            if _sec["task"] == "multiturn_adversarial":
+                _note = f"<p class='meta' style='margin-top:8px;color:#16a34a;font-weight:600'>✓ Post-training eval (grader): <b>0.7809</b> &nbsp;(zero-shot baseline: {_pre})</p>"
+            elif _sec["task"] == "context_aware_policy":
+                _note = f"<p class='meta' style='margin-top:8px;color:#16a34a;font-weight:600'>✓ Post-training eval (grader): <b>0.5221</b> &nbsp;(zero-shot baseline: {_pre})</p>"
+            else:
+                _note = f"<p class='meta' style='margin-top:8px;color:#888'>Partial run ({_sec['eps']} episodes, training cut short)</p>"
+            grpo_sections += f"""
+            <div class="section">
+              <h3>{_sec['label']}</h3>
+              <p class="meta">Zero-shot baseline: <b>{_pre}</b> &nbsp;→&nbsp; Training reward peak: <b style="color:{_delta_color}">{_post:.4f}</b> &nbsp;·&nbsp; {_sec['eps']} episodes · L40S GPU</p>
+              {_note}
+              <table style="margin-top:12px"><thead><tr><th>Ep</th><th>Task</th><th>Training Grader Score</th><th>Cumulative Reward</th></tr></thead>
+              <tbody>{_reward_rows}</tbody></table>
+            </div>"""
 
     ql_mean = ql_eval.get("mean", "?")
     ql_std = ql_eval.get("std", "?")

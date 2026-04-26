@@ -65,15 +65,6 @@ That's the gap we built Sentinel to fill. A live environment where safety isn't 
 | Llama-3.1-8B | GRPO (20 ep, L40S) | — | **0.5221** | **0.7809** | — |
 | **Tabular Q-Learner** | **RL (keyword features)** | ~0.46 | 0.507 | 0.487 | **0.9540** |
 
-![Task 4 Learning Curve](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/hero_learning_curve.png)
-*Q-Learner on Task 4: 20 episodes, 0.0 → 0.9540. Baselines shown on same axes.*
-
-![Training Comparison](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/training_comparison.png)
-*Three approaches on Task 4. Zero-shot peaks at 0.4820. SFT collapses to 0.0. RL reaches 0.9540.*
-
-![All Models × All Tasks](https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/heatmap.png)
-*Task 4 is the separator. Only a trained policy survives.*
-
 ---
 
 The environment is live. You can run an agent against it, watch it learn, and see the score climb in real time.

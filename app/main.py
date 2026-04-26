@@ -642,7 +642,17 @@ curl "https://varunventra-guardrail-arena.hf.space/grader?session_id=SESSION_ID"
 
 <span class="code-comment"># 5. Or run locally</span>
 pip install unsloth trl datasets requests peft bitsandbytes accelerate
-python scripts/train_local.py --phase all --episodes 20</pre>
+python scripts/train_local.py --phase all --episodes 20
+
+<span class="code-comment"># Other useful endpoints</span>
+<span class="code-comment"># GET /curriculum        — progressive task curriculum with target scores</span>
+<span class="code-comment"># GET /reward_breakdown  — per-step reward breakdown after episode</span>
+<span class="code-comment"># GET /adversary_state   — Task 4 FSM trajectory post-episode</span>
+<span class="code-comment"># GET /multi_agent_info  — multi-agent framing JSON</span>
+<span class="code-comment"># GET /training_data     — 255 labeled examples (?format=sft for TRL pairs)</span>
+<span class="code-comment"># GET /baseline          — named-agent baseline scores</span>
+<span class="code-comment"># GET /leaderboard       — top 10 per task</span>
+<span class="code-comment"># GET /tasks             — all tasks + action schema</span></pre>
   </div>
 </section>
 

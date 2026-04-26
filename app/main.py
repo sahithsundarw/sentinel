@@ -326,7 +326,7 @@ footer{{border-top:1px solid var(--border);padding:2rem;display:flex;align-items
   <div class="hero-actions">
     <a class="btn-primary" href="/logs" target="_blank" rel="noopener noreferrer">View Training Logs &amp; Evidence</a>
     <a class="btn-outline" href="https://colab.research.google.com/github/sahithsundarw/sentinel/blob/main/training_colab.ipynb" target="_blank" rel="noopener noreferrer">Train in Colab (Free T4)</a>
-    <a class="btn-outline" href="https://huggingface.co/blog/varunventra/sentinel-guardrail-arena" target="_blank" rel="noopener noreferrer">Read the Blog</a>
+    <a class="btn-outline" href="https://huggingface.co/spaces/varunventra/guardrail-arena/blob/main/blog_final.md" target="_blank" rel="noopener noreferrer">Read the Blog</a>
     <a class="btn-outline" href="https://github.com/sahithsundarw/sentinel" target="_blank" rel="noopener noreferrer">GitHub</a>
   </div>
 </section>
@@ -477,9 +477,9 @@ footer{{border-top:1px solid var(--border);padding:2rem;display:flex;align-items
     </div>
 
     <p style="margin-top:1rem;font-size:0.85rem;color:var(--muted);">
-      📊 <a href="/logs" style="color:var(--teal);">Full training logs (GRPO 20ep, Q-learner 5-seed, REINFORCE)</a> &nbsp;|&nbsp;
-      📁 <a href="/results" style="color:var(--teal);">All results JSON</a> &nbsp;|&nbsp;
-      🐙 <a href="https://github.com/sahithsundarw/sentinel/tree/main/results" style="color:var(--teal);">results/ on GitHub</a>
+      📊 <a href="/logs" style="color:var(--teal);" target="_blank" rel="noopener noreferrer">Full training logs (GRPO 20ep, Q-learner 5-seed, REINFORCE)</a> &nbsp;|&nbsp;
+      📁 <a href="/results" style="color:var(--teal);" target="_blank" rel="noopener noreferrer">All results JSON</a> &nbsp;|&nbsp;
+      🐙 <a href="https://github.com/sahithsundarw/sentinel/tree/main/results" style="color:var(--teal);" target="_blank" rel="noopener noreferrer">results/ on GitHub</a>
     </p>
   </div>
 </section>
@@ -577,7 +577,7 @@ footer{{border-top:1px solid var(--border);padding:2rem;display:flex;align-items
       <h4>Training Logs</h4>
       <p>GRPO, Q-learner, REINFORCE episode data</p>
     </a>
-    <a class="resource-card" href="https://huggingface.co/blog/varunventra/sentinel-guardrail-arena" target="_blank" rel="noopener noreferrer">
+    <a class="resource-card" href="https://huggingface.co/spaces/varunventra/guardrail-arena/blob/main/blog_final.md" target="_blank" rel="noopener noreferrer">
       <span class="resource-icon">📝</span>
       <h4>Blog Post</h4>
       <p>The story behind Sentinel</p>

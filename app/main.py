@@ -452,27 +452,37 @@ footer{{border-top:1px solid var(--border);padding:2rem;display:flex;align-items
 
     <div class="charts-grid">
       <div class="chart-card">
-        <img src="https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/hero_learning_curve.png" alt="Q-Learner Task 4 learning curve: 0.0 to 0.9540 over 20 episodes" loading="lazy">
-        <div class="chart-caption">Q-Learner Task 4 — 20 episodes, score 0.0 → 0.9540. Qwen-235B baseline at 0.0.</div>
+        <div class="chart-caption" style="padding:1.25rem;font-size:0.88rem;color:var(--text);border-bottom:3px solid var(--green);">
+          <strong style="display:block;margin-bottom:0.4rem;font-size:1rem;">Q-Learner Task 4 — Learning Curve</strong>
+          20 episodes. Score 0.0 → <strong style="color:var(--green);">0.9540</strong>. Qwen-235B baseline stays at 0.0 the entire time.
+        </div>
       </div>
       <div class="chart-card">
-        <img src="https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/training_comparison.png" alt="Three training approaches compared: zero-shot, SFT collapse, RL recovery" loading="lazy">
-        <div class="chart-caption">Three approaches on Task 4. Zero-shot peaks at 0.4820. SFT collapses to 0.0. RL reaches 0.9540.</div>
+        <div class="chart-caption" style="padding:1.25rem;font-size:0.88rem;color:var(--text);border-bottom:3px solid var(--red);">
+          <strong style="display:block;margin-bottom:0.4rem;font-size:1rem;">Three Approaches on Task 4</strong>
+          Zero-shot peaks at 0.4820. SFT collapses to <strong style="color:var(--red);">0.0000</strong>. RL reaches <strong style="color:var(--green);">0.9540</strong>.
+        </div>
       </div>
     </div>
 
-    <div class="charts-grid-3">
+    <div class="charts-grid-3" style="margin-top:1.25rem;">
       <div class="chart-card">
-        <img src="https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/full_training_curve.png" alt="Llama-3.1-8B training trajectory" loading="lazy">
-        <div class="chart-caption">Llama-3.1-8B: zero-shot → SFT collapse → RL recovery (REINFORCE 20ep RTX 4060)</div>
+        <div class="chart-caption" style="padding:1.25rem;font-size:0.85rem;color:var(--text);">
+          <strong style="display:block;margin-bottom:0.4rem;">Llama-3.1-8B Training Trajectory</strong>
+          Zero-shot (0.5428) → SFT collapse (<span style="color:var(--red);">0.0000</span>) → RL recovery (0.0929, REINFORCE 20ep RTX 4060)
+        </div>
       </div>
       <div class="chart-card">
-        <img src="https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/sft_loss_curve.png" alt="SFT loss curve — training loss drops but live score collapses" loading="lazy">
-        <div class="chart-caption">SFT: loss 2.61→0.25, accuracy 94% — yet live score collapses to 0.0. Training signal ≠ safety signal.</div>
+        <div class="chart-caption" style="padding:1.25rem;font-size:0.85rem;color:var(--text);">
+          <strong style="display:block;margin-bottom:0.4rem;">SFT Loss Curve</strong>
+          Loss 2.61→0.25, token accuracy 94% — yet live eval score collapses to <span style="color:var(--red);">0.0</span>. Training signal ≠ safety signal.
+        </div>
       </div>
       <div class="chart-card">
-        <img src="https://raw.githubusercontent.com/sahithsundarw/sentinel/main/results/heatmap.png" alt="All models × all tasks heatmap" loading="lazy">
-        <div class="chart-caption">All models × all tasks. Task 4 is the separator — only learned policy survives.</div>
+        <div class="chart-caption" style="padding:1.25rem;font-size:0.85rem;color:var(--text);">
+          <strong style="display:block;margin-bottom:0.4rem;">All Models × All Tasks Heatmap</strong>
+          Task 4 is the separator — every zero-shot and SFT model scores 0.0. Only learned policy survives.
+        </div>
       </div>
     </div>
 

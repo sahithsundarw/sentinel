@@ -806,7 +806,15 @@ async def stats():
 
 @app.get("/results")
 async def get_results():
-    """Return all training results as JSON for judge review."""
+    """Return all training results as JSON for judge review.
+
+    Summary of key findings:
+    - Q-Learner (tabular RL, no GPU): Task 4 score 0.0 → 0.9540, beats 235B LLM (0.0000)
+    - SFT collapse: GPT-3.5-turbo + Llama-3.1-8B both collapse to 0.0000 after fine-tuning
+    - GRPO (Llama-3.1-8B, L40S GPU): live training results in grpo_training_log_task*.json
+    - Baselines: claude_baseline_scores.json, gpt35_baseline_scores.json
+    - Live training progress: GET /training_log
+    """
     import os as _os
     results: dict = {}
     result_files = [
@@ -823,6 +831,11 @@ async def get_results():
         "results/notebook_training_results.json",
         "results/llama_grpo_scores.json",
         "results/local_training_results.json",
+        "results/qlearner_task4.json",
+        "results/qlearner_task4_eval.json",
+        "results/grpo_training_log_task3.json",
+        "results/grpo_training_log_task2.json",
+        "results/grpo_training_log_task1.json",
     ]
     for fpath in result_files:
         if _os.path.exists(fpath):

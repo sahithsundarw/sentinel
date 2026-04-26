@@ -94,7 +94,7 @@ Over-block:     -0.15
 | GPT-3.5-turbo | SFT (255 examples) | 0.0000 | 0.0000 | — | — |
 | Llama-3.1-8B | SFT (LoRA, 3 epochs) | 0.0000 | — | — | — |
 | Llama-3.1-8B | REINFORCE (20 ep, LoRA) | 0.0929 | — | — | — |
-| **Tabular Q-Learner** | **RL (keyword features)** | ~0.46 | — | **0.4849** | **0.9540** |
+| **Tabular Q-Learner** | **RL (keyword features)** | ~0.46 | 0.507 | **0.487** | **0.9540** |
 
 > *Llama-3.1-8B RL score (0.0929) reflects 20 REINFORCE episodes on an RTX 4060.
 > Episode 1 action dist: [allow:1, refuse:65]. Episode 20: [allow:22, refuse:43, modify:2].

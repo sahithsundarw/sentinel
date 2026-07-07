@@ -1,11 +1,3 @@
----
-title: Guardrail Arena
-emoji: 🛡️
-colorFrom: green
-colorTo: blue
-sdk: docker
-pinned: false
----
 
 # Sentinel — Guardrail Arena
 

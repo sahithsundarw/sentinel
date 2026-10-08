@@ -44,7 +44,7 @@ Sentinel is the first OpenEnv environment that trains content safety moderators 
 
 **Actions:** `allow` · `refuse` · `modify` · `escalate`
 
-**Reward:** step-level, severity-weighted. `all-allow` = 0.37, `all-refuse` = 0.35. Cannot be gamed.
+**Reward:** step-level, severity-weighted. `all-allow` = 0.37, `all-refuse` = 0.35. Constant policies score below 0.4.
 
 ### 4 Tasks
 
